@@ -7,6 +7,9 @@ export default function TotalsBar({
   selectedKeys,
   internalCost,
   clientPrice,
+  marginPct,
+  marginOptions,
+  onMarginChange,
   onExport,
 }) {
   return (
@@ -42,9 +45,23 @@ export default function TotalsBar({
             <span className="cost-line-value">{fmt(internalCost)}</span>
           </div>
 
+          {/* ── Profit margin selector ───────────────── */}
+          <div className="margin-row">
+            <span className="margin-label">Profit margin</span>
+            <select
+              className="margin-select"
+              value={marginPct}
+              onChange={e => onMarginChange(Number(e.target.value))}
+            >
+              {marginOptions.map(pct => (
+                <option key={pct} value={pct}>{pct}%</option>
+              ))}
+            </select>
+          </div>
+
           {/* ── Client price ─────────────────────────── */}
           <div className="cost-line cost-line--client">
-            <span className="cost-line-label">Client price (×2)</span>
+            <span className="cost-line-label">Client price ({marginPct}% margin)</span>
             <span className="cost-line-value">{fmt(clientPrice)}</span>
           </div>
 

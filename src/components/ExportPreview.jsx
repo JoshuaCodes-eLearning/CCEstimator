@@ -10,6 +10,7 @@ export default function ExportPreview({
   memberHours,
   internalCost,
   clientPrice,
+  marginPct,
   onBack,
 }) {
   async function handleDownload() {
@@ -21,6 +22,7 @@ export default function ExportPreview({
       memberHours,
       internalCost,
       clientPrice,
+      marginPct,
     })
   }
 
@@ -140,12 +142,12 @@ export default function ExportPreview({
               <span className="doc-total-value">{fmt(internalCost)}</span>
             </div>
             <div className="doc-total-row doc-total-row--client">
-              <span className="doc-total-label">Client price (internal × 2)</span>
+              <span className="doc-total-label">Client price ({marginPct}% margin)</span>
               <span className="doc-total-value">{fmt(clientPrice)}</span>
             </div>
           </div>
 
-          <p className="doc-disclaimer">50% margin applied. Estimate only; not a contract.</p>
+          <p className="doc-disclaimer">{marginPct}% profit margin applied. Estimate only; not a contract.</p>
           <p className="doc-footer">AI eLearning Estimator · generated 2026</p>
         </div>
       </div>

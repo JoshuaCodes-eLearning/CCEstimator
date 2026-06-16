@@ -18,8 +18,10 @@ export const ADA_RATES = {
   storyline360: 0.10, // +10% (same as Rise 360)
 };
 
-// Client price = internal cost × MARGIN_MULTIPLIER
-export const MARGIN_MULTIPLIER = 2; // 50% profit margin
+// Profit margin options (as % of client price). Default is 50%.
+// Client price = internal cost / (1 - margin/100)
+export const MARGIN_OPTIONS     = [40, 45, 50]
+export const DEFAULT_MARGIN_PCT = 50
 
 export const CAT_LABELS = {
   microvideo:   'Microvideo',

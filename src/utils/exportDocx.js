@@ -59,7 +59,7 @@ function navyHeaderPara(text) {
   })
 }
 
-export async function generateAndSaveDocx({ projectName, courseName, selectedKeys, cats, memberHours, internalCost, clientPrice }) {
+export async function generateAndSaveDocx({ projectName, courseName, selectedKeys, cats, memberHours, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
 
   // Title
@@ -191,7 +191,7 @@ export async function generateAndSaveDocx({ projectName, courseName, selectedKey
     }),
     new Paragraph({
       children: [
-        new TextRun({ text: 'Client price (internal × 2)', bold: true, size: 28 }),
+        new TextRun({ text: `Client price (${marginPct}% margin)`, bold: true, size: 28 }),
         new TextRun({ text: `\t$${clientPrice.toFixed(2)}`, bold: true, size: 32, color: GREEN_HEX }),
       ],
       spacing: { after: 300 },

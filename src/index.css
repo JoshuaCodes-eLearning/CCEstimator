@@ -763,6 +763,33 @@ body { background: var(--page-bg); }
   letter-spacing: -0.02em;
 }
 
+/* Profit margin selector inside TotalsBar */
+.margin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+.margin-label {
+  font-size: 13px;
+  color: #7a9ab5;
+  white-space: nowrap;
+}
+.margin-select {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 6px;
+  color: #e2eaf0;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 10px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.margin-select:focus { border-color: rgba(255,255,255,0.5); }
+.margin-select option { background: var(--navy); color: #e2eaf0; }
+
 .export-btn {
   background: var(--blue);
   color: #ffffff;
@@ -973,4 +1000,104 @@ body { background: var(--page-bg); }
   color: var(--text-light);
   text-align: center;
   margin-top: 36px;
+}
+
+/* =====================================================
+   RESPONSIVE — TABLET (≤ 900px)
+   ===================================================== */
+@media (max-width: 900px) {
+  .app-main { padding: 20px 16px 64px; }
+
+  /* Category chips stay 3-col but smaller */
+  .category-chips { gap: 10px; }
+  .cat-chip { padding: 10px 12px; }
+
+  /* Category header: wrap into 2 rows */
+  .cat-header { flex-wrap: wrap; padding: 16px 20px; gap: 0; }
+  .cat-header-left  { width: 100%; padding-right: 0; border-right: none; gap: 24px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .cat-header-center { flex: 1; border-left: none; padding-left: 0; padding-top: 14px; }
+  .cat-header-right  { border-left: none; padding-left: 16px; padding-top: 14px; }
+
+  /* Subtask column widths tighten up */
+  .subtask-cols,
+  .subtask-row { grid-template-columns: 28px 1fr 130px 64px 120px 90px; }
+
+  /* TotalsBar wraps */
+  .totals-inner { flex-wrap: wrap; gap: 20px; }
+  .export-btn   { flex: 1 1 200px; }
+}
+
+/* =====================================================
+   RESPONSIVE — MOBILE (≤ 640px)
+   ===================================================== */
+@media (max-width: 640px) {
+  .app-header { padding: 0 16px; height: 52px; }
+  .app-title  { font-size: 15px; }
+  .screen-label { display: none; }
+
+  .app-main { padding: 14px 12px 80px; gap: 14px; }
+
+  /* Project card */
+  .project-card { padding: 16px; }
+  .field-group  { grid-template-columns: 1fr; gap: 14px; }
+
+  /* Category chips: 1 column */
+  .category-chips { grid-template-columns: 1fr; gap: 8px; }
+  .cat-chip { padding: 11px 14px; }
+
+  /* Category header: fully stacked */
+  .cat-header { flex-direction: column; align-items: stretch; padding: 14px 16px; gap: 0; }
+  .cat-header-left {
+    flex-direction: row; justify-content: space-between; align-items: center;
+    width: 100%; padding-right: 0; border-right: none;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .cat-name       { font-size: 17px; }
+  .total-time-value { font-size: 22px; }
+  .cat-header-center { border-left: none; padding-left: 0; padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .cat-header-right  { border-left: none; padding-left: 0; padding-top: 12px; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; }
+  .ada-toggle  { flex: 1; justify-content: center; }
+  .collapse-btn { flex-shrink: 0; }
+
+  /* Hide desktop column header row */
+  .subtask-cols { display: none; }
+
+  /* Subtask rows: 2-row card layout */
+  .subtask-row {
+    grid-template-columns: 28px 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 6px;
+    padding: 10px 14px;
+    min-height: unset;
+  }
+  /* Row 1: checkbox | name | cost */
+  .subtask-check       { grid-column: 1; grid-row: 1; align-self: center; }
+  .subtask-name-input  { grid-column: 2; grid-row: 1; font-size: 13px; }
+  .subtask-cost        { grid-column: 3; grid-row: 1; align-self: center; font-size: 13px; }
+  /* Row 2: [gap] | responsible | hours  (type hidden on mobile) */
+  .subtask-resp-select { grid-column: 2; grid-row: 2; font-size: 13px; }
+  .subtask-hours-input { grid-column: 3; grid-row: 2; width: 58px; font-size: 13px; }
+  .subtask-type-select { display: none; }
+
+  /* Add/remove */
+  .add-remove-row { padding: 10px 14px; gap: 8px; }
+  .btn-add, .btn-remove { flex: 1; text-align: center; padding: 7px 10px; }
+
+  /* Subtotals */
+  .cat-subtotal-section { padding: 12px 14px; }
+  .subtotal-member-desc { font-size: 12px; }
+  .subtotal-member-cost { font-size: 12px; }
+
+  /* TotalsBar */
+  .totals-bar    { border-radius: 8px; padding: 16px; }
+  .totals-inner  { flex-direction: column; gap: 16px; }
+  .totals-members { flex-wrap: wrap; gap: 12px 20px; }
+  .margin-row    { flex-direction: row; align-items: center; }
+  .export-btn    { width: 100%; padding: 14px 20px; font-size: 15px; text-align: center; }
+
+  /* Export preview */
+  .preview-outer { padding: 16px; }
+  .preview-doc   { padding: 24px 20px; }
+  .doc-title     { font-size: 20px; }
+  .doc-hours-grid { grid-template-columns: 1fr 1fr; }
 }

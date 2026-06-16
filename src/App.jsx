@@ -3,15 +3,16 @@ import './App.css'
 import CategoryBlock from './components/CategoryBlock'
 import TotalsBar     from './components/TotalsBar'
 import ExportPreview from './components/ExportPreview'
-import { DEFAULT_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, MARGIN_MULTIPLIER, CAT_LABELS } from './config/config'
+import { DEFAULT_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeHours } from './utils/calc'
 
-const CAT_KEYS = ['microvideo', 'rise360', 'storyline360']
 export { CAT_LABELS }
+
+const CAT_KEYS = ['microvideo', 'rise360', 'storyline360']
 
 function initCat(key) {
   return {
-    collapsed:        true,
+    collapsed:         true,
     additionalMinutes: 0,
     adaEnabled:        false,
     tasks: DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
@@ -30,6 +31,7 @@ export default function App() {
     rise360:      initCat('rise360'),
     storyline360: initCat('storyline360'),
   }))
+  const [marginPct, setMarginPct] = useState(DEFAULT_MARGIN_PCT)
 
   // ── Category selection ───────────────────────────────────
   function toggleCat(key) {
@@ -57,17 +59,10 @@ export default function App() {
       ...prev,
       [catKey]: {
         ...prev[catKey],
-        collapsed: false,           // auto-expand so new row is visible
+        collapsed: false,
         tasks: [
           ...prev[catKey].tasks,
-          {
-            id:          `new-${Date.now()}`,
-            name:        'New subtask',
-            responsible: 'Megan',
-            baseHours:   1,
-            type:        'Fixed',
-            included:    true,
-          },
+          { id: `new-${Date.now()}`, name: 'New subtask', responsible: 'Megan', baseHours: 1, type: 'Fixed', included: true },
         ],
       },
     }))
@@ -76,7 +71,7 @@ export default function App() {
   function removeLastTask(catKey) {
     setCatStates(prev => {
       const tasks = prev[catKey].tasks
-      if (tasks.length === 0) return prev   // guard: nothing to remove
+      if (tasks.length === 0) return prev
       return { ...prev, [catKey]: { ...prev[catKey], tasks: tasks.slice(0, -1) } }
     })
   }
@@ -85,7 +80,7 @@ export default function App() {
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
   const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0 }
-  const categoryCosts = {}   // catKey → final cost (incl. ADA)
+  const categoryCosts = {}
 
   for (const catKey of selectedKeys) {
     const cat = catStates[catKey]
@@ -100,10 +95,10 @@ export default function App() {
     categoryCosts[catKey] = baseSum * (1 + adaRate)
   }
 
-  const internalCost = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
-  const clientPrice  = internalCost * MARGIN_MULTIPLIER
+  const internalCost      = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
+  const marginMultiplier  = 1 / (1 - marginPct / 100)
+  const clientPrice       = internalCost * marginMultiplier
 
-  // Only members who actually have hours
   const activeMembers = Object.fromEntries(
     Object.entries(memberHours).filter(([, h]) => h > 0)
   )
@@ -119,6 +114,7 @@ export default function App() {
         memberHours={activeMembers}
         internalCost={internalCost}
         clientPrice={clientPrice}
+        marginPct={marginPct}
         onBack={() => setScreen('estimator')}
       />
     )
@@ -128,7 +124,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <span className="app-title">AI eLearning Estimator</span>
-        <span className="screen-label">Screen 1 — Estimator</span>
+        <span className="screen-label">Estimator</span>
       </header>
 
       <main className="app-main">
@@ -154,11 +150,11 @@ export default function App() {
         {/* Category selector chips */}
         <div className="categories-section">
           <p className="categories-label">
-            Categories — select any combination (only checked categories appear below)
+            Select categories — only checked ones appear below
           </p>
           <div className="category-chips">
             {CAT_KEYS.map(key => (
-              <button key={key}
+              <button key={key} type="button"
                 className={`cat-chip${selected[key] ? ' cat-chip--selected' : ''}`}
                 onClick={() => toggleCat(key)}
               >
@@ -184,10 +180,10 @@ export default function App() {
                 label={CAT_LABELS[key]}
                 cat={catStates[key]}
                 hasAda={key !== 'microvideo'}
-                onUpdate={patch              => updateCat(key, patch)}
-                onUpdateTask={(id, patch)    => updateTask(key, id, patch)}
-                onAddTask={()                => addTask(key)}
-                onRemoveTask={()             => removeLastTask(key)}
+                onUpdate={patch           => updateCat(key, patch)}
+                onUpdateTask={(id, patch) => updateTask(key, id, patch)}
+                onAddTask={()             => addTask(key)}
+                onRemoveTask={()          => removeLastTask(key)}
               />
             ) : null
           )}
@@ -198,10 +194,12 @@ export default function App() {
           <TotalsBar
             memberHours={activeMembers}
             categoryCosts={categoryCosts}
-            catStates={catStates}
             selectedKeys={selectedKeys}
             internalCost={internalCost}
             clientPrice={clientPrice}
+            marginPct={marginPct}
+            marginOptions={MARGIN_OPTIONS}
+            onMarginChange={setMarginPct}
             onExport={() => setScreen('preview')}
           />
         )}
