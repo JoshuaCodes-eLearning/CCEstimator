@@ -29,6 +29,9 @@ Everything below is live and working:
   per-member math breakdown, ADA uplift line, grand total in TotalsBar
 - TotalsBar: active members only (0h members hidden), per-category breakdown
   when >1 category selected, internal cost + client price
+- **Profit margin dropdown** (40% / 45% / 50%, default 50%) in TotalsBar;
+  client price = internalCost / (1 − marginPct/100); reflected in .docx export
+- **Fully responsive** — mobile (≤640px), tablet (≤900px), desktop all supported
 - Export to Word: Export Preview screen (Screen 2) with real task data rendered,
   Download .docx button wired to generateAndSaveDocx()
 - Currency formatted with commas ($1,234.56) everywhere via fmt() in calc.js
@@ -55,8 +58,8 @@ src/
   App.css               — (legacy placeholder, real styles in index.css)
   index.css             — full design system (CSS custom properties, all classes)
   config/
-    config.js           — RATES, ADA_RATES, MARGIN_MULTIPLIER, DEFAULT_MINUTES,
-                          CAT_LABELS, DEFAULT_TASKS (single source of truth)
+    config.js           — RATES, ADA_RATES, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT,
+                          DEFAULT_MINUTES, CAT_LABELS, DEFAULT_TASKS (single source of truth)
   utils/
     calc.js             — computeHours(), lineCost(), categorySubtotal(), fmt()
     exportDocx.js       — generateAndSaveDocx() — builds the Word document
@@ -112,7 +115,7 @@ category_internal  = sum(line_cost in category)
 if ADA:  category_internal *= (1 + 0.10)               # flat 10%, Rise + Storyline
 member_hours       = sum that member's hours across ALL checked categories
 internal_cost      = sum(category_internal)
-client_price       = internal_cost * 2                  # 50% margin
+client_price       = internal_cost / (1 - marginPct/100)   # marginPct ∈ {40,45,50}, default 50
 ```
 
 Note: The worked example in HLD §6.7 (Microvideo $1,485, Rise $7,920) does NOT
