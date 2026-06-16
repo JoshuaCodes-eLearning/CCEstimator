@@ -4,7 +4,7 @@
 // Change a value here and it updates everywhere in the app.
 // ============================================================
 
-// OPEN ITEM: Laurie's rate may be $85 — using $75 until confirmed
+// Laurie's rate CONFIRMED at $75
 export const RATES = {
   Megan: 50,
   Michelle: 65,
@@ -15,11 +15,17 @@ export const RATES = {
 export const ADA_RATES = {
   microvideo: 0,      // No ADA option for Microvideo
   rise360: 0.10,      // +10%
-  storyline360: 0.15, // +15%
+  storyline360: 0.10, // +10% (same as Rise 360)
 };
 
 // Client price = internal cost × MARGIN_MULTIPLIER
 export const MARGIN_MULTIPLIER = 2; // 50% profit margin
+
+export const CAT_LABELS = {
+  microvideo:   'Microvideo',
+  rise360:      'Rise 360',
+  storyline360: 'Storyline 360',
+}
 
 // Default length in minutes per category
 export const DEFAULT_MINUTES = {

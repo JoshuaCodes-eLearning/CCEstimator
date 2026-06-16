@@ -1,122 +1,212 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
+import CategoryBlock from './components/CategoryBlock'
+import TotalsBar     from './components/TotalsBar'
+import ExportPreview from './components/ExportPreview'
+import { DEFAULT_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, MARGIN_MULTIPLIER, CAT_LABELS } from './config/config'
+import { computeHours } from './utils/calc'
 
-function App() {
-  const [count, setCount] = useState(0)
+const CAT_KEYS = ['microvideo', 'rise360', 'storyline360']
+export { CAT_LABELS }
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function initCat(key) {
+  return {
+    collapsed:        true,
+    additionalMinutes: 0,
+    adaEnabled:        false,
+    tasks: DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
+  }
 }
 
-export default App
+export default function App() {
+  const [screen,      setScreen]      = useState('estimator')
+  const [projectName, setProjectName] = useState('')
+  const [courseName,  setCourseName]  = useState('')
+  const [selected,    setSelected]    = useState({
+    microvideo: false, rise360: false, storyline360: false,
+  })
+  const [catStates, setCatStates] = useState(() => ({
+    microvideo:   initCat('microvideo'),
+    rise360:      initCat('rise360'),
+    storyline360: initCat('storyline360'),
+  }))
+
+  // ── Category selection ───────────────────────────────────
+  function toggleCat(key) {
+    setSelected(s => ({ ...s, [key]: !s[key] }))
+  }
+
+  // ── Category-level state (collapsed, addedMin, ada) ──────
+  function updateCat(key, patch) {
+    setCatStates(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }))
+  }
+
+  // ── Task mutations ───────────────────────────────────────
+  function updateTask(catKey, taskId, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        tasks: prev[catKey].tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+      },
+    }))
+  }
+
+  function addTask(catKey) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        collapsed: false,           // auto-expand so new row is visible
+        tasks: [
+          ...prev[catKey].tasks,
+          {
+            id:          `new-${Date.now()}`,
+            name:        'New subtask',
+            responsible: 'Megan',
+            baseHours:   1,
+            type:        'Fixed',
+            included:    true,
+          },
+        ],
+      },
+    }))
+  }
+
+  function removeLastTask(catKey) {
+    setCatStates(prev => {
+      const tasks = prev[catKey].tasks
+      if (tasks.length === 0) return prev   // guard: nothing to remove
+      return { ...prev, [catKey]: { ...prev[catKey], tasks: tasks.slice(0, -1) } }
+    })
+  }
+
+  // ── Compute totals ───────────────────────────────────────
+  const selectedKeys = CAT_KEYS.filter(k => selected[k])
+
+  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0 }
+  const categoryCosts = {}   // catKey → final cost (incl. ADA)
+
+  for (const catKey of selectedKeys) {
+    const cat = catStates[catKey]
+    let baseSum = 0
+    for (const task of cat.tasks) {
+      if (!task.included) continue
+      const h = computeHours(task, catKey, cat.additionalMinutes)
+      memberHours[task.responsible] += h
+      baseSum += h * (RATES[task.responsible] ?? 0)
+    }
+    const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
+    categoryCosts[catKey] = baseSum * (1 + adaRate)
+  }
+
+  const internalCost = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
+  const clientPrice  = internalCost * MARGIN_MULTIPLIER
+
+  // Only members who actually have hours
+  const activeMembers = Object.fromEntries(
+    Object.entries(memberHours).filter(([, h]) => h > 0)
+  )
+
+  // ── Screens ──────────────────────────────────────────────
+  if (screen === 'preview') {
+    return (
+      <ExportPreview
+        projectName={projectName}
+        courseName={courseName}
+        selectedKeys={selectedKeys}
+        catStates={catStates}
+        memberHours={activeMembers}
+        internalCost={internalCost}
+        clientPrice={clientPrice}
+        onBack={() => setScreen('estimator')}
+      />
+    )
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <span className="app-title">AI eLearning Estimator</span>
+        <span className="screen-label">Screen 1 — Estimator</span>
+      </header>
+
+      <main className="app-main">
+
+        {/* Project / Course name */}
+        <div className="project-card">
+          <div className="field-group">
+            <div>
+              <label className="field-label">Project Name</label>
+              <input className="field-input" type="text"
+                placeholder="e.g. Acme Onboarding 2026"
+                value={projectName} onChange={e => setProjectName(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Course Name</label>
+              <input className="field-input" type="text"
+                placeholder="e.g. Workplace Safety Basics"
+                value={courseName} onChange={e => setCourseName(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Category selector chips */}
+        <div className="categories-section">
+          <p className="categories-label">
+            Categories — select any combination (only checked categories appear below)
+          </p>
+          <div className="category-chips">
+            {CAT_KEYS.map(key => (
+              <button key={key}
+                className={`cat-chip${selected[key] ? ' cat-chip--selected' : ''}`}
+                onClick={() => toggleCat(key)}
+              >
+                <span className="cat-chip-check">{selected[key] ? '✓' : ''}</span>
+                <span className="cat-chip-name">{CAT_LABELS[key]}</span>
+                <span className="cat-chip-meta">
+                  {selected[key]
+                    ? `${DEFAULT_MINUTES[key] + catStates[key].additionalMinutes} min`
+                    : 'not shown'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category blocks */}
+        <div className="blocks">
+          {CAT_KEYS.map(key =>
+            selected[key] ? (
+              <CategoryBlock
+                key={key}
+                catKey={key}
+                label={CAT_LABELS[key]}
+                cat={catStates[key]}
+                hasAda={key !== 'microvideo'}
+                onUpdate={patch              => updateCat(key, patch)}
+                onUpdateTask={(id, patch)    => updateTask(key, id, patch)}
+                onAddTask={()                => addTask(key)}
+                onRemoveTask={()             => removeLastTask(key)}
+              />
+            ) : null
+          )}
+        </div>
+
+        {/* Totals bar */}
+        {selectedKeys.length > 0 && (
+          <TotalsBar
+            memberHours={activeMembers}
+            categoryCosts={categoryCosts}
+            catStates={catStates}
+            selectedKeys={selectedKeys}
+            internalCost={internalCost}
+            clientPrice={clientPrice}
+            onExport={() => setScreen('preview')}
+          />
+        )}
+
+      </main>
+    </div>
+  )
+}
