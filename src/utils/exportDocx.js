@@ -197,7 +197,7 @@ export async function generateAndSaveDocx({ projectName, courseName, selectedKey
       spacing: { after: 300 },
     }),
     new Paragraph({
-      children: [new TextRun({ text: '50% margin applied. Estimate only; not a contract.', size: 18, color: 'AAAAAA' })],
+      children: [new TextRun({ text: `${marginPct}% margin applied. Estimate only; not a contract.`, size: 18, color: 'AAAAAA' })],
       spacing: { after: 200 },
     }),
     new Paragraph({
