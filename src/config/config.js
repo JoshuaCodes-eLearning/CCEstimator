@@ -31,7 +31,7 @@ export const CAT_LABELS = {
 
 // Default length in minutes per category
 export const DEFAULT_MINUTES = {
-  microvideo: 3,
+  microvideo: 5,
   rise360: 15,
   storyline360: 15,
 };

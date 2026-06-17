@@ -14,6 +14,8 @@ export default function CategoryBlock({
   onUpdateTask,
   onAddTask,
   onRemoveTask,
+  onUndoRemove,
+  canUndo,
 }) {
   const { collapsed, additionalMinutes, adaEnabled, tasks } = cat
   const defMin      = DEFAULT_MINUTES[catKey]
@@ -157,11 +159,13 @@ export default function CategoryBlock({
           </>
         )}
 
-        {/* Add / Remove — expanded only */}
+        {/* Add / Remove / Undo — expanded only */}
         {!collapsed && (
           <div className="add-remove-row">
             <button type="button" className="btn-add"    onClick={onAddTask}>+ Add subtask</button>
             <button type="button" className="btn-remove" onClick={onRemoveTask}>− Remove last subtask</button>
+            <button type="button" className={`btn-undo${canUndo ? '' : ' btn-undo--disabled'}`}
+              onClick={onUndoRemove} disabled={!canUndo}>↩ Undo last removal</button>
           </div>
         )}
 

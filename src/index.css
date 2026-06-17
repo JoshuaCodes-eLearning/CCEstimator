@@ -586,6 +586,22 @@ body { background: var(--page-bg); }
 }
 .btn-remove:hover { background: var(--red-light); }
 
+.btn-undo {
+  border: 2px dashed var(--text-muted);
+  border-radius: 7px;
+  padding: 6px 18px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, opacity 0.12s;
+  letter-spacing: 0.01em;
+}
+.btn-undo:hover { background: var(--surface); }
+.btn-undo--disabled { opacity: 0.35; cursor: default; }
+
 /* ===================================================
    EXPAND / COLLAPSE HINTS
    =================================================== */
@@ -1081,7 +1097,7 @@ body { background: var(--page-bg); }
 
   /* Add/remove */
   .add-remove-row { padding: 10px 14px; gap: 8px; }
-  .btn-add, .btn-remove { flex: 1; text-align: center; padding: 7px 10px; }
+  .btn-add, .btn-remove, .btn-undo { flex: 1; text-align: center; padding: 7px 10px; }
 
   /* Subtotals */
   .cat-subtotal-section { padding: 12px 14px; }

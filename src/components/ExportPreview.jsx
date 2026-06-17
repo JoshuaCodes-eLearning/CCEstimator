@@ -3,7 +3,7 @@ import { computeHours, lineCost, categorySubtotal, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
 
 export default function ExportPreview({
-  projectName,
+  companyName,
   courseName,
   selectedKeys,
   catStates,
@@ -15,7 +15,7 @@ export default function ExportPreview({
 }) {
   async function handleDownload() {
     await generateAndSaveDocx({
-      projectName,
+      companyName,
       courseName,
       selectedKeys,
       cats: catStates,
@@ -34,9 +34,9 @@ export default function ExportPreview({
       </header>
 
       <div className="preview-toolbar">
-        <button className="back-btn" onClick={onBack}>← Back to edit</button>
+        <button type="button" className="back-btn" onClick={onBack}>← Back to edit</button>
         <span className="preview-hint">Review the combined estimate exactly as it will appear in Word.</span>
-        <button className="download-btn" onClick={handleDownload}>⬇ Download .docx</button>
+        <button type="button" className="download-btn" onClick={handleDownload}>⬇ Download .docx</button>
       </div>
 
       <div className="preview-outer">
@@ -46,8 +46,8 @@ export default function ExportPreview({
 
           <div className="doc-meta">
             <div className="doc-meta-row">
-              <span className="doc-meta-key">Project name</span>
-              <span className="doc-meta-val">{projectName || '—'}</span>
+              <span className="doc-meta-key">Company name</span>
+              <span className="doc-meta-val">{companyName || '—'}</span>
             </div>
             <div className="doc-meta-row">
               <span className="doc-meta-key">Course name</span>

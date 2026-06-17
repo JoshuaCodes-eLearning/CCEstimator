@@ -29,6 +29,7 @@ Everything below is live and working:
   per-member math breakdown, ADA uplift line, grand total in TotalsBar
 - TotalsBar: active members only (0h members hidden), per-category breakdown
   when >1 category selected, internal cost + client price
+- **Company Name** (was "Project Name") + Course Name fields at the top
 - **Profit margin dropdown** (40% / 45% / 50%, default 50%) in TotalsBar;
   client price = internalCost / (1 − marginPct/100); reflected in .docx export
 - **Fully responsive** — mobile (≤640px), tablet (≤900px), desktop all supported
@@ -84,7 +85,7 @@ rates. Every default subtask is assigned to one named person (Michelle/Megan/Lau
 
 ## Core concepts
 
-- **Three categories, multi-select:** Microvideo (default 3 min), Rise 360
+- **Three categories, multi-select:** Microvideo (default 5 min), Rise 360
   (15 min), Storyline 360 (15 min). Any combination; unchecked = excluded entirely.
 - **Subtask row** (the atomic unit) has exactly: include checkbox · editable name ·
   Responsible field (Megan/Michelle/Laurie) · editable Hours field · a Type DROPDOWN

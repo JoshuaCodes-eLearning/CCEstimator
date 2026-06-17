@@ -15,13 +15,14 @@ function initCat(key) {
     collapsed:         true,
     additionalMinutes: 0,
     adaEnabled:        false,
-    tasks: DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
+    tasks:        DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
+    removedStack: [],
   }
 }
 
 export default function App() {
   const [screen,      setScreen]      = useState('estimator')
-  const [projectName, setProjectName] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [courseName,  setCourseName]  = useState('')
   const [selected,    setSelected]    = useState({
     microvideo: false, rise360: false, storyline360: false,
@@ -72,7 +73,31 @@ export default function App() {
     setCatStates(prev => {
       const tasks = prev[catKey].tasks
       if (tasks.length === 0) return prev
-      return { ...prev, [catKey]: { ...prev[catKey], tasks: tasks.slice(0, -1) } }
+      const removed = tasks[tasks.length - 1]
+      return {
+        ...prev,
+        [catKey]: {
+          ...prev[catKey],
+          tasks:        tasks.slice(0, -1),
+          removedStack: [...prev[catKey].removedStack, removed],
+        },
+      }
+    })
+  }
+
+  function undoLastRemove(catKey) {
+    setCatStates(prev => {
+      const stack = prev[catKey].removedStack
+      if (stack.length === 0) return prev
+      const restored = stack[stack.length - 1]
+      return {
+        ...prev,
+        [catKey]: {
+          ...prev[catKey],
+          tasks:        [...prev[catKey].tasks, restored],
+          removedStack: stack.slice(0, -1),
+        },
+      }
     })
   }
 
@@ -107,7 +132,7 @@ export default function App() {
   if (screen === 'preview') {
     return (
       <ExportPreview
-        projectName={projectName}
+        companyName={companyName}
         courseName={courseName}
         selectedKeys={selectedKeys}
         catStates={catStates}
@@ -133,10 +158,10 @@ export default function App() {
         <div className="project-card">
           <div className="field-group">
             <div>
-              <label className="field-label">Project Name</label>
+              <label className="field-label">Company Name</label>
               <input className="field-input" type="text"
-                placeholder="e.g. Acme Onboarding 2026"
-                value={projectName} onChange={e => setProjectName(e.target.value)} />
+                placeholder="e.g. Acme Corp"
+                value={companyName} onChange={e => setCompanyName(e.target.value)} />
             </div>
             <div>
               <label className="field-label">Course Name</label>
@@ -184,6 +209,8 @@ export default function App() {
                 onUpdateTask={(id, patch) => updateTask(key, id, patch)}
                 onAddTask={()             => addTask(key)}
                 onRemoveTask={()          => removeLastTask(key)}
+                onUndoRemove={()          => undoLastRemove(key)}
+                canUndo={catStates[key].removedStack.length > 0}
               />
             ) : null
           )}
