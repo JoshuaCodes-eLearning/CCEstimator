@@ -99,3 +99,13 @@ export const DEFAULT_TASKS = {
     { id: 's-16', name: 'Up to 5 custom images',                                                                                                                      responsible: 'Megan',    hours: 3,  type: 'Fixed' },
   ],
 };
+
+// OPEN ITEM: Update specific tasks to included: false once Laurie decides which
+// initiation tasks to exclude from modules 2–N.
+// Currently ALL tasks start unchecked — user checks what applies.
+export const DEFAULT_SECOND_STATE_TASKS = Object.fromEntries(
+  Object.entries(DEFAULT_TASKS).map(([cat, tasks]) => [
+    cat,
+    tasks.map(t => ({ ...t, included: false })),
+  ])
+)

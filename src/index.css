@@ -694,6 +694,145 @@ body { background: var(--page-bg); }
 }
 
 /* ===================================================
+   MODULE COUNT BAR
+   =================================================== */
+
+.module-count-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: #f0f4f8;
+  border-bottom: 1px solid var(--border);
+}
+.module-count-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.module-count-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: center;
+  background: var(--white);
+  color: var(--text);
+}
+.module-count-input:focus { outline: none; border-color: var(--blue-mid); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.module-count-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* Module 1 section label */
+.module-section-label {
+  padding: 7px 24px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--blue-mid);
+  background: #f8faff;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* ===================================================
+   SECOND STATE BLOCK
+   =================================================== */
+
+.second-state-block {
+  margin: 12px 0 0;
+  border: 1px solid #3d6080;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.second-state-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: #253d5e;
+}
+.second-state-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.second-state-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e8f0f8;
+}
+.second-state-multiplier {
+  font-size: 13px;
+  font-weight: 400;
+  color: #94b8d8;
+}
+.second-state-subtitle {
+  font-size: 12px;
+  color: #7a9ab5;
+}
+.second-state-header .collapse-btn {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+  color: #c8dce8;
+  flex-shrink: 0;
+}
+.second-state-header .collapse-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+.second-state-subtotal {
+  background: #1e3350;
+  padding: 10px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid #3d6080;
+}
+.second-state-subtotal .subtotal-member-desc  { color: #7a9ab5; }
+.second-state-subtotal .subtotal-member-cost  { color: #c8dce8; }
+.second-state-subtotal .subtotal-final-line   { border-top-color: #3d6080; color: #e8f0f8; }
+.second-state-subtotal .subtotal-final-line span:last-child { color: #e8f0f8; }
+.second-state-subtotal .subtotal-empty        { color: #5a7a96; }
+
+.second-state-total-line { font-size: 16px; }
+
+/* ===================================================
+   OVERALL CATEGORY TOTAL (multi-module)
+   =================================================== */
+
+.overall-cat-total {
+  margin: 8px 0 0;
+  background: #eef4fa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.overall-total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy);
+}
+.overall-total-line span:last-child {
+  font-size: 20px;
+}
+
+/* ===================================================
    TOTALS BAR
    =================================================== */
 
@@ -961,6 +1100,43 @@ body { background: var(--page-bg); }
 .doc-subtotal-label { font-size: 14px; font-weight: 700; color: var(--text); }
 .doc-subtotal-value { font-size: 18px; font-weight: 800; color: var(--navy); }
 .doc-subtotal-ada   { font-size: 12px; color: var(--amber); margin-right: auto; }
+
+.doc-module-label {
+  padding: 5px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--blue-mid);
+  background: #f0f5ff;
+  border: 1px solid var(--border);
+  border-top: none;
+}
+.doc-module-label--second {
+  background: #e8eef8;
+  color: #253d5e;
+  border-radius: 4px 4px 0 0;
+}
+.doc-module-implied {
+  font-weight: 400;
+  font-style: italic;
+  margin-left: 8px;
+  color: #6b8aac;
+  font-size: 11px;
+}
+.doc-section-divider {
+  border: none;
+  border-top: 2px dashed var(--border);
+  margin: 24px 0 20px;
+}
+.doc-subtotal-row--overall {
+  background: #eef4fa;
+  padding: 8px 10px 6px;
+  border-radius: 0 0 4px 4px;
+  border: 1px solid var(--border);
+  border-top: none;
+  margin-bottom: 8px;
+}
 
 .doc-hours-section {
   background: var(--blue-light);

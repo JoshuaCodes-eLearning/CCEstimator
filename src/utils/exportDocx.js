@@ -4,7 +4,7 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeHours, lineCost, categorySubtotal } from './calc'
+import { computeHours, lineCost } from './calc'
 import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES } from '../config/config'
 
 const NAVY       = '1E2D3D'
@@ -64,6 +64,57 @@ function navyHeaderPara(text) {
   })
 }
 
+function sectionLabelPara(text) {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, size: 18, color: '2563EB' })],
+    shading: { type: ShadingType.SOLID, fill: 'EFF6FF' },
+    spacing: { before: 0, after: 0 },
+  })
+}
+
+function taskTable(tasks, catKey, addedMin) {
+  const COL_W = [44, 14, 10, 14, 18]
+  const rows = [
+    new TableRow({
+      children: ['TASK', 'WHO', 'HRS', 'TYPE', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
+      tableHeader: true,
+    }),
+    ...tasks.map(task => {
+      const hrs  = computeHours(task, catKey, addedMin)
+      const cost = lineCost(task, catKey, addedMin)
+      return new TableRow({
+        children: [
+          dataCell(task.name,                                                        { width: COL_W[0] }),
+          dataCell(task.responsible,                                                 { width: COL_W[1] }),
+          dataCell(Math.round(hrs * 10) / 10, { align: AlignmentType.CENTER,         width: COL_W[2] }),
+          dataCell(task.type,                                                        { width: COL_W[3] }),
+          dataCell(fmtNum(cost),              { align: AlignmentType.RIGHT,          width: COL_W[4] }),
+        ],
+      })
+    }),
+  ]
+  return new Table({
+    rows,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
+  })
+}
+
+function subtotalPara(label, amount, opts = {}) {
+  const parts = []
+  if (opts.adaNote) {
+    parts.push(new TextRun({ text: opts.adaNote, color: 'D97706', size: 18 }))
+    parts.push(new TextRun({ text: '   ' }))
+  }
+  parts.push(new TextRun({ text: label, bold: true, size: 22 }))
+  parts.push(new TextRun({ text: `   ${fmtNum(amount)}`, bold: true, size: 24, color: NAVY }))
+  return new Paragraph({
+    children: parts,
+    spacing: { before: 80, after: opts.afterSpacing ?? 120 },
+    alignment: AlignmentType.RIGHT,
+  })
+}
+
 export async function generateAndSaveDocx({ companyName, courseName, selectedKeys, cats, memberHours, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
   const year = new Date().getFullYear()
@@ -102,64 +153,79 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
 
   // ── Category sections ──────────────────────────────────────
   for (const catKey of selectedKeys) {
-    const cat           = cats[catKey]
-    const defMin        = DEFAULT_MINUTES[catKey]
-    const addedMin      = cat.additionalMinutes
-    const totalMin      = defMin + addedMin
-    const hasAda        = cat.adaEnabled && ADA_RATES[catKey] > 0
-    const includedTasks = cat.tasks.filter(t => t.included)
-    const subtotal      = categorySubtotal(catKey, cat)
-    const baseSum       = hasAda ? subtotal / (1 + ADA_RATES[catKey]) : subtotal
-    const adaAmount     = hasAda ? subtotal - baseSum : 0
+    const cat          = cats[catKey]
+    const defMin       = DEFAULT_MINUTES[catKey]
+    const addedMin     = cat.additionalMinutes
+    const totalMin     = defMin + addedMin
+    const hasAda       = cat.adaEnabled && ADA_RATES[catKey] > 0
+    const adaRate      = hasAda ? ADA_RATES[catKey] : 0
+    const moduleCount  = cat.moduleCount ?? 1
+    const extraModules = moduleCount - 1
+    const unit         = catKey === 'mv' ? 'video' : 'module'
+    const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
+
+    const mod1Tasks = cat.tasks.filter(t => t.included)
+    let mod1BaseSum = 0
+    mod1Tasks.forEach(t => {
+      mod1BaseSum += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
+    })
+
+    const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
+    let secondPerModule = 0
+    secondTasks.forEach(t => {
+      secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
+    })
+    const secondTotalCost = secondPerModule * extraModules
+
+    const combinedBase = mod1BaseSum + secondTotalCost
+    const adaAmount    = combinedBase * adaRate
+    const overallTotal = combinedBase + adaAmount
 
     let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
     if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
-    if (hasAda)       headerText += '  ·  ADA compliant (+10%)'
+    if (moduleCount > 1) headerText += `  ·  ${moduleCount} ${unit}s`
+    if (hasAda) headerText += '  ·  ADA compliant (+10%)'
 
     children.push(navyHeaderPara(headerText))
 
-    // Task table — col widths: task 44%, who 14%, hrs 10%, type 14%, cost 18%
-    const COL_W = [44, 14, 10, 14, 18]
-    const tableRows = [
-      new TableRow({
-        children: ['TASK', 'WHO', 'HRS', 'TYPE', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
-        tableHeader: true,
-      }),
-      ...includedTasks.map(task => {
-        const hrs  = computeHours(task, catKey, addedMin)
-        const cost = lineCost(task, catKey, addedMin)
-        return new TableRow({
-          children: [
-            dataCell(task.name,                                                         { width: COL_W[0] }),
-            dataCell(task.responsible,                                                  { width: COL_W[1] }),
-            dataCell(Math.round(hrs * 10) / 10, { align: AlignmentType.CENTER,          width: COL_W[2] }),
-            dataCell(task.type,                                                         { width: COL_W[3] }),
-            dataCell(fmtNum(cost),              { align: AlignmentType.RIGHT,           width: COL_W[4] }),
-          ],
-        })
-      }),
-    ]
-
-    children.push(
-      new Table({
-        rows: tableRows,
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
-      })
-    )
-
-    // Subtotal
-    const subtotalParts = [
-      new TextRun({ text: `${CAT_LABELS[catKey]} subtotal`, bold: true, size: 22 }),
-    ]
-    if (hasAda) {
-      subtotalParts.push(new TextRun({ text: `   base ${fmtNum(baseSum)} + ADA 10% (${fmtNum(adaAmount)})`, color: '888888', size: 18 }))
+    // Module/video 1
+    if (moduleCount > 1) {
+      children.push(sectionLabelPara(`${Unit} 1`))
     }
-    subtotalParts.push(new TextRun({ text: `   ${fmtNum(subtotal)}`, bold: true, size: 24, color: NAVY }))
+    children.push(taskTable(mod1Tasks, catKey, addedMin))
 
-    children.push(
-      new Paragraph({ children: subtotalParts, spacing: { before: 80, after: 240 }, alignment: AlignmentType.RIGHT })
-    )
+    if (moduleCount === 1) {
+      const adaNote = hasAda ? `base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})` : null
+      children.push(subtotalPara(
+        `${CAT_LABELS[catKey]} subtotal`,
+        mod1BaseSum * (1 + adaRate),
+        { adaNote, afterSpacing: 240 }
+      ))
+    } else {
+      children.push(subtotalPara(`${Unit} 1 subtotal`, mod1BaseSum, { afterSpacing: 80 }))
+
+      // Divider paragraph
+      children.push(new Paragraph({
+        border: { bottom: { style: BorderStyle.DASHED, size: 6, color: 'CCCCCC' } },
+        spacing: { before: 160, after: 160 },
+        children: [new TextRun('')],
+      }))
+
+      const secondLabel = moduleCount === 2 ? `${Unit} 2` : `${Unit}s 2–${moduleCount}`
+      children.push(sectionLabelPara(`${secondLabel}  — implied after ${unit} 2`))
+      children.push(taskTable(secondTasks, catKey, addedMin))
+      children.push(subtotalPara(`Per-${unit} rate`, secondPerModule, { afterSpacing: 60 }))
+      if (extraModules > 1) {
+        children.push(subtotalPara(`${secondLabel} subtotal (× ${extraModules})`, secondTotalCost, { afterSpacing: 60 }))
+      }
+
+      const adaNote = hasAda ? `base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})` : null
+      children.push(subtotalPara(
+        `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
+        overallTotal,
+        { adaNote, afterSpacing: 240 }
+      ))
+    }
   }
 
   // ── Combined hours table ───────────────────────────────────

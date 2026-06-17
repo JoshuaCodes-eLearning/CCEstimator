@@ -3,7 +3,7 @@ import './App.css'
 import CategoryBlock from './components/CategoryBlock'
 import TotalsBar     from './components/TotalsBar'
 import ExportPreview from './components/ExportPreview'
-import { DEFAULT_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
+import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeHours } from './utils/calc'
 
 export { CAT_LABELS }
@@ -17,6 +17,12 @@ function initCat(key) {
     adaEnabled:        false,
     tasks:        DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
     removedStack: [],
+    moduleCount:  1,
+    secondState: {
+      collapsed:    true,
+      tasks:        DEFAULT_SECOND_STATE_TASKS[key].map(t => ({ ...t, baseHours: t.hours })),
+      removedStack: [],
+    },
   }
 }
 
@@ -101,6 +107,82 @@ export default function App() {
     })
   }
 
+  // ── Second state mutations ───────────────────────────────
+  function updateSecondState(catKey, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: { ...prev[catKey], secondState: { ...prev[catKey].secondState, ...patch } },
+    }))
+  }
+
+  function updateSecondStateTask(catKey, taskId, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        secondState: {
+          ...prev[catKey].secondState,
+          tasks: prev[catKey].secondState.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+        },
+      },
+    }))
+  }
+
+  function addSecondStateTask(catKey) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        secondState: {
+          ...prev[catKey].secondState,
+          collapsed: false,
+          tasks: [
+            ...prev[catKey].secondState.tasks,
+            { id: `new-s-${Date.now()}`, name: 'New subtask', responsible: 'Megan', baseHours: 1, type: 'Fixed', included: true },
+          ],
+        },
+      },
+    }))
+  }
+
+  function removeLastSecondStateTask(catKey) {
+    setCatStates(prev => {
+      const tasks = prev[catKey].secondState.tasks
+      if (tasks.length === 0) return prev
+      const removed = tasks[tasks.length - 1]
+      return {
+        ...prev,
+        [catKey]: {
+          ...prev[catKey],
+          secondState: {
+            ...prev[catKey].secondState,
+            tasks:        tasks.slice(0, -1),
+            removedStack: [...prev[catKey].secondState.removedStack, removed],
+          },
+        },
+      }
+    })
+  }
+
+  function undoLastSecondStateRemove(catKey) {
+    setCatStates(prev => {
+      const stack = prev[catKey].secondState.removedStack
+      if (stack.length === 0) return prev
+      const restored = stack[stack.length - 1]
+      return {
+        ...prev,
+        [catKey]: {
+          ...prev[catKey],
+          secondState: {
+            ...prev[catKey].secondState,
+            tasks:        [...prev[catKey].secondState.tasks, restored],
+            removedStack: stack.slice(0, -1),
+          },
+        },
+      }
+    })
+  }
+
   // ── Compute totals ───────────────────────────────────────
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
@@ -108,16 +190,32 @@ export default function App() {
   const categoryCosts = {}
 
   for (const catKey of selectedKeys) {
-    const cat = catStates[catKey]
-    let baseSum = 0
+    const cat          = catStates[catKey]
+    const extraModules = (cat.moduleCount ?? 1) - 1
+
+    // Module 1
+    let mod1BaseSum = 0
     for (const task of cat.tasks) {
       if (!task.included) continue
       const h = computeHours(task, catKey, cat.additionalMinutes)
       memberHours[task.responsible] += h
-      baseSum += h * (RATES[task.responsible] ?? 0)
+      mod1BaseSum += h * (RATES[task.responsible] ?? 0)
     }
+
+    // Second state (modules 2–N)
+    let mod2PerModule = 0
+    if (extraModules > 0 && cat.secondState) {
+      for (const task of cat.secondState.tasks) {
+        if (!task.included) continue
+        const h = computeHours(task, catKey, cat.additionalMinutes)
+        memberHours[task.responsible] += h * extraModules
+        mod2PerModule += h * (RATES[task.responsible] ?? 0)
+      }
+    }
+
+    const combinedBase = mod1BaseSum + mod2PerModule * extraModules
     const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
-    categoryCosts[catKey] = baseSum * (1 + adaRate)
+    categoryCosts[catKey] = combinedBase * (1 + adaRate)
   }
 
   const internalCost      = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
@@ -211,6 +309,12 @@ export default function App() {
                 onRemoveTask={()          => removeLastTask(key)}
                 onUndoRemove={()          => undoLastRemove(key)}
                 canUndo={catStates[key].removedStack.length > 0}
+                onUpdateSecondState={patch           => updateSecondState(key, patch)}
+                onUpdateSecondStateTask={(id, patch) => updateSecondStateTask(key, id, patch)}
+                onAddSecondStateTask={()             => addSecondStateTask(key)}
+                onRemoveSecondStateTask={()          => removeLastSecondStateTask(key)}
+                onUndoSecondStateRemove={()          => undoLastSecondStateRemove(key)}
+                canUndoSecond={catStates[key].secondState.removedStack.length > 0}
               />
             ) : null
           )}
