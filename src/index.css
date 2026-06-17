@@ -833,6 +833,97 @@ body { background: var(--page-bg); }
 }
 
 /* ===================================================
+   ADDITIONAL VIDEOS SECTION (microvideo only)
+   =================================================== */
+
+.additional-videos-section {
+  margin: 8px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.additional-videos-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #f4f7fb;
+  border-bottom: 1px solid var(--border);
+}
+
+.additional-videos-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.additional-videos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.additional-video-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--white);
+}
+.additional-video-row:last-child { border-bottom: none; }
+
+.additional-video-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 56px;
+}
+
+.video-min-input {
+  width: 64px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: center;
+  background: var(--white);
+  color: var(--text);
+}
+.video-min-input:focus { outline: none; border-color: var(--blue-mid); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+
+.additional-video-min-label {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.additional-video-cost {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.btn-remove-video {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: transparent;
+  border: 1px solid #e2b0b0;
+  border-radius: 5px;
+  color: #b33;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-remove-video:hover { background: #fff0f0; color: #991111; border-color: #c06060; }
+
+/* ===================================================
    TOTALS BAR
    =================================================== */
 
@@ -1060,6 +1151,8 @@ body { background: var(--page-bg); }
   padding: 8px 13px;
   border-radius: 4px 4px 0 0;
 }
+
+
 .doc-table {
   width: 100%;
   border-collapse: collapse;
@@ -1292,4 +1385,8 @@ body { background: var(--page-bg); }
   .preview-doc   { padding: 24px 20px; }
   .doc-title     { font-size: 20px; }
   .doc-hours-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Additional videos (microvideo) */
+  .additional-video-row { flex-wrap: wrap; gap: 8px; }
+  .additional-video-cost { margin-left: auto; }
 }

@@ -18,6 +18,7 @@ function initCat(key) {
     tasks:        DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
     removedStack: [],
     moduleCount:  1,
+    additionalVideos: [],
     secondState: {
       collapsed:    true,
       tasks:        DEFAULT_SECOND_STATE_TASKS[key].map(t => ({ ...t, baseHours: t.hours })),
@@ -164,6 +165,42 @@ export default function App() {
     })
   }
 
+  // ── Additional video mutations (microvideo only) ─────────
+  function addVideo(catKey) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        additionalVideos: [
+          ...prev[catKey].additionalVideos,
+          { id: `vid-${Date.now()}`, minutes: DEFAULT_MINUTES[catKey] },
+        ],
+      },
+    }))
+  }
+
+  function removeVideo(catKey, videoId) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        additionalVideos: prev[catKey].additionalVideos.filter(v => v.id !== videoId),
+      },
+    }))
+  }
+
+  function updateVideoMinutes(catKey, videoId, mins) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        additionalVideos: prev[catKey].additionalVideos.map(v =>
+          v.id === videoId ? { ...v, minutes: mins } : v
+        ),
+      },
+    }))
+  }
+
   function undoLastSecondStateRemove(catKey) {
     setCatStates(prev => {
       const stack = prev[catKey].secondState.removedStack
@@ -190,32 +227,48 @@ export default function App() {
   const categoryCosts = {}
 
   for (const catKey of selectedKeys) {
-    const cat          = catStates[catKey]
-    const extraModules = (cat.moduleCount ?? 1) - 1
+    const cat = catStates[catKey]
 
-    // Module 1
-    let mod1BaseSum = 0
-    for (const task of cat.tasks) {
-      if (!task.included) continue
-      const h = computeHours(task, catKey, cat.additionalMinutes)
-      memberHours[task.responsible] += h
-      mod1BaseSum += h * (RATES[task.responsible] ?? 0)
-    }
-
-    // Second state (modules 2–N)
-    let mod2PerModule = 0
-    if (extraModules > 0 && cat.secondState) {
-      for (const task of cat.secondState.tasks) {
+    if (catKey === 'microvideo') {
+      let totalCost = 0
+      for (const task of cat.tasks) {
         if (!task.included) continue
         const h = computeHours(task, catKey, cat.additionalMinutes)
-        memberHours[task.responsible] += h * extraModules
-        mod2PerModule += h * (RATES[task.responsible] ?? 0)
+        memberHours[task.responsible] += h
+        totalCost += h * (RATES[task.responsible] ?? 0)
       }
+      for (const video of (cat.additionalVideos ?? [])) {
+        const addedMin = video.minutes - DEFAULT_MINUTES[catKey]
+        for (const task of (cat.secondState?.tasks ?? [])) {
+          if (!task.included) continue
+          const h = computeHours(task, catKey, addedMin)
+          memberHours[task.responsible] += h
+          totalCost += h * (RATES[task.responsible] ?? 0)
+        }
+      }
+      categoryCosts[catKey] = totalCost
+    } else {
+      const extraModules = (cat.moduleCount ?? 1) - 1
+      let mod1BaseSum = 0
+      for (const task of cat.tasks) {
+        if (!task.included) continue
+        const h = computeHours(task, catKey, cat.additionalMinutes)
+        memberHours[task.responsible] += h
+        mod1BaseSum += h * (RATES[task.responsible] ?? 0)
+      }
+      let mod2PerModule = 0
+      if (extraModules > 0 && cat.secondState) {
+        for (const task of cat.secondState.tasks) {
+          if (!task.included) continue
+          const h = computeHours(task, catKey, cat.additionalMinutes)
+          memberHours[task.responsible] += h * extraModules
+          mod2PerModule += h * (RATES[task.responsible] ?? 0)
+        }
+      }
+      const combinedBase = mod1BaseSum + mod2PerModule * extraModules
+      const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
+      categoryCosts[catKey] = combinedBase * (1 + adaRate)
     }
-
-    const combinedBase = mod1BaseSum + mod2PerModule * extraModules
-    const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
-    categoryCosts[catKey] = combinedBase * (1 + adaRate)
   }
 
   const internalCost      = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
@@ -315,6 +368,9 @@ export default function App() {
                 onRemoveSecondStateTask={()          => removeLastSecondStateTask(key)}
                 onUndoSecondStateRemove={()          => undoLastSecondStateRemove(key)}
                 canUndoSecond={catStates[key].secondState.removedStack.length > 0}
+                onAddVideo={()                       => addVideo(key)}
+                onRemoveVideo={videoId               => removeVideo(key, videoId)}
+                onUpdateVideoMinutes={(videoId, mins) => updateVideoMinutes(key, videoId, mins)}
               />
             ) : null
           )}

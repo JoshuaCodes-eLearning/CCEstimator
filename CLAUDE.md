@@ -13,9 +13,10 @@ and one button exports the whole estimate to a Word document.
 The authoritative spec is the High-Level Design (HLD). If anything here conflicts
 with the HLD, the HLD wins — flag the conflict, don't silently pick one.
 
-## Current implementation status (as of 2026-06-16)
+## Current implementation status (as of 2026-06-17)
 
 **FULLY BUILT AND DEPLOYED** at https://cc-estimator.vercel.app/
+*(pending push of latest session's changes — dev server at localhost:5177)*
 
 Everything below is live and working:
 - Category selector chips (Microvideo, Rise 360, Storyline 360) — multi-select
@@ -25,6 +26,7 @@ Everything below is live and working:
 - Additional minutes input (0–20) per category header with live scaling
 - ADA toggle (Rise/Storyline only) — amber button, +10% on category cost
 - + Add subtask / − Remove last subtask (with guard: no-op on empty list)
+- **Undo last removal** button per category (restores from per-category stack)
 - Live formulas: Fixed/Dynamic scaling, line cost, category subtotal with
   per-member math breakdown, ADA uplift line, grand total in TotalsBar
 - TotalsBar: active members only (0h members hidden), per-category breakdown
@@ -36,6 +38,27 @@ Everything below is live and working:
 - Export to Word: Export Preview screen (Screen 2) with real task data rendered,
   Download .docx button wired to generateAndSaveDocx()
 - Currency formatted with commas ($1,234.56) everywhere via fmt() in calc.js
+- Word export filename: `{CompanyName} - {CourseName} - Estimate.docx`
+
+**Rise 360 & Storyline 360 — multi-module second state (live):**
+- "Number of modules" input (1–15) per category header
+- Module 1 = full subtask list; Modules 2–N = second state template (all tasks
+  start unchecked; user checks what applies)
+- Cost = Module 1 + (N−1) × second-state-per-module cost; ADA on combined total
+- Export/Word: Module 1 table + second state template table + per-module costs + overall total
+
+**Microvideo — additional videos (built, not yet pushed):**
+- No "Number of modules" bar; Microvideo has separate per-video logic
+- "Video 1 additional minutes (0–20)" still scales Video 1's Dynamic tasks
+- "+ Add Video" button adds additional videos; each has its own editable time
+  input (1–60 min, defaults to 5 min)
+- "Additional Video Template" section (collapsible second state): user checks
+  which tasks apply to all additional videos; Dynamic tasks scale to each
+  video's individual time (`computeHours(task, 'microvideo', video.minutes − 5)`)
+- Per-video cost shown inline; overall Microvideo total when any additional
+  videos exist
+- Export/Word: Video 1 table + template table (at default 5 min) + per-video
+  cost rows + Microvideo total
 
 ## Stack & architecture (decided)
 
@@ -160,6 +183,19 @@ Word is the only export format.
 - **CAT_LABELS lives in config.js** (not App.jsx) to avoid Vite Fast Refresh warnings.
 - **Active members only**: members with 0h are filtered from TotalsBar display.
 - **fmt(n)** in calc.js formats all currency as $1,234.56.
+- **Microvideo vs Rise/Storyline branching**: App.jsx cost loop, CategoryBlock,
+  ExportPreview, and exportDocx all branch on `catKey === 'microvideo'`. The
+  `isMicrovideo` boolean drives all conditional rendering — do NOT use `catKey === 'mv'`
+  (that was a prior agent bug; the correct key is `'microvideo'`).
+- **Additional video time input**: `VideoTimeInput` is a local component defined
+  inside CategoryBlock.jsx with its own local string state (same pattern as
+  additionalMinutes input). Each video has `{ id, minutes }` in App state.
+- **Second state = Additional Video Template for microvideo**: the same
+  `cat.secondState` structure is reused for microvideo's additional video template.
+  Rise/Storyline use it for their module 2-N template. Same props flow through.
+- **Word doc shading**: do NOT use `ShadingType.SOLID` with only `fill` on data
+  cells — it renders black. Header cells use `ShadingType.SOLID` with `fill` and
+  that works because they were already working before.
 
 ## Open items (do NOT resolve unilaterally)
 
@@ -167,6 +203,9 @@ Word is the only export format.
    to confirm with Michelle. Scaling logic is isolated in calc.js/computeHours().
 2. **HLD §6.7 worked example discrepancy** — numbers don't match current task list.
    Laurie should verify expected totals with real usage. Not a blocker.
+3. **Which initiation tasks in the second state template should be unchecked by
+   default** — Laurie was deciding; currently all tasks start unchecked for both
+   Rise/Storyline modules 2-N and Microvideo additional videos.
 
 ## Out of scope (current phase)
 

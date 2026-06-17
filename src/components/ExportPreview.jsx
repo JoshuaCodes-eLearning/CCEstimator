@@ -57,32 +57,146 @@ export default function ExportPreview({
 
           {/* Category sections */}
           {selectedKeys.map(catKey => {
-            const cat          = catStates[catKey]
-            const defMin       = DEFAULT_MINUTES[catKey]
-            const addedMin     = cat.additionalMinutes
-            const totalMin     = defMin + addedMin
-            const hasAda       = cat.adaEnabled && ADA_RATES[catKey] > 0
-            const moduleCount  = cat.moduleCount ?? 1
-            const extraModules = moduleCount - 1
-            const adaRate      = hasAda ? ADA_RATES[catKey] : 0
-            const unit         = catKey === 'mv' ? 'video' : 'module'
-            const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
+            const cat           = catStates[catKey]
+            const isMicrovideo  = catKey === 'microvideo'
+            const defMin        = DEFAULT_MINUTES[catKey]
+            const addedMin      = cat.additionalMinutes
+            const totalMin      = defMin + addedMin
+            const hasAda        = cat.adaEnabled && ADA_RATES[catKey] > 0
+            const adaRate       = hasAda ? ADA_RATES[catKey] : 0
+            const moduleCount   = cat.moduleCount ?? 1
+            const extraModules  = isMicrovideo ? 0 : (moduleCount - 1)
+            const unit          = isMicrovideo ? 'video' : 'module'
+            const Unit          = unit.charAt(0).toUpperCase() + unit.slice(1)
+            const additionalVideos = cat.additionalVideos ?? []
 
-            // Module 1
             const mod1Tasks = cat.tasks.filter(t => t.included)
             let mod1BaseSum = 0
             mod1Tasks.forEach(t => {
               mod1BaseSum += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
             })
 
-            // Second state
-            const secondTasks    = (cat.secondState?.tasks ?? []).filter(t => t.included)
-            let secondPerModule  = 0
+            const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
+
+            // ── Microvideo rendering ───────────────────────────────
+            if (isMicrovideo) {
+              const hasAdditional = additionalVideos.length > 0
+              const additionalVideosCosts = additionalVideos.map(video => {
+                const vAddedMin = video.minutes - defMin
+                let cost = 0
+                secondTasks.forEach(t => {
+                  cost += computeHours(t, catKey, vAddedMin) * (RATES[t.responsible] ?? 0)
+                })
+                return { video, cost }
+              })
+              const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
+              const totalCost = mod1BaseSum + additionalVideosTotalCost
+
+              let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
+              if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
+              if (hasAdditional) headerText += `  ·  ${additionalVideos.length + 1} videos`
+
+              return (
+                <div key={catKey} className="doc-cat">
+                  <div className="doc-cat-heading">{headerText}</div>
+
+                  {hasAdditional && (
+                    <div className="doc-module-label">Video 1 ({totalMin} min)</div>
+                  )}
+
+                  <table className="doc-table">
+                    <thead>
+                      <tr>
+                        <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mod1Tasks.length === 0 ? (
+                        <tr className="doc-table-muted"><td colSpan={5}>No tasks selected</td></tr>
+                      ) : (
+                        mod1Tasks.map(task => {
+                          const hrs  = computeHours(task, catKey, addedMin)
+                          const cost = lineCost(task, catKey, addedMin)
+                          return (
+                            <tr key={task.id}>
+                              <td>{task.name}</td>
+                              <td>{task.responsible}</td>
+                              <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
+                              <td>{task.type}</td>
+                              <td>{fmt(cost)}</td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+
+                  <div className="doc-subtotal-row">
+                    <span className="doc-subtotal-label">
+                      {hasAdditional ? 'Video 1 subtotal' : 'Microvideo subtotal'}
+                    </span>
+                    <span className="doc-subtotal-value">{fmt(mod1BaseSum)}</span>
+                  </div>
+
+                  {hasAdditional && (
+                    <>
+                      <hr className="doc-section-divider" />
+                      <div className="doc-module-label doc-module-label--second">
+                        Additional Video Template
+                        <span className="doc-module-implied"> — applied to Videos 2–{additionalVideos.length + 1}</span>
+                      </div>
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {secondTasks.length === 0 ? (
+                            <tr className="doc-table-muted"><td colSpan={5}>No tasks selected for additional videos</td></tr>
+                          ) : (
+                            secondTasks.map(task => {
+                              const hrs  = computeHours(task, catKey, 0)
+                              const cost = lineCost(task, catKey, 0)
+                              return (
+                                <tr key={`s2-${task.id}`}>
+                                  <td>{task.name}</td>
+                                  <td>{task.responsible}</td>
+                                  <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
+                                  <td>{task.type}</td>
+                                  <td>{fmt(cost)}</td>
+                                </tr>
+                              )
+                            })
+                          )}
+                        </tbody>
+                      </table>
+
+                      {additionalVideosCosts.map(({ video, cost }, idx) => (
+                        <div key={video.id} className="doc-subtotal-row">
+                          <span className="doc-subtotal-label">Video {idx + 2} ({video.minutes} min)</span>
+                          <span className="doc-subtotal-value">{fmt(cost)}</span>
+                        </div>
+                      ))}
+
+                      <div className="doc-subtotal-row doc-subtotal-row--overall">
+                        <span className="doc-subtotal-label">
+                          Microvideo total — {additionalVideos.length + 1} videos
+                        </span>
+                        <span className="doc-subtotal-value">{fmt(totalCost)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            }
+
+            // ── Rise / Storyline rendering ─────────────────────────
+            let secondPerModule = 0
             secondTasks.forEach(t => {
               secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
             })
             const secondTotalCost = secondPerModule * extraModules
-
             const combinedBase = mod1BaseSum + secondTotalCost
             const adaAmount    = combinedBase * adaRate
             const overallTotal = combinedBase + adaAmount
@@ -96,7 +210,6 @@ export default function ExportPreview({
               <div key={catKey} className="doc-cat">
                 <div className="doc-cat-heading">{headerText}</div>
 
-                {/* Section label when multi */}
                 {moduleCount > 1 && (
                   <div className="doc-module-label">{Unit} 1</div>
                 )}

@@ -154,15 +154,17 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
   // ── Category sections ──────────────────────────────────────
   for (const catKey of selectedKeys) {
     const cat          = cats[catKey]
+    const isMicrovideo = catKey === 'microvideo'
     const defMin       = DEFAULT_MINUTES[catKey]
     const addedMin     = cat.additionalMinutes
     const totalMin     = defMin + addedMin
     const hasAda       = cat.adaEnabled && ADA_RATES[catKey] > 0
     const adaRate      = hasAda ? ADA_RATES[catKey] : 0
     const moduleCount  = cat.moduleCount ?? 1
-    const extraModules = moduleCount - 1
-    const unit         = catKey === 'mv' ? 'video' : 'module'
+    const extraModules = isMicrovideo ? 0 : (moduleCount - 1)
+    const unit         = isMicrovideo ? 'video' : 'module'
     const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
+    const additionalVideos = cat.additionalVideos ?? []
 
     const mod1Tasks = cat.tasks.filter(t => t.included)
     let mod1BaseSum = 0
@@ -171,60 +173,110 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
     })
 
     const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
-    let secondPerModule = 0
-    secondTasks.forEach(t => {
-      secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
-    })
-    const secondTotalCost = secondPerModule * extraModules
 
-    const combinedBase = mod1BaseSum + secondTotalCost
-    const adaAmount    = combinedBase * adaRate
-    const overallTotal = combinedBase + adaAmount
+    if (isMicrovideo) {
+      // ── Microvideo section ──────────────────────────────────
+      const hasAdditional = additionalVideos.length > 0
+      const additionalVideosCosts = additionalVideos.map(video => {
+        const vAddedMin = video.minutes - defMin
+        let cost = 0
+        secondTasks.forEach(t => {
+          cost += computeHours(t, catKey, vAddedMin) * (RATES[t.responsible] ?? 0)
+        })
+        return { video, cost }
+      })
+      const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
+      const totalCost = mod1BaseSum + additionalVideosTotalCost
 
-    let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
-    if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
-    if (moduleCount > 1) headerText += `  ·  ${moduleCount} ${unit}s`
-    if (hasAda) headerText += '  ·  ADA compliant (+10%)'
+      let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
+      if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
+      if (hasAdditional) headerText += `  ·  ${additionalVideos.length + 1} videos`
 
-    children.push(navyHeaderPara(headerText))
+      children.push(navyHeaderPara(headerText))
 
-    // Module/video 1
-    if (moduleCount > 1) {
-      children.push(sectionLabelPara(`${Unit} 1`))
-    }
-    children.push(taskTable(mod1Tasks, catKey, addedMin))
-
-    if (moduleCount === 1) {
-      const adaNote = hasAda ? `base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})` : null
-      children.push(subtotalPara(
-        `${CAT_LABELS[catKey]} subtotal`,
-        mod1BaseSum * (1 + adaRate),
-        { adaNote, afterSpacing: 240 }
-      ))
-    } else {
-      children.push(subtotalPara(`${Unit} 1 subtotal`, mod1BaseSum, { afterSpacing: 80 }))
-
-      // Divider paragraph
-      children.push(new Paragraph({
-        border: { bottom: { style: BorderStyle.DASHED, size: 6, color: 'CCCCCC' } },
-        spacing: { before: 160, after: 160 },
-        children: [new TextRun('')],
-      }))
-
-      const secondLabel = moduleCount === 2 ? `${Unit} 2` : `${Unit}s 2–${moduleCount}`
-      children.push(sectionLabelPara(`${secondLabel}  — implied after ${unit} 2`))
-      children.push(taskTable(secondTasks, catKey, addedMin))
-      children.push(subtotalPara(`Per-${unit} rate`, secondPerModule, { afterSpacing: 60 }))
-      if (extraModules > 1) {
-        children.push(subtotalPara(`${secondLabel} subtotal (× ${extraModules})`, secondTotalCost, { afterSpacing: 60 }))
+      if (hasAdditional) {
+        children.push(sectionLabelPara(`Video 1 (${totalMin} min)`))
       }
+      children.push(taskTable(mod1Tasks, catKey, addedMin))
 
-      const adaNote = hasAda ? `base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})` : null
-      children.push(subtotalPara(
-        `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
-        overallTotal,
-        { adaNote, afterSpacing: 240 }
-      ))
+      if (!hasAdditional) {
+        children.push(subtotalPara('Microvideo subtotal', mod1BaseSum, { afterSpacing: 240 }))
+      } else {
+        children.push(subtotalPara('Video 1 subtotal', mod1BaseSum, { afterSpacing: 80 }))
+
+        children.push(new Paragraph({
+          border: { bottom: { style: BorderStyle.DASHED, size: 6, color: 'CCCCCC' } },
+          spacing: { before: 160, after: 160 },
+          children: [new TextRun('')],
+        }))
+
+        children.push(sectionLabelPara(`Additional Video Template — applied to Videos 2–${additionalVideos.length + 1}`))
+        children.push(taskTable(secondTasks, catKey, 0))
+
+        additionalVideosCosts.forEach(({ video, cost }, idx) => {
+          children.push(subtotalPara(`Video ${idx + 2} (${video.minutes} min)`, cost, { afterSpacing: 60 }))
+        })
+
+        children.push(subtotalPara(
+          `Microvideo total — ${additionalVideos.length + 1} videos`,
+          totalCost,
+          { afterSpacing: 240 }
+        ))
+      }
+    } else {
+      // ── Rise / Storyline section ────────────────────────────
+      let secondPerModule = 0
+      secondTasks.forEach(t => {
+        secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
+      })
+      const secondTotalCost = secondPerModule * extraModules
+      const combinedBase = mod1BaseSum + secondTotalCost
+      const adaAmount    = combinedBase * adaRate
+      const overallTotal = combinedBase + adaAmount
+
+      let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
+      if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
+      if (moduleCount > 1) headerText += `  ·  ${moduleCount} ${unit}s`
+      if (hasAda) headerText += '  ·  ADA compliant (+10%)'
+
+      children.push(navyHeaderPara(headerText))
+
+      if (moduleCount > 1) {
+        children.push(sectionLabelPara(`${Unit} 1`))
+      }
+      children.push(taskTable(mod1Tasks, catKey, addedMin))
+
+      if (moduleCount === 1) {
+        const adaNote = hasAda ? `base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})` : null
+        children.push(subtotalPara(
+          `${CAT_LABELS[catKey]} subtotal`,
+          mod1BaseSum * (1 + adaRate),
+          { adaNote, afterSpacing: 240 }
+        ))
+      } else {
+        children.push(subtotalPara(`${Unit} 1 subtotal`, mod1BaseSum, { afterSpacing: 80 }))
+
+        children.push(new Paragraph({
+          border: { bottom: { style: BorderStyle.DASHED, size: 6, color: 'CCCCCC' } },
+          spacing: { before: 160, after: 160 },
+          children: [new TextRun('')],
+        }))
+
+        const secondLabel = moduleCount === 2 ? `${Unit} 2` : `${Unit}s 2–${moduleCount}`
+        children.push(sectionLabelPara(`${secondLabel}  — implied after ${unit} 2`))
+        children.push(taskTable(secondTasks, catKey, addedMin))
+        children.push(subtotalPara(`Per-${unit} rate`, secondPerModule, { afterSpacing: 60 }))
+        if (extraModules > 1) {
+          children.push(subtotalPara(`${secondLabel} subtotal (× ${extraModules})`, secondTotalCost, { afterSpacing: 60 }))
+        }
+
+        const adaNote = hasAda ? `base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})` : null
+        children.push(subtotalPara(
+          `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
+          overallTotal,
+          { adaNote, afterSpacing: 240 }
+        ))
+      }
     }
   }
 

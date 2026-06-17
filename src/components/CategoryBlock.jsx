@@ -5,17 +5,46 @@ import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const COLLAPSED_ROWS = 2
 
+function VideoTimeInput({ minutes, onChange }) {
+  const [local, setLocal]   = useState(String(minutes))
+  const [focused, setFocused] = useState(false)
+  const display = focused ? local : String(minutes)
+
+  function handleFocus() { setLocal(String(minutes)); setFocused(true) }
+  function handleChange(raw) {
+    setLocal(raw)
+    const v = parseInt(raw)
+    if (!isNaN(v) && v >= 1) onChange(v)
+  }
+  function handleBlur() {
+    setFocused(false)
+    if (isNaN(parseInt(local)) || parseInt(local) < 1) onChange(minutes)
+  }
+
+  return (
+    <input
+      type="number" className="video-min-input" min={1} max={60}
+      value={display}
+      onFocus={handleFocus}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  )
+}
+
 export default function CategoryBlock({
   catKey, label, cat, hasAda,
   onUpdate, onUpdateTask, onAddTask, onRemoveTask, onUndoRemove, canUndo,
   onUpdateSecondState, onUpdateSecondStateTask, onAddSecondStateTask,
   onRemoveSecondStateTask, onUndoSecondStateRemove, canUndoSecond,
+  onAddVideo, onRemoveVideo, onUpdateVideoMinutes,
 }) {
-  const { collapsed, additionalMinutes, adaEnabled, tasks, moduleCount = 1, secondState } = cat
+  const isMicrovideo = catKey === 'microvideo'
+  const { collapsed, additionalMinutes, adaEnabled, tasks, moduleCount = 1, secondState, additionalVideos = [] } = cat
   const defMin       = DEFAULT_MINUTES[catKey]
   const totalMin     = defMin + additionalMinutes
-  const extraModules = moduleCount - 1
-  const unit         = catKey === 'mv' ? 'video' : 'module'
+  const extraModules = isMicrovideo ? 0 : (moduleCount - 1)
+  const unit         = isMicrovideo ? 'video' : 'module'
   const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
   const hiddenCount  = tasks.length - COLLAPSED_ROWS
   const visibleTasks = collapsed ? tasks.slice(0, COLLAPSED_ROWS) : tasks
@@ -32,7 +61,7 @@ export default function CategoryBlock({
   }
   function handleMinBlur() { setMinFocused(false) }
 
-  // ── Local input: moduleCount ──────────────────────────────
+  // ── Local input: moduleCount (rise/storyline only) ────────
   const [localMod,   setLocalMod]   = useState(String(moduleCount))
   const [modFocused, setModFocused] = useState(false)
   const displayMod = modFocused ? localMod : String(moduleCount)
@@ -44,7 +73,7 @@ export default function CategoryBlock({
   }
   function handleModBlur() { setModFocused(false) }
 
-  // ── Module 1 cost breakdown ───────────────────────────────
+  // ── Video 1 / Module 1 cost breakdown ─────────────────────
   const memberMap = {}
   for (const task of tasks) {
     if (!task.included) continue
@@ -57,14 +86,30 @@ export default function CategoryBlock({
   const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0)
   const hasIncluded = Object.keys(memberMap).length > 0
 
-  // ── Second state cost breakdown ───────────────────────────
+  // ── Second state tasks ────────────────────────────────────
   const secondTasks        = secondState?.tasks ?? []
   const secondCollapsed    = secondState?.collapsed ?? true
   const secondHiddenCount  = secondTasks.length - COLLAPSED_ROWS
   const visibleSecondTasks = secondCollapsed ? secondTasks.slice(0, COLLAPSED_ROWS) : secondTasks
 
+  // ── Per-video costs (microvideo only) ─────────────────────
+  const additionalVideosCosts = isMicrovideo
+    ? additionalVideos.map(video => {
+        const addedMin = video.minutes - defMin
+        let cost = 0
+        for (const task of secondTasks) {
+          if (!task.included) continue
+          const h = computeHours(task, catKey, addedMin)
+          cost += h * (RATES[task.responsible] ?? 0)
+        }
+        return { video, cost }
+      })
+    : []
+  const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
+
+  // ── Second state cost (rise/storyline only) ───────────────
   const secondMemberMap = {}
-  if (extraModules > 0) {
+  if (!isMicrovideo && extraModules > 0) {
     for (const task of secondTasks) {
       if (!task.included) continue
       const h = computeHours(task, catKey, additionalMinutes)
@@ -80,11 +125,15 @@ export default function CategoryBlock({
 
   // ── Overall totals ────────────────────────────────────────
   const adaRate      = (adaEnabled && hasAda) ? ADA_RATES[catKey] : 0
-  const combinedBase = mod1BaseSum + secondTotalCost
+  const combinedBase = isMicrovideo
+    ? (mod1BaseSum + additionalVideosTotalCost)
+    : (mod1BaseSum + secondTotalCost)
   const adaAmount    = combinedBase * adaRate
   const overallTotal = combinedBase + adaAmount
   const singleAdaAmt = mod1BaseSum * adaRate
   const singleTotal  = mod1BaseSum + singleAdaAmt
+
+  const hasMultiple = isMicrovideo ? additionalVideos.length > 0 : moduleCount > 1
 
   return (
     <div className="cat-block">
@@ -101,7 +150,9 @@ export default function CategoryBlock({
 
         <div className="cat-header-center">
           <div className="add-min-group">
-            <label className="add-min-label">Additional minutes (0–20)</label>
+            <label className="add-min-label">
+              {isMicrovideo ? 'Video 1 additional minutes (0–20)' : 'Additional minutes (0–20)'}
+            </label>
             <div className="add-min-row">
               <input type="number" className="add-min-input" min={0} max={20}
                 value={displayMin} onFocus={handleMinFocus}
@@ -129,22 +180,26 @@ export default function CategoryBlock({
       {/* ══ Body ════════════════════════════════════════════ */}
       <div className="cat-body">
 
-        {/* Module/video count bar */}
-        <div className="module-count-bar">
-          <span className="module-count-label">Number of {unit}s</span>
-          <input type="number" className="module-count-input" min={1} max={15}
-            value={displayMod} onFocus={handleModFocus}
-            onChange={e => handleModChange(e.target.value)} onBlur={handleModBlur} />
-          <span className="module-count-hint">
-            {moduleCount === 1
-              ? `single ${unit}`
-              : `${unit} 1 full rate · ${unit}s 2–${moduleCount} use second state template`}
-          </span>
-        </div>
+        {/* Module count bar (rise/storyline only) */}
+        {!isMicrovideo && (
+          <div className="module-count-bar">
+            <span className="module-count-label">Number of {unit}s</span>
+            <input type="number" className="module-count-input" min={1} max={15}
+              value={displayMod} onFocus={handleModFocus}
+              onChange={e => handleModChange(e.target.value)} onBlur={handleModBlur} />
+            <span className="module-count-hint">
+              {moduleCount === 1
+                ? `single ${unit}`
+                : `${unit} 1 full rate · ${unit}s 2–${moduleCount} use second state template`}
+            </span>
+          </div>
+        )}
 
         {/* Section label (multi only) */}
-        {moduleCount > 1 && (
-          <div className="module-section-label">{Unit} 1</div>
+        {hasMultiple && (
+          <div className="module-section-label">
+            {isMicrovideo ? 'Video 1' : `${Unit} 1`}
+          </div>
         )}
 
         {/* Column headers — expanded only */}
@@ -158,7 +213,7 @@ export default function CategoryBlock({
           </div>
         )}
 
-        {/* Module 1 task rows */}
+        {/* Task rows */}
         {visibleTasks.map(task => (
           <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
             onToggle={()         => onUpdateTask(task.id, { included: !task.included })}
@@ -181,7 +236,7 @@ export default function CategoryBlock({
           </>
         )}
 
-        {/* Add / Remove / Undo — Module 1 */}
+        {/* Add / Remove / Undo — Video 1 / Module 1 */}
         {!collapsed && (
           <div className="add-remove-row">
             <button type="button" className="btn-add"    onClick={onAddTask}>+ Add subtask</button>
@@ -192,7 +247,7 @@ export default function CategoryBlock({
           </div>
         )}
 
-        {/* Module 1 subtotal */}
+        {/* Video 1 / Module 1 subtotal */}
         <div className="cat-subtotal-section">
           {hasIncluded ? (
             <>
@@ -204,27 +259,129 @@ export default function CategoryBlock({
                   <span className="subtotal-member-cost">= {fmt(cost)}</span>
                 </div>
               ))}
-              {moduleCount === 1 && singleAdaAmt > 0 && (
+              {!isMicrovideo && moduleCount === 1 && singleAdaAmt > 0 && (
                 <div className="subtotal-ada-line">
                   <span>ADA +10% on {fmt(mod1BaseSum)}</span>
                   <span>+ {fmt(singleAdaAmt)}</span>
                 </div>
               )}
               <div className="subtotal-final-line">
-                <span>{moduleCount > 1 ? `${Unit} 1 subtotal` : `${label} subtotal${adaEnabled && hasAda ? ' (incl. ADA)' : ''}`}</span>
-                <span>{fmt(moduleCount > 1 ? mod1BaseSum : singleTotal)}</span>
+                <span>
+                  {isMicrovideo
+                    ? (additionalVideos.length > 0 ? 'Video 1 subtotal' : `${label} subtotal`)
+                    : (moduleCount > 1
+                        ? `${Unit} 1 subtotal`
+                        : `${label} subtotal${adaEnabled && hasAda ? ' (incl. ADA)' : ''}`)}
+                </span>
+                <span>
+                  {isMicrovideo
+                    ? fmt(mod1BaseSum)
+                    : fmt(moduleCount > 1 ? mod1BaseSum : singleTotal)}
+                </span>
               </div>
             </>
           ) : (
             <div className="subtotal-final-line">
-              <span>{moduleCount > 1 ? `${Unit} 1 subtotal` : `${label} subtotal`}</span>
+              <span>
+                {isMicrovideo
+                  ? (additionalVideos.length > 0 ? 'Video 1 subtotal' : `${label} subtotal`)
+                  : (moduleCount > 1 ? `${Unit} 1 subtotal` : `${label} subtotal`)}
+              </span>
               <span className="subtotal-empty">No tasks selected</span>
             </div>
           )}
         </div>
 
-        {/* ══ SECOND STATE SECTION ════════════════════════════ */}
-        {moduleCount > 1 && (
+        {/* ══ MICROVIDEO: Additional Videos ══════════════════════ */}
+        {isMicrovideo && (
+          <div className="additional-videos-section">
+            <div className="additional-videos-bar">
+              <span className="additional-videos-title">Additional Videos</span>
+              <button type="button" className="btn-add" onClick={onAddVideo}>+ Add Video</button>
+            </div>
+
+            {additionalVideos.length > 0 && (
+              <div className="additional-videos-list">
+                {additionalVideosCosts.map(({ video, cost }, idx) => (
+                  <div key={video.id} className="additional-video-row">
+                    <span className="additional-video-label">Video {idx + 2}</span>
+                    <VideoTimeInput
+                      minutes={video.minutes}
+                      onChange={mins => onUpdateVideoMinutes(video.id, mins)}
+                    />
+                    <span className="additional-video-min-label">min</span>
+                    <span className="additional-video-cost">{fmt(cost)}</span>
+                    <button type="button" className="btn-remove-video"
+                      onClick={() => onRemoveVideo(video.id)}>✕ Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ MICROVIDEO: Additional Video Template ══════════════ */}
+        {isMicrovideo && additionalVideos.length > 0 && (
+          <div className="second-state-block">
+            <div className="second-state-header">
+              <div className="second-state-title-group">
+                <span className="second-state-title">Additional Video Template</span>
+                <span className="second-state-subtitle">
+                  Check tasks that apply to all additional videos (hrs shown at {defMin} min default)
+                </span>
+              </div>
+              <button type="button" className="collapse-btn"
+                onClick={() => onUpdateSecondState({ collapsed: !secondCollapsed })}>
+                {secondCollapsed ? 'Expand ▸' : 'Collapse ▾'}
+              </button>
+            </div>
+
+            {!secondCollapsed && (
+              <div className="subtask-cols">
+                <span /><span className="col-label">Task</span>
+                <span className="col-label">Responsible</span>
+                <span className="col-label">Hrs</span>
+                <span className="col-label">Type</span>
+                <span className="col-label col-label--right">Line Cost</span>
+              </div>
+            )}
+
+            {visibleSecondTasks.map(task => (
+              <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={0}
+                onToggle={()         => onUpdateSecondStateTask(task.id, { included: !task.included })}
+                onNameChange={v      => onUpdateSecondStateTask(task.id, { name: v })}
+                onRespChange={v      => onUpdateSecondStateTask(task.id, { responsible: v })}
+                onBaseHoursChange={v => onUpdateSecondStateTask(task.id, { baseHours: v })}
+                onTypeChange={v      => onUpdateSecondStateTask(task.id, { type: v })}
+              />
+            ))}
+
+            {secondCollapsed && secondHiddenCount > 0 && (
+              <>
+                <p className="collapsed-count-hint">… {secondHiddenCount} more subtasks (all visible while expanded) …</p>
+                <div className="expand-prompt">
+                  <button type="button" className="expand-link"
+                    onClick={() => onUpdateSecondState({ collapsed: false })}>
+                    Expand to see the other {secondHiddenCount} subtasks and add / remove
+                  </button>
+                </div>
+              </>
+            )}
+
+            {!secondCollapsed && (
+              <div className="add-remove-row">
+                <button type="button" className="btn-add"    onClick={onAddSecondStateTask}>+ Add subtask</button>
+                <button type="button" className="btn-remove" onClick={onRemoveSecondStateTask}>− Remove last subtask</button>
+                <button type="button"
+                  className={`btn-undo${canUndoSecond ? '' : ' btn-undo--disabled'}`}
+                  onClick={onUndoSecondStateRemove} disabled={!canUndoSecond}>↩ Undo last removal</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ RISE/STORYLINE: Second State Section ══════════════ */}
+        {!isMicrovideo && moduleCount > 1 && (
           <div className="second-state-block">
 
             <div className="second-state-header">
@@ -318,22 +475,39 @@ export default function CategoryBlock({
           </div>
         )}
 
-        {/* ══ OVERALL TOTAL (multi-module) ═════════════════════ */}
-        {moduleCount > 1 && (
+        {/* ══ OVERALL TOTAL ═════════════════════════════════════ */}
+        {hasMultiple && (
           <div className="overall-cat-total">
-            {adaAmount > 0 && (
-              <div className="subtotal-ada-line">
-                <span>ADA +10% on {fmt(combinedBase)}</span>
-                <span>+ {fmt(adaAmount)}</span>
-              </div>
+            {isMicrovideo ? (
+              <>
+                {additionalVideosCosts.map(({ video, cost }, idx) => (
+                  <div key={video.id} className="subtotal-final-line">
+                    <span>Video {idx + 2} ({video.minutes} min)</span>
+                    <span>{fmt(cost)}</span>
+                  </div>
+                ))}
+                <div className="overall-total-line">
+                  <span>{label} total — {additionalVideos.length + 1} videos</span>
+                  <span>{fmt(mod1BaseSum + additionalVideosTotalCost)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                {adaAmount > 0 && (
+                  <div className="subtotal-ada-line">
+                    <span>ADA +10% on {fmt(combinedBase)}</span>
+                    <span>+ {fmt(adaAmount)}</span>
+                  </div>
+                )}
+                <div className="overall-total-line">
+                  <span>
+                    {label} total — {moduleCount} {unit}{moduleCount > 1 ? 's' : ''}
+                    {adaEnabled && hasAda ? ' (incl. ADA)' : ''}
+                  </span>
+                  <span>{fmt(overallTotal)}</span>
+                </div>
+              </>
             )}
-            <div className="overall-total-line">
-              <span>
-                {label} total — {moduleCount} {unit}{moduleCount > 1 ? 's' : ''}
-                {adaEnabled && hasAda ? ' (incl. ADA)' : ''}
-              </span>
-              <span>{fmt(overallTotal)}</span>
-            </div>
           </div>
         )}
 
