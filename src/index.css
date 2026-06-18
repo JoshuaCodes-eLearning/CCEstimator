@@ -407,7 +407,7 @@ body { background: var(--page-bg); }
 /* Column header row */
 .subtask-cols {
   display: grid;
-  grid-template-columns: 32px 1fr 152px 78px 144px 106px;
+  grid-template-columns: 32px 1fr 270px 144px 106px;
   padding: 6px 24px;
   border-bottom: 1px solid var(--border);
   background: #f4f6f9;
@@ -429,9 +429,9 @@ body { background: var(--page-bg); }
 
 .subtask-row {
   display: grid;
-  grid-template-columns: 32px 1fr 152px 78px 144px 106px;
-  align-items: center;
-  padding: 5px 24px;
+  grid-template-columns: 32px 1fr 270px 144px 106px;
+  align-items: start;
+  padding: 8px 24px;
   border-bottom: 1px solid var(--border-light);
   gap: 8px;
   min-height: 44px;
@@ -440,6 +440,14 @@ body { background: var(--page-bg); }
 .subtask-row:hover { background: #fafbfc; }
 .subtask-row:last-of-type { border-bottom: none; }
 .subtask-row--excluded { opacity: 0.38; }
+
+/* Align non-assignee cells with the first assignee row */
+.subtask-check,
+.subtask-name-input,
+.subtask-type-select,
+.subtask-cost {
+  margin-top: 5px;
+}
 
 /* Checkbox */
 .subtask-check {
@@ -544,6 +552,76 @@ body { background: var(--page-bg); }
   color: var(--text);
   text-align: right;
   white-space: nowrap;
+}
+
+/* ===================================================
+   MULTI-PERSON ASSIGNEES BLOCK
+   =================================================== */
+
+.subtask-assignees {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* One person + hours row */
+.assignee-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assignee-row .subtask-resp-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.assignee-row .subtask-hours-input {
+  width: 62px;
+  flex-shrink: 0;
+}
+
+/* Remove-person button (× inside assignee row) */
+.btn-remove-assignee {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid #e2b0b0;
+  border-radius: 5px;
+  background: transparent;
+  color: #b33;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-remove-assignee:hover {
+  background: #fff0f0;
+  color: #991111;
+  border-color: #c06060;
+}
+
+/* Add-person link below the assignee rows */
+.btn-add-assignee {
+  background: none;
+  border: none;
+  color: var(--blue-mid);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 0 0;
+  text-align: left;
+  display: inline-block;
+  transition: color 0.1s;
+  letter-spacing: 0.01em;
+}
+.btn-add-assignee:hover {
+  color: var(--blue);
+  text-decoration: underline;
 }
 
 /* ===================================================
@@ -1180,6 +1258,7 @@ body { background: var(--page-bg); }
 }
 .doc-table tr:last-child td { border-bottom: none; }
 .doc-table tr.doc-table-muted td { color: var(--text-muted); font-style: italic; }
+.doc-table td.doc-cell-continuation { color: var(--text-light); font-size: 12px; }
 
 .doc-subtotal-row {
   display: flex;
@@ -1245,7 +1324,7 @@ body { background: var(--page-bg); }
 }
 .doc-hours-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
 }
 .doc-hours-item { font-size: 14px; color: var(--text); }
@@ -1305,7 +1384,7 @@ body { background: var(--page-bg); }
 
   /* Subtask column widths tighten up */
   .subtask-cols,
-  .subtask-row { grid-template-columns: 28px 1fr 130px 64px 120px 90px; }
+  .subtask-row { grid-template-columns: 28px 1fr 230px 120px 90px; }
 
   /* TotalsBar wraps */
   .totals-inner { flex-wrap: wrap; gap: 20px; }
@@ -1351,17 +1430,16 @@ body { background: var(--page-bg); }
   .subtask-row {
     grid-template-columns: 28px 1fr auto;
     grid-template-rows: auto auto;
-    row-gap: 6px;
+    row-gap: 8px;
     padding: 10px 14px;
     min-height: unset;
   }
   /* Row 1: checkbox | name | cost */
-  .subtask-check       { grid-column: 1; grid-row: 1; align-self: center; }
-  .subtask-name-input  { grid-column: 2; grid-row: 1; font-size: 13px; }
-  .subtask-cost        { grid-column: 3; grid-row: 1; align-self: center; font-size: 13px; }
-  /* Row 2: [gap] | responsible | hours  (type hidden on mobile) */
-  .subtask-resp-select { grid-column: 2; grid-row: 2; font-size: 13px; }
-  .subtask-hours-input { grid-column: 3; grid-row: 2; width: 58px; font-size: 13px; }
+  .subtask-check      { grid-column: 1; grid-row: 1; align-self: start; margin-top: 6px; }
+  .subtask-name-input { grid-column: 2; grid-row: 1; font-size: 13px; margin-top: 0; }
+  .subtask-cost       { grid-column: 3; grid-row: 1; align-self: start; font-size: 13px; margin-top: 6px; }
+  /* Row 2: assignees block spans full remaining width */
+  .subtask-assignees  { grid-column: 2 / 4; grid-row: 2; }
   .subtask-type-select { display: none; }
 
   /* Add/remove */
@@ -1384,7 +1462,7 @@ body { background: var(--page-bg); }
   .preview-outer { padding: 16px; }
   .preview-doc   { padding: 24px 20px; }
   .doc-title     { font-size: 20px; }
-  .doc-hours-grid { grid-template-columns: 1fr 1fr; }
+  .doc-hours-grid { grid-template-columns: 1fr 1fr; } /* 2-col on small screens */
 
   /* Additional videos (microvideo) */
   .additional-video-row { flex-wrap: wrap; gap: 8px; }

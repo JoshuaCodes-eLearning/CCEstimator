@@ -4,24 +4,35 @@ import CategoryBlock from './components/CategoryBlock'
 import TotalsBar     from './components/TotalsBar'
 import ExportPreview from './components/ExportPreview'
 import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
-import { computeHours } from './utils/calc'
+import { computeAssigneeHoursForTask } from './utils/calc'
 
 export { CAT_LABELS }
 
 const CAT_KEYS = ['microvideo', 'rise360', 'storyline360']
+
+function initAssignees(assignees) {
+  return (assignees ?? []).map(a => ({ ...a, baseHours: a.hours }))
+}
 
 function initCat(key) {
   return {
     collapsed:         true,
     additionalMinutes: 0,
     adaEnabled:        false,
-    tasks:        DEFAULT_TASKS[key].map(t => ({ ...t, baseHours: t.hours, included: true })),
+    tasks: DEFAULT_TASKS[key].map(t => ({
+      ...t,
+      included:  t.included !== false,
+      assignees: initAssignees(t.assignees),
+    })),
     removedStack: [],
     moduleCount:  1,
     additionalVideos: [],
     secondState: {
       collapsed:    true,
-      tasks:        DEFAULT_SECOND_STATE_TASKS[key].map(t => ({ ...t, baseHours: t.hours })),
+      tasks:        DEFAULT_SECOND_STATE_TASKS[key].map(t => ({
+        ...t,
+        assignees: initAssignees(t.assignees),
+      })),
       removedStack: [],
     },
   }
@@ -46,7 +57,7 @@ export default function App() {
     setSelected(s => ({ ...s, [key]: !s[key] }))
   }
 
-  // ── Category-level state (collapsed, addedMin, ada) ──────
+  // ── Category-level state ─────────────────────────────────
   function updateCat(key, patch) {
     setCatStates(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }))
   }
@@ -70,7 +81,13 @@ export default function App() {
         collapsed: false,
         tasks: [
           ...prev[catKey].tasks,
-          { id: `new-${Date.now()}`, name: 'New subtask', responsible: 'Megan', baseHours: 1, type: 'Fixed', included: true },
+          {
+            id: `new-${Date.now()}`,
+            name: 'New subtask',
+            type: 'Fixed',
+            included: true,
+            assignees: [{ person: 'Megan', baseHours: 1, hours: 1 }],
+          },
         ],
       },
     }))
@@ -139,7 +156,13 @@ export default function App() {
           collapsed: false,
           tasks: [
             ...prev[catKey].secondState.tasks,
-            { id: `new-s-${Date.now()}`, name: 'New subtask', responsible: 'Megan', baseHours: 1, type: 'Fixed', included: true },
+            {
+              id: `new-s-${Date.now()}`,
+              name: 'New subtask',
+              type: 'Fixed',
+              included: true,
+              assignees: [{ person: 'Megan', baseHours: 1, hours: 1 }],
+            },
           ],
         },
       },
@@ -159,6 +182,25 @@ export default function App() {
             ...prev[catKey].secondState,
             tasks:        tasks.slice(0, -1),
             removedStack: [...prev[catKey].secondState.removedStack, removed],
+          },
+        },
+      }
+    })
+  }
+
+  function undoLastSecondStateRemove(catKey) {
+    setCatStates(prev => {
+      const stack = prev[catKey].secondState.removedStack
+      if (stack.length === 0) return prev
+      const restored = stack[stack.length - 1]
+      return {
+        ...prev,
+        [catKey]: {
+          ...prev[catKey],
+          secondState: {
+            ...prev[catKey].secondState,
+            tasks:        [...prev[catKey].secondState.tasks, restored],
+            removedStack: stack.slice(0, -1),
           },
         },
       }
@@ -201,29 +243,10 @@ export default function App() {
     }))
   }
 
-  function undoLastSecondStateRemove(catKey) {
-    setCatStates(prev => {
-      const stack = prev[catKey].secondState.removedStack
-      if (stack.length === 0) return prev
-      const restored = stack[stack.length - 1]
-      return {
-        ...prev,
-        [catKey]: {
-          ...prev[catKey],
-          secondState: {
-            ...prev[catKey].secondState,
-            tasks:        [...prev[catKey].secondState.tasks, restored],
-            removedStack: stack.slice(0, -1),
-          },
-        },
-      }
-    })
-  }
-
   // ── Compute totals ───────────────────────────────────────
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
-  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0 }
+  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0 }
   const categoryCosts = {}
 
   for (const catKey of selectedKeys) {
@@ -233,17 +256,21 @@ export default function App() {
       let totalCost = 0
       for (const task of cat.tasks) {
         if (!task.included) continue
-        const h = computeHours(task, catKey, cat.additionalMinutes)
-        memberHours[task.responsible] += h
-        totalCost += h * (RATES[task.responsible] ?? 0)
+        for (const a of task.assignees ?? []) {
+          const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
+          if (memberHours[a.person] !== undefined) memberHours[a.person] += h
+          totalCost += h * (RATES[a.person] ?? 0)
+        }
       }
       for (const video of (cat.additionalVideos ?? [])) {
         const addedMin = video.minutes - DEFAULT_MINUTES[catKey]
         for (const task of (cat.secondState?.tasks ?? [])) {
           if (!task.included) continue
-          const h = computeHours(task, catKey, addedMin)
-          memberHours[task.responsible] += h
-          totalCost += h * (RATES[task.responsible] ?? 0)
+          for (const a of task.assignees ?? []) {
+            const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+            if (memberHours[a.person] !== undefined) memberHours[a.person] += h
+            totalCost += h * (RATES[a.person] ?? 0)
+          }
         }
       }
       categoryCosts[catKey] = totalCost
@@ -252,17 +279,21 @@ export default function App() {
       let mod1BaseSum = 0
       for (const task of cat.tasks) {
         if (!task.included) continue
-        const h = computeHours(task, catKey, cat.additionalMinutes)
-        memberHours[task.responsible] += h
-        mod1BaseSum += h * (RATES[task.responsible] ?? 0)
+        for (const a of task.assignees ?? []) {
+          const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
+          if (memberHours[a.person] !== undefined) memberHours[a.person] += h
+          mod1BaseSum += h * (RATES[a.person] ?? 0)
+        }
       }
       let mod2PerModule = 0
       if (extraModules > 0 && cat.secondState) {
         for (const task of cat.secondState.tasks) {
           if (!task.included) continue
-          const h = computeHours(task, catKey, cat.additionalMinutes)
-          memberHours[task.responsible] += h * extraModules
-          mod2PerModule += h * (RATES[task.responsible] ?? 0)
+          for (const a of task.assignees ?? []) {
+            const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
+            if (memberHours[a.person] !== undefined) memberHours[a.person] += h * extraModules
+            mod2PerModule += h * (RATES[a.person] ?? 0)
+          }
         }
       }
       const combinedBase = mod1BaseSum + mod2PerModule * extraModules
@@ -271,9 +302,9 @@ export default function App() {
     }
   }
 
-  const internalCost      = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
-  const marginMultiplier  = 1 / (1 - marginPct / 100)
-  const clientPrice       = internalCost * marginMultiplier
+  const internalCost     = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
+  const marginMultiplier = 1 / (1 - marginPct / 100)
+  const clientPrice      = internalCost * marginMultiplier
 
   const activeMembers = Object.fromEntries(
     Object.entries(memberHours).filter(([, h]) => h > 0)
@@ -305,7 +336,6 @@ export default function App() {
 
       <main className="app-main">
 
-        {/* Project / Course name */}
         <div className="project-card">
           <div className="field-group">
             <div>
@@ -323,7 +353,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Category selector chips */}
         <div className="categories-section">
           <p className="categories-label">
             Select categories — only checked ones appear below
@@ -346,7 +375,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Category blocks */}
         <div className="blocks">
           {CAT_KEYS.map(key =>
             selected[key] ? (
@@ -356,27 +384,26 @@ export default function App() {
                 label={CAT_LABELS[key]}
                 cat={catStates[key]}
                 hasAda={key !== 'microvideo'}
-                onUpdate={patch           => updateCat(key, patch)}
-                onUpdateTask={(id, patch) => updateTask(key, id, patch)}
-                onAddTask={()             => addTask(key)}
-                onRemoveTask={()          => removeLastTask(key)}
-                onUndoRemove={()          => undoLastRemove(key)}
+                onUpdate={patch                  => updateCat(key, patch)}
+                onUpdateTask={(id, patch)        => updateTask(key, id, patch)}
+                onAddTask={()                    => addTask(key)}
+                onRemoveTask={()                 => removeLastTask(key)}
+                onUndoRemove={()                 => undoLastRemove(key)}
                 canUndo={catStates[key].removedStack.length > 0}
-                onUpdateSecondState={patch           => updateSecondState(key, patch)}
-                onUpdateSecondStateTask={(id, patch) => updateSecondStateTask(key, id, patch)}
-                onAddSecondStateTask={()             => addSecondStateTask(key)}
-                onRemoveSecondStateTask={()          => removeLastSecondStateTask(key)}
-                onUndoSecondStateRemove={()          => undoLastSecondStateRemove(key)}
+                onUpdateSecondState={patch                  => updateSecondState(key, patch)}
+                onUpdateSecondStateTask={(id, patch)        => updateSecondStateTask(key, id, patch)}
+                onAddSecondStateTask={()                    => addSecondStateTask(key)}
+                onRemoveSecondStateTask={()                 => removeLastSecondStateTask(key)}
+                onUndoSecondStateRemove={()                 => undoLastSecondStateRemove(key)}
                 canUndoSecond={catStates[key].secondState.removedStack.length > 0}
-                onAddVideo={()                       => addVideo(key)}
-                onRemoveVideo={videoId               => removeVideo(key, videoId)}
-                onUpdateVideoMinutes={(videoId, mins) => updateVideoMinutes(key, videoId, mins)}
+                onAddVideo={()                              => addVideo(key)}
+                onRemoveVideo={videoId                      => removeVideo(key, videoId)}
+                onUpdateVideoMinutes={(videoId, mins)       => updateVideoMinutes(key, videoId, mins)}
               />
             ) : null
           )}
         </div>
 
-        {/* Totals bar */}
         {selectedKeys.length > 0 && (
           <TotalsBar
             memberHours={activeMembers}

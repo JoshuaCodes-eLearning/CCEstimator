@@ -1,19 +1,37 @@
 import { RATES, ADA_RATES, DEFAULT_MINUTES } from '../config/config'
 
-// Defensive: fall back to task.hours if baseHours not yet set
-function base(task) {
-  return task.baseHours ?? task.hours ?? 0
-}
-
-export function computeHours(task, catKey, addedMin) {
-  if (task.type === 'Fixed') return base(task)
+// Hours for one assignee within a task (respects Fixed vs Dynamic scaling)
+export function computeAssigneeHoursForTask(assignee, task, catKey, addedMin) {
+  const bh = assignee.baseHours ?? assignee.hours ?? 0
+  if (task.type === 'Fixed') return bh
   const defMin = DEFAULT_MINUTES[catKey]
-  if (!defMin) return base(task)
-  return base(task) * (defMin + addedMin) / defMin
+  if (!defMin) return bh
+  return bh * (defMin + addedMin) / defMin
 }
 
+// Total hours across all assignees for a task
+export function computeHours(task, catKey, addedMin) {
+  const assignees = task.assignees ?? []
+  if (assignees.length === 0) {
+    const bh = task.baseHours ?? task.hours ?? 0
+    if (task.type === 'Fixed') return bh
+    const defMin = DEFAULT_MINUTES[catKey]
+    if (!defMin) return bh
+    return bh * (defMin + addedMin) / defMin
+  }
+  return assignees.reduce((sum, a) => sum + computeAssigneeHoursForTask(a, task, catKey, addedMin), 0)
+}
+
+// Total cost across all assignees for a task
 export function lineCost(task, catKey, addedMin) {
-  return computeHours(task, catKey, addedMin) * (RATES[task.responsible] ?? 0)
+  const assignees = task.assignees ?? []
+  if (assignees.length === 0) {
+    return computeHours(task, catKey, addedMin) * (RATES[task.responsible] ?? 0)
+  }
+  return assignees.reduce((sum, a) => {
+    const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+    return sum + h * (RATES[a.person] ?? 0)
+  }, 0)
 }
 
 export function fmt(n) {

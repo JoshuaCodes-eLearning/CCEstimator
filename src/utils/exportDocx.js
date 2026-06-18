@@ -4,7 +4,7 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeHours, lineCost } from './calc'
+import { computeAssigneeHoursForTask } from './calc'
 import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES } from '../config/config'
 
 const NAVY       = '1E2D3D'
@@ -74,27 +74,27 @@ function sectionLabelPara(text) {
 
 function taskTable(tasks, catKey, addedMin) {
   const COL_W = [44, 14, 10, 14, 18]
-  const rows = [
-    new TableRow({
-      children: ['TASK', 'WHO', 'HRS', 'TYPE', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
-      tableHeader: true,
-    }),
-    ...tasks.map(task => {
-      const hrs  = computeHours(task, catKey, addedMin)
-      const cost = lineCost(task, catKey, addedMin)
+  const headerRow = new TableRow({
+    children: ['TASK', 'WHO', 'HRS', 'TYPE', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
+    tableHeader: true,
+  })
+  const dataRows = tasks.flatMap(task =>
+    (task.assignees ?? []).map((a, idx) => {
+      const hrs  = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+      const cost = hrs * (RATES[a.person] ?? 0)
       return new TableRow({
         children: [
-          dataCell(task.name,                                                        { width: COL_W[0] }),
-          dataCell(task.responsible,                                                 { width: COL_W[1] }),
-          dataCell(Math.round(hrs * 10) / 10, { align: AlignmentType.CENTER,         width: COL_W[2] }),
-          dataCell(task.type,                                                        { width: COL_W[3] }),
-          dataCell(fmtNum(cost),              { align: AlignmentType.RIGHT,          width: COL_W[4] }),
+          dataCell(idx === 0 ? task.name : '',   { width: COL_W[0] }),
+          dataCell(a.person,                      { width: COL_W[1] }),
+          dataCell(Math.round(hrs * 10) / 10,    { align: AlignmentType.CENTER, width: COL_W[2] }),
+          dataCell(idx === 0 ? task.type : '',   { width: COL_W[3] }),
+          dataCell(fmtNum(cost),                 { align: AlignmentType.RIGHT,  width: COL_W[4] }),
         ],
       })
-    }),
-  ]
+    })
+  )
   return new Table({
-    rows,
+    rows: [headerRow, ...dataRows],
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
   })
@@ -169,7 +169,9 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
     const mod1Tasks = cat.tasks.filter(t => t.included)
     let mod1BaseSum = 0
     mod1Tasks.forEach(t => {
-      mod1BaseSum += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
+      ;(t.assignees ?? []).forEach(a => {
+        mod1BaseSum += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
+      })
     })
 
     const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
@@ -181,7 +183,9 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
         const vAddedMin = video.minutes - defMin
         let cost = 0
         secondTasks.forEach(t => {
-          cost += computeHours(t, catKey, vAddedMin) * (RATES[t.responsible] ?? 0)
+          ;(t.assignees ?? []).forEach(a => {
+            cost += computeAssigneeHoursForTask(a, t, catKey, vAddedMin) * (RATES[a.person] ?? 0)
+          })
         })
         return { video, cost }
       })
@@ -227,7 +231,9 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       // ── Rise / Storyline section ────────────────────────────
       let secondPerModule = 0
       secondTasks.forEach(t => {
-        secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
+        ;(t.assignees ?? []).forEach(a => {
+          secondPerModule += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
+        })
       })
       const secondTotalCost = secondPerModule * extraModules
       const combinedBase = mod1BaseSum + secondTotalCost

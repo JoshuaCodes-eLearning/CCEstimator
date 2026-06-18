@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeHours, fmt } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const COLLAPSED_ROWS = 2
@@ -77,11 +77,13 @@ export default function CategoryBlock({
   const memberMap = {}
   for (const task of tasks) {
     if (!task.included) continue
-    const h = computeHours(task, catKey, additionalMinutes)
-    const c = h * (RATES[task.responsible] ?? 0)
-    if (!memberMap[task.responsible]) memberMap[task.responsible] = { hours: 0, cost: 0 }
-    memberMap[task.responsible].hours += h
-    memberMap[task.responsible].cost  += c
+    for (const a of task.assignees ?? []) {
+      const h = computeAssigneeHoursForTask(a, task, catKey, additionalMinutes)
+      const c = h * (RATES[a.person] ?? 0)
+      if (!memberMap[a.person]) memberMap[a.person] = { hours: 0, cost: 0 }
+      memberMap[a.person].hours += h
+      memberMap[a.person].cost  += c
+    }
   }
   const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0)
   const hasIncluded = Object.keys(memberMap).length > 0
@@ -99,8 +101,10 @@ export default function CategoryBlock({
         let cost = 0
         for (const task of secondTasks) {
           if (!task.included) continue
-          const h = computeHours(task, catKey, addedMin)
-          cost += h * (RATES[task.responsible] ?? 0)
+          for (const a of task.assignees ?? []) {
+            const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+            cost += h * (RATES[a.person] ?? 0)
+          }
         }
         return { video, cost }
       })
@@ -112,11 +116,13 @@ export default function CategoryBlock({
   if (!isMicrovideo && extraModules > 0) {
     for (const task of secondTasks) {
       if (!task.included) continue
-      const h = computeHours(task, catKey, additionalMinutes)
-      const c = h * (RATES[task.responsible] ?? 0)
-      if (!secondMemberMap[task.responsible]) secondMemberMap[task.responsible] = { hours: 0, cost: 0 }
-      secondMemberMap[task.responsible].hours += h
-      secondMemberMap[task.responsible].cost  += c
+      for (const a of task.assignees ?? []) {
+        const h = computeAssigneeHoursForTask(a, task, catKey, additionalMinutes)
+        const c = h * (RATES[a.person] ?? 0)
+        if (!secondMemberMap[a.person]) secondMemberMap[a.person] = { hours: 0, cost: 0 }
+        secondMemberMap[a.person].hours += h
+        secondMemberMap[a.person].cost  += c
+      }
     }
   }
   const secondPerModule   = Object.values(secondMemberMap).reduce((s, m) => s + m.cost, 0)
@@ -206,8 +212,7 @@ export default function CategoryBlock({
         {!collapsed && (
           <div className="subtask-cols">
             <span /><span className="col-label">Task</span>
-            <span className="col-label">Responsible</span>
-            <span className="col-label">Hrs</span>
+            <span className="col-label">Responsible / Hrs</span>
             <span className="col-label">Type</span>
             <span className="col-label col-label--right">Line Cost</span>
           </div>
@@ -216,11 +221,10 @@ export default function CategoryBlock({
         {/* Task rows */}
         {visibleTasks.map(task => (
           <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
-            onToggle={()         => onUpdateTask(task.id, { included: !task.included })}
-            onNameChange={v      => onUpdateTask(task.id, { name: v })}
-            onRespChange={v      => onUpdateTask(task.id, { responsible: v })}
-            onBaseHoursChange={v => onUpdateTask(task.id, { baseHours: v })}
-            onTypeChange={v      => onUpdateTask(task.id, { type: v })}
+            onToggle={()                  => onUpdateTask(task.id, { included: !task.included })}
+            onNameChange={v               => onUpdateTask(task.id, { name: v })}
+            onUpdateAssignees={assignees  => onUpdateTask(task.id, { assignees })}
+            onTypeChange={v               => onUpdateTask(task.id, { type: v })}
           />
         ))}
 
@@ -348,11 +352,10 @@ export default function CategoryBlock({
 
             {visibleSecondTasks.map(task => (
               <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={0}
-                onToggle={()         => onUpdateSecondStateTask(task.id, { included: !task.included })}
-                onNameChange={v      => onUpdateSecondStateTask(task.id, { name: v })}
-                onRespChange={v      => onUpdateSecondStateTask(task.id, { responsible: v })}
-                onBaseHoursChange={v => onUpdateSecondStateTask(task.id, { baseHours: v })}
-                onTypeChange={v      => onUpdateSecondStateTask(task.id, { type: v })}
+                onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
+                onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
+                onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
+                onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
               />
             ))}
 
@@ -411,11 +414,10 @@ export default function CategoryBlock({
 
             {visibleSecondTasks.map(task => (
               <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={additionalMinutes}
-                onToggle={()         => onUpdateSecondStateTask(task.id, { included: !task.included })}
-                onNameChange={v      => onUpdateSecondStateTask(task.id, { name: v })}
-                onRespChange={v      => onUpdateSecondStateTask(task.id, { responsible: v })}
-                onBaseHoursChange={v => onUpdateSecondStateTask(task.id, { baseHours: v })}
-                onTypeChange={v      => onUpdateSecondStateTask(task.id, { type: v })}
+                onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
+                onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
+                onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
+                onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
               />
             ))}
 

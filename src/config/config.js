@@ -1,25 +1,21 @@
 // ============================================================
 // CCEstimator — Central Configuration
 // All rates, percentages, and default task data live here.
-// Change a value here and it updates everywhere in the app.
 // ============================================================
 
-// Laurie's rate CONFIRMED at $75
 export const RATES = {
-  Megan: 50,
-  Michelle: 65,
-  Laurie: 75,
-};
+  Megan:        50,
+  Michelle:     65,
+  Laurie:       75,
+  'QA Resource': 50,
+}
 
-// ADA uplift applied to category subtotal (not hours)
 export const ADA_RATES = {
-  microvideo: 0,      // No ADA option for Microvideo
-  rise360: 0.10,      // +10%
-  storyline360: 0.10, // +10% (same as Rise 360)
-};
+  microvideo:   0,
+  rise360:      0.10,
+  storyline360: 0.10,
+}
 
-// Profit margin options (as % of client price). Default is 50%.
-// Client price = internal cost / (1 - margin/100)
 export const MARGIN_OPTIONS     = [40, 45, 50]
 export const DEFAULT_MARGIN_PCT = 50
 
@@ -29,80 +25,283 @@ export const CAT_LABELS = {
   storyline360: 'Storyline 360',
 }
 
-// Default length in minutes per category
 export const DEFAULT_MINUTES = {
-  microvideo: 5,
-  rise360: 15,
+  microvideo:   5,
+  rise360:      15,
   storyline360: 15,
-};
+}
 
 // ============================================================
 // DEFAULT TASK DATA
-// Format per task: { id, name, responsible, hours, type }
-//   type: 'Fixed' | 'Dynamic'
-// OPEN ITEM: Dynamic/Fixed assignment is a placeholder —
-//   Laurie to confirm with Michelle which tasks scale with minutes.
-// OPEN ITEM: 'Team' responsible is a placeholder —
-//   Laurie to confirm how Team hours should be assigned.
+// Each task: { id, name, type, included?, assignees: [{ person, hours }] }
+// included defaults to true — set false to start unchecked.
+// type: 'Fixed' | 'Dynamic'
 // ============================================================
 
 export const DEFAULT_TASKS = {
+
+  // ── MICROVIDEO (5 min default) ───────────────────────────
   microvideo: [
-    { id: 'mv-1',  name: 'Sales meetings / SOW',                                    responsible: 'Laurie',   hours: 3,  type: 'Fixed' },
-    { id: 'mv-2',  name: 'Discovery',                                                responsible: 'Megan',    hours: 1,  type: 'Fixed' },
-    { id: 'mv-3',  name: '1 SME meeting for storyboard',                             responsible: 'Megan',    hours: 1,  type: 'Fixed' },
-    { id: 'mv-4',  name: 'Internal meetings, client kickoff and status meetings',    responsible: 'Laurie',   hours: 6,  type: 'Fixed' },   // OPEN ITEM: 'Team' — assigned to Laurie as placeholder
-    { id: 'mv-5',  name: 'Development: title, outro, AI narration, record screens, captions (VTT), QA/revisions, annotations, callouts, zooms', responsible: 'Megan', hours: 5, type: 'Dynamic' }, // OPEN ITEM: responsible confirmed as Megan placeholder
-    { id: 'mv-6',  name: 'Storyboard (Michelle)',                                    responsible: 'Michelle', hours: 2,  type: 'Dynamic' },
-    { id: 'mv-7',  name: 'Storyboard (Megan)',                                       responsible: 'Megan',    hours: 1,  type: 'Dynamic' },
-    { id: 'mv-8',  name: 'Lessons-learned meeting',                                  responsible: 'Laurie',   hours: 2,  type: 'Fixed' },   // OPEN ITEM: 'Team'
-    { id: 'mv-9',  name: 'Email / Teams communication',                              responsible: 'Laurie',   hours: 2,  type: 'Fixed' },   // OPEN ITEM: 'Team'
-    { id: 'mv-10', name: 'Project management',                                       responsible: 'Laurie',   hours: 2,  type: 'Fixed' },
-    { id: 'mv-11', name: 'Project coordination',                                     responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 'mv-12', name: 'Logo stinger',                                             responsible: 'Megan',    hours: 2,  type: 'Fixed' },
+    {
+      id: 'mv-2', name: 'Discovery', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 1 }],
+    },
+    {
+      id: 'mv-hldd', name: 'HLDD', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 1 }],
+    },
+    {
+      id: 'mv-4', name: 'Internal meetings, client kickoff and status meetings', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 2.5 },
+        { person: 'Michelle', hours: 2   },
+        { person: 'Megan',    hours: 3.5 },
+      ],
+    },
+    {
+      id: 'mv-5',
+      name: 'Development: title, outro, AI narration, record screens, captions (VTT), QA/revisions, annotations, callouts, zooms',
+      type: 'Dynamic',
+      assignees: [{ person: 'Megan', hours: 8 }],
+    },
+    {
+      id: 'mv-vo', name: 'Voice-over / Narration / VTT / Music', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 2.5 }],
+    },
+    {
+      id: 'mv-6', name: 'Storyboard', type: 'Dynamic',
+      assignees: [
+        { person: 'Michelle', hours: 6  },
+        { person: 'Megan',    hours: 10 },
+      ],
+    },
+    {
+      id: 'mv-ip', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 4 }],
+    },
+    {
+      id: 'mv-8', name: 'Lessons-learned meeting', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 2    },
+        { person: 'Michelle', hours: 1.25 },
+        { person: 'Megan',    hours: 1.25 },
+      ],
+    },
+    {
+      id: 'mv-qa1', name: 'QA 1', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 0.5 }],
+    },
+    {
+      id: 'mv-qa2', name: 'QA 2', type: 'Fixed',
+      assignees: [{ person: 'QA Resource', hours: 2 }],
+    },
+    {
+      id: 'mv-10', name: 'Project management', type: 'Fixed',
+      assignees: [{ person: 'Laurie', hours: 9 }],
+    },
+    {
+      id: 'mv-11', name: 'Project coordination', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 6 }],
+    },
+    {
+      id: 'mv-12', name: 'Logo stinger', type: 'Fixed', included: false,
+      assignees: [{ person: 'Megan', hours: 2 }],
+    },
+    {
+      id: 'mv-veo', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
+      assignees: [{ person: 'Michelle', hours: 6 }],
+    },
+    {
+      id: 'mv-img', name: 'Up to 5 custom AI images', type: 'Fixed', included: false,
+      assignees: [{ person: 'Michelle', hours: 3 }],
+    },
+    {
+      id: 'mv-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      assignees: [{ person: 'Laurie', hours: 3 }],
+    },
   ],
 
+  // ── RISE 360 (15 min default) ────────────────────────────
   rise360: [
-    { id: 'r-1',  name: 'Sales meetings / SOW',                                                                                       responsible: 'Laurie',   hours: 3,  type: 'Fixed' },
-    { id: 'r-2',  name: 'Discovery',                                                                                                  responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 'r-3',  name: 'Internal meetings, client kickoff and status meetings',                                                      responsible: 'Laurie',   hours: 1,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 'r-4',  name: '2 SME meetings for storyboard',                                                                             responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 'r-5',  name: 'HLDD',                                                                                                      responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 'r-6',  name: 'Storyboards – 1 per lesson, avg. 6 lessons plus Welcome and Summary',                                      responsible: 'Michelle', hours: 60, type: 'Dynamic' },
-    { id: 'r-7',  name: 'Modify existing templates / prototypes',                                                                    responsible: 'Megan',    hours: 1,  type: 'Fixed' },
-    { id: 'r-8',  name: 'Development: Welcome, Summary, title screen, 3 KC and 5 interaction slides per lesson, 10 quiz questions, QA/revisions, SCORM package', responsible: 'Megan', hours: 36, type: 'Dynamic' },
-    { id: 'r-9',  name: 'Lessons-learned meeting',                                                                                   responsible: 'Laurie',   hours: 2,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 'r-10', name: 'Image procurement',                                                                                         responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 'r-11', name: 'Email / Teams communication',                                                                               responsible: 'Laurie',   hours: 2,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 'r-12', name: 'Project management',                                                                                        responsible: 'Laurie',   hours: 2,  type: 'Fixed' },
-    { id: 'r-13', name: 'Project coordination',                                                                                      responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios',                                                                    responsible: 'Michelle', hours: 6,  type: 'Dynamic' },
-    { id: 'r-15', name: 'Up to 5 custom images',                                                                                     responsible: 'Megan',    hours: 3,  type: 'Fixed' },
+    {
+      id: 'r-2', name: 'Discovery', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 2 }],
+    },
+    {
+      id: 'r-3', name: 'Internal meetings, client kickoff and status meetings', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 4 },
+        { person: 'Megan',    hours: 2 },
+        { person: 'Michelle', hours: 2 },
+      ],
+    },
+    {
+      id: 'r-5', name: 'HLDD', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 2 }],
+    },
+    {
+      id: 'r-6',
+      name: 'Storyboards – 1 per lesson, avg. 6 lessons plus Welcome and Summary',
+      type: 'Dynamic',
+      assignees: [{ person: 'Michelle', hours: 13 }],
+    },
+    {
+      id: 'r-7', name: 'Modify existing templates / prototypes', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 1.5 }],
+    },
+    {
+      id: 'r-8',
+      name: 'Development: Welcome, Summary, title screen, 3 KC and 5 interaction slides per lesson, 10 quiz questions, revisions, SCORM package',
+      type: 'Dynamic',
+      assignees: [{ person: 'Megan', hours: 10 }],
+    },
+    {
+      id: 'r-qa1', name: 'QA 1', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 2 }],
+    },
+    {
+      id: 'r-qa2', name: 'QA 2', type: 'Fixed',
+      assignees: [{ person: 'QA Resource', hours: 3 }],
+    },
+    {
+      // Note: source doc reads "Laurie 3.25, Megan 1.25, Laurie 1.25" — third person assumed Michelle (likely typo)
+      id: 'r-9', name: 'Lessons Learned', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 3.25 },
+        { person: 'Megan',    hours: 1.25 },
+        { person: 'Michelle', hours: 1.25 },
+      ],
+    },
+    {
+      id: 'r-10', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 4 }],
+    },
+    {
+      id: 'r-12', name: 'Project management', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 3.5 },
+        { person: 'Michelle', hours: 1   },
+        { person: 'Megan',    hours: 1.5 },
+      ],
+    },
+    {
+      id: 'r-13', name: 'Project coordination', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 3 }],
+    },
+    {
+      id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic',
+      assignees: [{ person: 'Michelle', hours: 6 }],
+    },
+    {
+      id: 'r-15', name: 'Up to 5 custom AI images', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 3 }],
+    },
+    {
+      id: 'r-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      assignees: [{ person: 'Laurie', hours: 3 }],
+    },
   ],
 
+  // ── STORYLINE 360 (15 min default) ──────────────────────
   storyline360: [
-    { id: 's-1',  name: 'Sales meetings / SOW',                                                                                                                        responsible: 'Laurie',   hours: 3,  type: 'Fixed' },
-    { id: 's-2',  name: 'Discovery',                                                                                                                                   responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 's-3',  name: 'Internal meetings, client kickoff and status meetings',                                                                                       responsible: 'Laurie',   hours: 6,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 's-4',  name: '2 SME meetings for storyboard',                                                                                                              responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 's-5',  name: 'HLDD',                                                                                                                                        responsible: 'Michelle', hours: 2,  type: 'Fixed' },
-    { id: 's-6',  name: 'Storyboards – 1 per lesson, avg. 6 lessons plus Welcome and Summary',                                                                       responsible: 'Michelle', hours: 60, type: 'Dynamic' },
-    { id: 's-7',  name: 'Modify existing templates / prototypes',                                                                                                     responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 's-8',  name: 'Development: 3 KC and 3 interaction slides per lesson, Welcome, Summary, title screens, 10 quiz questions, animation on 90% of slides, AI voice, captions, SCORM package, upload all sources, QA/revisions', responsible: 'Megan', hours: 20, type: 'Dynamic' },
-    { id: 's-9',  name: 'Lessons-learned meeting',                                                                                                                    responsible: 'Laurie',   hours: 2,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 's-10', name: 'Image procurement',                                                                                                                          responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 's-11', name: 'Email / Teams communication',                                                                                                                responsible: 'Laurie',   hours: 2,  type: 'Fixed' },  // OPEN ITEM: 'Team'
-    { id: 's-12', name: 'Project management',                                                                                                                         responsible: 'Laurie',   hours: 2,  type: 'Fixed' },
-    { id: 's-13', name: 'Project coordination',                                                                                                                       responsible: 'Megan',    hours: 2,  type: 'Fixed' },
-    { id: 's-14', name: 'Up to 5 min of VEO3 / Vyond scenarios',                                                                                                     responsible: 'Michelle', hours: 6,  type: 'Dynamic' },
-    { id: 's-15', name: 'Up to 5 min of software simulations',                                                                                                        responsible: 'Michelle', hours: 6,  type: 'Dynamic' },
-    { id: 's-16', name: 'Up to 5 custom images',                                                                                                                      responsible: 'Megan',    hours: 3,  type: 'Fixed' },
+    {
+      id: 's-2', name: 'Discovery', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 2 }],
+    },
+    {
+      id: 's-3', name: 'Internal meetings, client kickoff and status meetings', type: 'Fixed',
+      assignees: [
+        { person: 'Laurie',   hours: 5 },
+        { person: 'Megan',    hours: 7 },
+        { person: 'Michelle', hours: 3 },
+      ],
+    },
+    {
+      id: 's-5', name: 'HLDD', type: 'Fixed',
+      assignees: [{ person: 'Michelle', hours: 4 }],
+    },
+    {
+      id: 's-6', name: 'Storyboard', type: 'Dynamic',
+      assignees: [
+        { person: 'Michelle', hours: 9 },
+        { person: 'Megan',    hours: 3 },
+      ],
+    },
+    {
+      id: 's-7', name: 'Prototype', type: 'Fixed',
+      assignees: [
+        { person: 'Megan',    hours: 4 },
+        { person: 'Michelle', hours: 1 },
+      ],
+    },
+    {
+      id: 's-8',
+      name: 'Development: 3 KC and 3 interaction slides per lesson, Welcome, Summary, title screens, 10 quiz questions, animation on 90% of slides, captions, SCORM package, upload all sources, revisions',
+      type: 'Dynamic',
+      assignees: [
+        { person: 'Megan',    hours: 20 },
+        { person: 'Michelle', hours: 3  },
+      ],
+    },
+    {
+      id: 's-narr', name: 'Narration / VTT', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 2.5 }],
+    },
+    {
+      id: 's-qa1', name: 'QA 1', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 4 }],
+    },
+    {
+      id: 's-qa2', name: 'QA 2', type: 'Fixed',
+      assignees: [{ person: 'QA Resource', hours: 3 }],
+    },
+    {
+      id: 's-9', name: 'Lessons Learned', type: 'Fixed',
+      assignees: [
+        { person: 'Megan',    hours: 2.5  },
+        { person: 'Michelle', hours: 1.25 },
+        { person: 'Laurie',   hours: 2    },
+      ],
+    },
+    {
+      id: 's-10', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 5 }],
+    },
+    {
+      id: 's-12', name: 'Project management', type: 'Fixed',
+      assignees: [{ person: 'Laurie', hours: 6 }],
+    },
+    {
+      id: 's-13', name: 'Project coordination', type: 'Fixed',
+      assignees: [
+        { person: 'Megan',    hours: 15 },
+        { person: 'Michelle', hours: 2  },
+      ],
+    },
+    {
+      id: 's-logo', name: 'Logo Stinger', type: 'Fixed', included: false,
+      assignees: [{ person: 'Megan', hours: 2 }],
+    },
+    {
+      id: 's-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
+      assignees: [{ person: 'Michelle', hours: 6 }],
+    },
+    {
+      id: 's-15', name: 'Up to 5 min of software simulations', type: 'Dynamic', included: false,
+      assignees: [{ person: 'Michelle', hours: 6 }],
+    },
+    {
+      id: 's-16', name: 'Up to 5 custom images', type: 'Fixed', included: false,
+      assignees: [{ person: 'Megan', hours: 3 }],
+    },
+    {
+      id: 's-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      assignees: [{ person: 'Laurie', hours: 3 }],
+    },
   ],
-};
+}
 
-// OPEN ITEM: Update specific tasks to included: false once Laurie decides which
-// initiation tasks to exclude from modules 2–N.
-// Currently ALL tasks start unchecked — user checks what applies.
+// Second-state template: same tasks, all unchecked by default
 export const DEFAULT_SECOND_STATE_TASKS = Object.fromEntries(
   Object.entries(DEFAULT_TASKS).map(([cat, tasks]) => [
     cat,

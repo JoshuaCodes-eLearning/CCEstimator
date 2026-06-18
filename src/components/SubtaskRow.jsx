@@ -1,25 +1,14 @@
 import { useState } from 'react'
-import { computeHours, lineCost, fmt } from '../utils/calc'
-import { DEFAULT_MINUTES } from '../config/config'
+import { computeAssigneeHoursForTask, lineCost, fmt } from '../utils/calc'
+import { DEFAULT_MINUTES, RATES } from '../config/config'
 
-export default function SubtaskRow({
-  task,
-  catKey,
-  addedMin,
-  onToggle,
-  onNameChange,
-  onRespChange,
-  onBaseHoursChange,
-  onTypeChange,
-}) {
+const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource']
+
+// One person + hours line within a subtask
+function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChange, onHoursChange, onRemove }) {
   const defMin   = DEFAULT_MINUTES[catKey] ?? 1
-  const effHours = computeHours(task, catKey, addedMin)
-  const cost     = task.included !== false ? lineCost(task, catKey, addedMin) : null
-  const excluded = task.included === false
+  const effHours = computeAssigneeHoursForTask(assignee, task, catKey, addedMin)
 
-  // Local string so the user can backspace/clear freely.
-  // We commit to parent on every valid change (live line-cost update).
-  // If the user leaves an empty/invalid field, blur resets the display.
   const [localHours, setLocalHours] = useState('')
   const [hFocused,   setHFocused]   = useState(false)
 
@@ -30,10 +19,74 @@ export default function SubtaskRow({
     if (isNaN(v) || v < 0) return
     if (task.type === 'Dynamic') {
       const scale = (defMin + addedMin) / defMin
-      onBaseHoursChange?.(scale > 0 ? v / scale : v)
+      onHoursChange(scale > 0 ? v / scale : v)
     } else {
-      onBaseHoursChange?.(v)
+      onHoursChange(v)
     }
+  }
+
+  return (
+    <div className="assignee-row">
+      <select
+        className="subtask-resp-select"
+        value={assignee.person}
+        onChange={e => onPersonChange(e.target.value)}
+      >
+        {PEOPLE.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+
+      <input
+        type="text"
+        inputMode="decimal"
+        className="subtask-hours-input"
+        value={displayVal}
+        onFocus={() => {
+          setLocalHours(String(parseFloat(effHours.toFixed(1))))
+          setHFocused(true)
+        }}
+        onChange={e => {
+          setLocalHours(e.target.value)
+          commitHours(e.target.value)
+        }}
+        onBlur={() => setHFocused(false)}
+      />
+
+      {canRemove && (
+        <button type="button" className="btn-remove-assignee" onClick={onRemove} title="Remove person">
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
+export default function SubtaskRow({
+  task,
+  catKey,
+  addedMin,
+  onToggle,
+  onNameChange,
+  onUpdateAssignees,
+  onTypeChange,
+}) {
+  const excluded = task.included === false
+  const cost     = !excluded ? lineCost(task, catKey, addedMin) : null
+
+  function handlePersonChange(idx, person) {
+    onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, person } : a))
+  }
+
+  function handleHoursChange(idx, baseHours) {
+    onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, baseHours } : a))
+  }
+
+  function addAssignee() {
+    onUpdateAssignees([...task.assignees, { person: 'Megan', baseHours: 1, hours: 1 }])
+  }
+
+  function removeAssignee(idx) {
+    if (task.assignees.length <= 1) return
+    onUpdateAssignees(task.assignees.filter((_, i) => i !== idx))
   }
 
   return (
@@ -54,31 +107,26 @@ export default function SubtaskRow({
         placeholder="Task name"
       />
 
-      <select
-        className="subtask-resp-select"
-        value={task.responsible}
-        onChange={e => onRespChange?.(e.target.value)}
-      >
-        <option value="Laurie">Laurie</option>
-        <option value="Megan">Megan</option>
-        <option value="Michelle">Michelle</option>
-      </select>
-
-      <input
-        type="text"
-        inputMode="decimal"
-        className="subtask-hours-input"
-        value={displayVal}
-        onFocus={() => {
-          setLocalHours(String(parseFloat(effHours.toFixed(1))))
-          setHFocused(true)
-        }}
-        onChange={e => {
-          setLocalHours(e.target.value)
-          commitHours(e.target.value)   // live update on every valid keystroke
-        }}
-        onBlur={() => setHFocused(false)}  // resets display to computed if invalid
-      />
+      <div className="subtask-assignees">
+        {(task.assignees ?? []).map((assignee, idx) => (
+          <AssigneeRow
+            key={idx}
+            assignee={assignee}
+            task={task}
+            catKey={catKey}
+            addedMin={addedMin}
+            canRemove={(task.assignees ?? []).length > 1}
+            onPersonChange={person    => handlePersonChange(idx, person)}
+            onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
+            onRemove={() => removeAssignee(idx)}
+          />
+        ))}
+        {(task.assignees ?? []).length < 4 && (
+          <button type="button" className="btn-add-assignee" onClick={addAssignee}>
+            + add person
+          </button>
+        )}
+      </div>
 
       <select
         className={`subtask-type-select subtask-type-select--${(task.type || 'fixed').toLowerCase()}`}

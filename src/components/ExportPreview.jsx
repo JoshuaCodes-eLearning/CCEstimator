@@ -1,6 +1,12 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeHours, lineCost, fmt } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
+
+function taskCost(task, catKey, addedMin) {
+  return (task.assignees ?? []).reduce((sum, a) => {
+    return sum + computeAssigneeHoursForTask(a, task, catKey, addedMin) * (RATES[a.person] ?? 0)
+  }, 0)
+}
 
 export default function ExportPreview({
   companyName,
@@ -55,38 +61,53 @@ export default function ExportPreview({
             </div>
           </div>
 
-          {/* Category sections */}
           {selectedKeys.map(catKey => {
-            const cat           = catStates[catKey]
-            const isMicrovideo  = catKey === 'microvideo'
-            const defMin        = DEFAULT_MINUTES[catKey]
-            const addedMin      = cat.additionalMinutes
-            const totalMin      = defMin + addedMin
-            const hasAda        = cat.adaEnabled && ADA_RATES[catKey] > 0
-            const adaRate       = hasAda ? ADA_RATES[catKey] : 0
-            const moduleCount   = cat.moduleCount ?? 1
-            const extraModules  = isMicrovideo ? 0 : (moduleCount - 1)
-            const unit          = isMicrovideo ? 'video' : 'module'
-            const Unit          = unit.charAt(0).toUpperCase() + unit.slice(1)
+            const cat          = catStates[catKey]
+            const isMicrovideo = catKey === 'microvideo'
+            const defMin       = DEFAULT_MINUTES[catKey]
+            const addedMin     = cat.additionalMinutes
+            const totalMin     = defMin + addedMin
+            const hasAda       = cat.adaEnabled && ADA_RATES[catKey] > 0
+            const adaRate      = hasAda ? ADA_RATES[catKey] : 0
+            const moduleCount  = cat.moduleCount ?? 1
+            const extraModules = isMicrovideo ? 0 : (moduleCount - 1)
+            const unit         = isMicrovideo ? 'video' : 'module'
+            const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
             const additionalVideos = cat.additionalVideos ?? []
 
             const mod1Tasks = cat.tasks.filter(t => t.included)
-            let mod1BaseSum = 0
-            mod1Tasks.forEach(t => {
-              mod1BaseSum += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
-            })
+            const mod1BaseSum = mod1Tasks.reduce((s, t) => s + taskCost(t, catKey, addedMin), 0)
 
             const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
 
-            // ── Microvideo rendering ───────────────────────────────
+            // Renders all assignee rows for a task list
+            function renderTaskRows(tasks, addMin) {
+              if (tasks.length === 0) {
+                return <tr className="doc-table-muted"><td colSpan={5}>No tasks selected</td></tr>
+              }
+              return tasks.flatMap(task =>
+                (task.assignees ?? []).map((a, idx) => {
+                  const h    = computeAssigneeHoursForTask(a, task, catKey, addMin)
+                  const cost = h * (RATES[a.person] ?? 0)
+                  return (
+                    <tr key={`${task.id}-a${idx}`}>
+                      <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
+                      <td>{a.person}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td>{idx === 0 ? task.type : ''}</td>
+                      <td>{fmt(cost)}</td>
+                    </tr>
+                  )
+                })
+              )
+            }
+
+            // ── Microvideo ──────────────────────────────────────────
             if (isMicrovideo) {
               const hasAdditional = additionalVideos.length > 0
               const additionalVideosCosts = additionalVideos.map(video => {
                 const vAddedMin = video.minutes - defMin
-                let cost = 0
-                secondTasks.forEach(t => {
-                  cost += computeHours(t, catKey, vAddedMin) * (RATES[t.responsible] ?? 0)
-                })
+                const cost = secondTasks.reduce((s, t) => s + taskCost(t, catKey, vAddedMin), 0)
                 return { video, cost }
               })
               const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
@@ -106,29 +127,9 @@ export default function ExportPreview({
 
                   <table className="doc-table">
                     <thead>
-                      <tr>
-                        <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
-                      </tr>
+                      <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
                     </thead>
-                    <tbody>
-                      {mod1Tasks.length === 0 ? (
-                        <tr className="doc-table-muted"><td colSpan={5}>No tasks selected</td></tr>
-                      ) : (
-                        mod1Tasks.map(task => {
-                          const hrs  = computeHours(task, catKey, addedMin)
-                          const cost = lineCost(task, catKey, addedMin)
-                          return (
-                            <tr key={task.id}>
-                              <td>{task.name}</td>
-                              <td>{task.responsible}</td>
-                              <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
-                              <td>{task.type}</td>
-                              <td>{fmt(cost)}</td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
+                    <tbody>{renderTaskRows(mod1Tasks, addedMin)}</tbody>
                   </table>
 
                   <div className="doc-subtotal-row">
@@ -147,29 +148,9 @@ export default function ExportPreview({
                       </div>
                       <table className="doc-table">
                         <thead>
-                          <tr>
-                            <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
-                          </tr>
+                          <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
                         </thead>
-                        <tbody>
-                          {secondTasks.length === 0 ? (
-                            <tr className="doc-table-muted"><td colSpan={5}>No tasks selected for additional videos</td></tr>
-                          ) : (
-                            secondTasks.map(task => {
-                              const hrs  = computeHours(task, catKey, 0)
-                              const cost = lineCost(task, catKey, 0)
-                              return (
-                                <tr key={`s2-${task.id}`}>
-                                  <td>{task.name}</td>
-                                  <td>{task.responsible}</td>
-                                  <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
-                                  <td>{task.type}</td>
-                                  <td>{fmt(cost)}</td>
-                                </tr>
-                              )
-                            })
-                          )}
-                        </tbody>
+                        <tbody>{renderTaskRows(secondTasks, 0)}</tbody>
                       </table>
 
                       {additionalVideosCosts.map(({ video, cost }, idx) => (
@@ -191,15 +172,12 @@ export default function ExportPreview({
               )
             }
 
-            // ── Rise / Storyline rendering ─────────────────────────
-            let secondPerModule = 0
-            secondTasks.forEach(t => {
-              secondPerModule += computeHours(t, catKey, addedMin) * (RATES[t.responsible] ?? 0)
-            })
-            const secondTotalCost = secondPerModule * extraModules
-            const combinedBase = mod1BaseSum + secondTotalCost
-            const adaAmount    = combinedBase * adaRate
-            const overallTotal = combinedBase + adaAmount
+            // ── Rise / Storyline ────────────────────────────────────
+            const secondPerModule  = secondTasks.reduce((s, t) => s + taskCost(t, catKey, addedMin), 0)
+            const secondTotalCost  = secondPerModule * extraModules
+            const combinedBase     = mod1BaseSum + secondTotalCost
+            const adaAmount        = combinedBase * adaRate
+            const overallTotal     = combinedBase + adaAmount
 
             let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
             if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -216,32 +194,11 @@ export default function ExportPreview({
 
                 <table className="doc-table">
                   <thead>
-                    <tr>
-                      <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
-                    </tr>
+                    <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
                   </thead>
-                  <tbody>
-                    {mod1Tasks.length === 0 ? (
-                      <tr className="doc-table-muted"><td colSpan={5}>No tasks selected</td></tr>
-                    ) : (
-                      mod1Tasks.map(task => {
-                        const hrs  = computeHours(task, catKey, addedMin)
-                        const cost = lineCost(task, catKey, addedMin)
-                        return (
-                          <tr key={task.id}>
-                            <td>{task.name}</td>
-                            <td>{task.responsible}</td>
-                            <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
-                            <td>{task.type}</td>
-                            <td>{fmt(cost)}</td>
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
+                  <tbody>{renderTaskRows(mod1Tasks, addedMin)}</tbody>
                 </table>
 
-                {/* Module 1 subtotal */}
                 <div className="doc-subtotal-row">
                   {moduleCount === 1 && hasAda && (
                     <span className="doc-subtotal-ada">
@@ -256,7 +213,6 @@ export default function ExportPreview({
                   </span>
                 </div>
 
-                {/* Second state section */}
                 {moduleCount > 1 && (
                   <>
                     <hr className="doc-section-divider" />
@@ -266,29 +222,9 @@ export default function ExportPreview({
                     </div>
                     <table className="doc-table">
                       <thead>
-                        <tr>
-                          <th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th>
-                        </tr>
+                        <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
                       </thead>
-                      <tbody>
-                        {secondTasks.length === 0 ? (
-                          <tr className="doc-table-muted"><td colSpan={5}>No tasks selected for second state</td></tr>
-                        ) : (
-                          secondTasks.map(task => {
-                            const hrs  = computeHours(task, catKey, addedMin)
-                            const cost = lineCost(task, catKey, addedMin)
-                            return (
-                              <tr key={`s2-${task.id}`}>
-                                <td>{task.name}</td>
-                                <td>{task.responsible}</td>
-                                <td style={{ textAlign: 'center' }}>{parseFloat(hrs.toFixed(1))}</td>
-                                <td>{task.type}</td>
-                                <td>{fmt(cost)}</td>
-                              </tr>
-                            )
-                          })
-                        )}
-                      </tbody>
+                      <tbody>{renderTaskRows(secondTasks, addedMin)}</tbody>
                     </table>
                     <div className="doc-subtotal-row">
                       <span className="doc-subtotal-label">Per-{unit} rate</span>
@@ -302,8 +238,6 @@ export default function ExportPreview({
                         <span className="doc-subtotal-value">{fmt(secondTotalCost)}</span>
                       </div>
                     )}
-
-                    {/* Overall total */}
                     <div className="doc-subtotal-row doc-subtotal-row--overall">
                       {hasAda && (
                         <span className="doc-subtotal-ada">
