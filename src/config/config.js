@@ -51,12 +51,23 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 1 }],
     },
     {
+      id: 'mv-6', name: 'Storyboard', type: 'Dynamic',
+      assignees: [
+        { person: 'Michelle', hours: 6  },
+        { person: 'Megan',    hours: 10 },
+      ],
+    },
+    {
       id: 'mv-4', name: 'Internal meetings, client kickoff and status meetings', type: 'Fixed',
       assignees: [
         { person: 'Laurie',   hours: 2.5 },
         { person: 'Michelle', hours: 2   },
         { person: 'Megan',    hours: 3.5 },
       ],
+    },
+    {
+      id: 'mv-ip', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 4 }],
     },
     {
       id: 'mv-5',
@@ -69,15 +80,12 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Megan', hours: 2.5 }],
     },
     {
-      id: 'mv-6', name: 'Storyboard', type: 'Dynamic',
-      assignees: [
-        { person: 'Michelle', hours: 6  },
-        { person: 'Megan',    hours: 10 },
-      ],
+      id: 'mv-qa1', name: 'QA 1', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 0.5 }],
     },
     {
-      id: 'mv-ip', name: 'Image procurement', type: 'Fixed',
-      assignees: [{ person: 'Megan', hours: 4 }],
+      id: 'mv-qa2', name: 'QA 2', type: 'Fixed',
+      assignees: [{ person: 'QA Resource', hours: 2 }],
     },
     {
       id: 'mv-8', name: 'Lessons-learned meeting', type: 'Fixed',
@@ -86,14 +94,6 @@ export const DEFAULT_TASKS = {
         { person: 'Michelle', hours: 1.25 },
         { person: 'Megan',    hours: 1.25 },
       ],
-    },
-    {
-      id: 'mv-qa1', name: 'QA 1', type: 'Fixed',
-      assignees: [{ person: 'Megan', hours: 0.5 }],
-    },
-    {
-      id: 'mv-qa2', name: 'QA 2', type: 'Fixed',
-      assignees: [{ person: 'QA Resource', hours: 2 }],
     },
     {
       id: 'mv-10', name: 'Project management', type: 'Fixed',
@@ -146,6 +146,10 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 13 }],
     },
     {
+      id: 'r-10', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 4 }],
+    },
+    {
       id: 'r-7', name: 'Modify existing templates / prototypes', type: 'Fixed',
       assignees: [{ person: 'Megan', hours: 1.5 }],
     },
@@ -173,10 +177,6 @@ export const DEFAULT_TASKS = {
       ],
     },
     {
-      id: 'r-10', name: 'Image procurement', type: 'Fixed',
-      assignees: [{ person: 'Megan', hours: 4 }],
-    },
-    {
       id: 'r-12', name: 'Project management', type: 'Fixed',
       assignees: [
         { person: 'Laurie',   hours: 3.5 },
@@ -189,11 +189,11 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Megan', hours: 3 }],
     },
     {
-      id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic',
+      id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
       assignees: [{ person: 'Michelle', hours: 6 }],
     },
     {
-      id: 'r-15', name: 'Up to 5 custom AI images', type: 'Fixed',
+      id: 'r-15', name: 'Up to 5 custom AI images', type: 'Fixed', included: false,
       assignees: [{ person: 'Michelle', hours: 3 }],
     },
     {
@@ -226,6 +226,10 @@ export const DEFAULT_TASKS = {
         { person: 'Michelle', hours: 9 },
         { person: 'Megan',    hours: 3 },
       ],
+    },
+    {
+      id: 's-10', name: 'Image procurement', type: 'Fixed',
+      assignees: [{ person: 'Megan', hours: 5 }],
     },
     {
       id: 's-7', name: 'Prototype', type: 'Fixed',
@@ -262,10 +266,6 @@ export const DEFAULT_TASKS = {
         { person: 'Michelle', hours: 1.25 },
         { person: 'Laurie',   hours: 2    },
       ],
-    },
-    {
-      id: 's-10', name: 'Image procurement', type: 'Fixed',
-      assignees: [{ person: 'Megan', hours: 5 }],
     },
     {
       id: 's-12', name: 'Project management', type: 'Fixed',
