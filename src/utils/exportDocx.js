@@ -40,9 +40,9 @@ function cell(children, opts = {}) {
 function headerCell(text, width) {
   return cell(
     new Paragraph({
-      children: [new TextRun({ text, bold: true, size: 18, color: '94A3B8' })],
+      children: [new TextRun({ text, bold: true, size: 18, color: '475569' })],
     }),
-    { shading: { type: ShadingType.SOLID, fill: LIGHT_BG }, borderBottom: thinBorder, width }
+    { shading: { type: ShadingType.CLEAR, fill: 'DDE3EA', color: 'auto' }, borderBottom: thinBorder, width }
   )
 }
 
@@ -59,7 +59,7 @@ function dataCell(text, opts = {}) {
 function navyHeaderPara(text) {
   return new Paragraph({
     children: [new TextRun({ text, bold: true, size: 22, color: WHITE })],
-    shading: { type: ShadingType.SOLID, fill: NAVY },
+    shading: { type: ShadingType.CLEAR, fill: NAVY, color: 'auto' },
     spacing: { before: 240, after: 0 },
   })
 }
@@ -67,32 +67,37 @@ function navyHeaderPara(text) {
 function sectionLabelPara(text) {
   return new Paragraph({
     children: [new TextRun({ text, bold: true, size: 18, color: '2563EB' })],
-    shading: { type: ShadingType.SOLID, fill: 'EFF6FF' },
+    shading: { type: ShadingType.CLEAR, fill: 'EFF6FF', color: 'auto' },
     spacing: { before: 0, after: 0 },
   })
 }
 
 function taskTable(tasks, catKey, addedMin) {
-  const COL_W = [44, 14, 10, 14, 18]
+  const COL_W = [52, 18, 10, 20]
   const headerRow = new TableRow({
-    children: ['TASK', 'WHO', 'HRS', 'TYPE', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
+    children: ['TASK', 'WHO', 'HRS', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
     tableHeader: true,
   })
-  const dataRows = tasks.flatMap(task =>
-    (task.assignees ?? []).map((a, idx) => {
+  // Alternate shading per task (all assignee rows of the same task share a colour).
+  // Always include color: 'auto' to prevent docx from rendering text in the fill colour.
+  let taskIdx = 0
+  const dataRows = tasks.flatMap(task => {
+    const shade = (taskIdx++ % 2) !== 0
+      ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
+      : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
+    return (task.assignees ?? []).map((a, idx) => {
       const hrs  = computeAssigneeHoursForTask(a, task, catKey, addedMin)
       const cost = hrs * (RATES[a.person] ?? 0)
       return new TableRow({
         children: [
-          dataCell(idx === 0 ? task.name : '',   { width: COL_W[0] }),
-          dataCell(a.person,                      { width: COL_W[1] }),
-          dataCell(Math.round(hrs * 10) / 10,    { align: AlignmentType.CENTER, width: COL_W[2] }),
-          dataCell(idx === 0 ? task.type : '',   { width: COL_W[3] }),
-          dataCell(fmtNum(cost),                 { align: AlignmentType.RIGHT,  width: COL_W[4] }),
+          dataCell(idx === 0 ? task.name : '', { width: COL_W[0], shading: shade, textProps: idx === 0 ? { bold: true } : {} }),
+          dataCell(a.person,                   { width: COL_W[1], shading: shade }),
+          dataCell(Math.round(hrs * 10) / 10,  { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
+          dataCell(fmtNum(cost),               { align: AlignmentType.RIGHT,  width: COL_W[3], shading: shade }),
         ],
       })
     })
-  )
+  })
   return new Table({
     rows: [headerRow, ...dataRows],
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -290,7 +295,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
   children.push(
     new Paragraph({
       children: [new TextRun({ text: 'Combined hours per team member', bold: true, size: 22, color: NAVY })],
-      shading: { type: ShadingType.SOLID, fill: BLUE_BG },
+      shading: { type: ShadingType.CLEAR, fill: BLUE_BG, color: 'auto' },
       spacing: { before: 120, after: 0 },
     }),
   )
@@ -301,15 +306,18 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       children: ['TEAM MEMBER', 'HOURS', 'RATE', 'SUBTOTAL'].map((h, i) => headerCell(h, HOURS_COL_W[i])),
       tableHeader: true,
     }),
-    ...Object.entries(memberHours).map(([name, hrs]) => {
+    ...Object.entries(memberHours).map(([name, hrs], rowIdx) => {
+      const shade = rowIdx % 2 !== 0
+        ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
+        : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
       const rate   = RATES[name] ?? 0
       const subtot = hrs * rate
       return new TableRow({
         children: [
-          dataCell(name,                                                        { width: HOURS_COL_W[0] }),
-          dataCell(`${Math.round(hrs * 10) / 10}h`, { align: AlignmentType.CENTER, width: HOURS_COL_W[1] }),
-          dataCell(`$${rate}/hr`,                   { align: AlignmentType.CENTER, width: HOURS_COL_W[2] }),
-          dataCell(fmtNum(subtot),                  { align: AlignmentType.RIGHT,  width: HOURS_COL_W[3] }),
+          dataCell(name,                                                        { width: HOURS_COL_W[0], shading: shade }),
+          dataCell(`${Math.round(hrs * 10) / 10}h`, { align: AlignmentType.CENTER, width: HOURS_COL_W[1], shading: shade }),
+          dataCell(`$${rate}/hr`,                   { align: AlignmentType.CENTER, width: HOURS_COL_W[2], shading: shade }),
+          dataCell(fmtNum(subtot),                  { align: AlignmentType.RIGHT,  width: HOURS_COL_W[3], shading: shade }),
         ],
       })
     }),
@@ -349,7 +357,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       spacing: { after: 200 },
     }),
     new Paragraph({
-      children: [new TextRun({ text: `AI eLearning Estimator · generated ${year}`, size: 18, color: 'AAAAAA' })],
+      children: [new TextRun({ text: `Cobblestone AI eLearning Estimator · generated ${year}`, size: 18, color: 'AAAAAA' })],
       alignment: AlignmentType.CENTER,
     }),
   )

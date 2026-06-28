@@ -151,6 +151,79 @@ body { background: var(--page-bg); }
 }
 
 /* ===================================================
+   QUESTIONS TO ASK CUSTOMER
+   =================================================== */
+
+.questions-panel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.questions-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f4f6f9;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  text-align: left;
+  transition: background 0.1s;
+}
+.questions-toggle:hover { background: #eaecf2; }
+.questions-chevron { font-size: 14px; flex-shrink: 0; }
+.questions-list {
+  list-style: decimal;
+  padding: 12px 20px 14px 38px;
+  background: var(--white);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.questions-list li {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+/* ===================================================
+   LIVE TRAINING HOURS FIELD
+   =================================================== */
+
+.live-training-group {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
+.live-training-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+.live-training-input { width: 160px; }
+.live-training-prediction {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  background: var(--blue-light);
+  border: 1px solid var(--blue-border);
+  border-radius: 20px;
+  padding: 5px 14px;
+  white-space: nowrap;
+}
+
+/* ===================================================
    CATEGORY SELECTOR CHIPS
    =================================================== */
 
@@ -440,6 +513,13 @@ body { background: var(--page-bg); }
 .subtask-row:hover { background: #fafbfc; }
 .subtask-row:last-of-type { border-bottom: none; }
 .subtask-row--excluded { opacity: 0.38; }
+
+.subtask-row--indented {
+  padding-left: 48px;
+  background: #f8faff;
+  border-left: 3px solid var(--blue-border);
+}
+.subtask-row--indented:hover { background: #f2f6fe; }
 
 /* Align non-assignee cells with the first assignee row */
 .subtask-check,

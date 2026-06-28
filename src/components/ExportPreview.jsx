@@ -35,7 +35,7 @@ export default function ExportPreview({
   return (
     <div className="app">
       <header className="app-header">
-        <span className="app-title">AI eLearning Estimator</span>
+        <span className="app-title">Cobblestone AI eLearning Estimator</span>
         <span className="screen-label">Screen 2 — Export Preview</span>
       </header>
 
@@ -94,7 +94,6 @@ export default function ExportPreview({
                       <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
                       <td>{a.person}</td>
                       <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
-                      <td>{idx === 0 ? task.type : ''}</td>
                       <td>{fmt(cost)}</td>
                     </tr>
                   )
@@ -127,7 +126,7 @@ export default function ExportPreview({
 
                   <table className="doc-table">
                     <thead>
-                      <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
+                      <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Line Cost</th></tr>
                     </thead>
                     <tbody>{renderTaskRows(mod1Tasks, addedMin)}</tbody>
                   </table>
@@ -148,7 +147,7 @@ export default function ExportPreview({
                       </div>
                       <table className="doc-table">
                         <thead>
-                          <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
+                          <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Line Cost</th></tr>
                         </thead>
                         <tbody>{renderTaskRows(secondTasks, 0)}</tbody>
                       </table>
@@ -194,7 +193,7 @@ export default function ExportPreview({
 
                 <table className="doc-table">
                   <thead>
-                    <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
+                    <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Line Cost</th></tr>
                   </thead>
                   <tbody>{renderTaskRows(mod1Tasks, addedMin)}</tbody>
                 </table>
@@ -222,7 +221,7 @@ export default function ExportPreview({
                     </div>
                     <table className="doc-table">
                       <thead>
-                        <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Type</th><th>Line Cost</th></tr>
+                        <tr><th>Task</th><th>Who</th><th>Hrs</th><th>Line Cost</th></tr>
                       </thead>
                       <tbody>{renderTaskRows(secondTasks, addedMin)}</tbody>
                     </table>
@@ -282,7 +281,7 @@ export default function ExportPreview({
           </div>
 
           <p className="doc-disclaimer">{marginPct}% profit margin applied. Estimate only; not a contract.</p>
-          <p className="doc-footer">AI eLearning Estimator · generated 2026</p>
+          <p className="doc-footer">Cobblestone AI eLearning Estimator · generated 2026</p>
         </div>
       </div>
     </div>

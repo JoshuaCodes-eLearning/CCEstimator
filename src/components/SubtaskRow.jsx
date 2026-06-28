@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { computeAssigneeHoursForTask, lineCost, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, RATES } from '../config/config'
 
-const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource']
+const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource', 'J.K.']
 
 // One person + hours line within a subtask
 function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChange, onHoursChange, onRemove }) {
@@ -90,7 +90,7 @@ export default function SubtaskRow({
   }
 
   return (
-    <div className={`subtask-row${excluded ? ' subtask-row--excluded' : ''}`}>
+    <div className={`subtask-row${excluded ? ' subtask-row--excluded' : ''}${task.indent ? ' subtask-row--indented' : ''}`}>
 
       <input
         type="checkbox"

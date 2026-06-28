@@ -69,7 +69,7 @@ export default function CategoryBlock({
   function handleModChange(raw) {
     setLocalMod(raw)
     const v = parseInt(raw)
-    if (!isNaN(v)) onUpdate({ moduleCount: Math.max(1, Math.min(15, v)) })
+    if (!isNaN(v)) onUpdate({ moduleCount: Math.max(1, Math.min(20, v)) })
   }
   function handleModBlur() { setModFocused(false) }
 
@@ -190,7 +190,7 @@ export default function CategoryBlock({
         {!isMicrovideo && (
           <div className="module-count-bar">
             <span className="module-count-label">Number of {unit}s</span>
-            <input type="number" className="module-count-input" min={1} max={15}
+            <input type="number" className="module-count-input" min={1} max={20}
               value={displayMod} onFocus={handleModFocus}
               onChange={e => handleModChange(e.target.value)} onBlur={handleModBlur} />
             <span className="module-count-hint">
