@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import './App.css'
-import CategoryBlock from './components/CategoryBlock'
-import TotalsBar     from './components/TotalsBar'
-import ExportPreview from './components/ExportPreview'
+import CategoryBlock    from './components/CategoryBlock'
+import TotalsBar        from './components/TotalsBar'
+import ActionBar        from './components/ActionBar'
+import ExportPreview    from './components/ExportPreview'
+import EstimatesModal   from './components/EstimatesModal'
 import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeAssigneeHoursForTask } from './utils/calc'
 
@@ -342,6 +344,14 @@ export default function App() {
     )
   }
 
+  if (screen === 'estimates') {
+    return (
+      <EstimatesModal
+        onBack={() => setScreen('estimator')}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -462,6 +472,8 @@ export default function App() {
             marginPct={marginPct}
             marginOptions={MARGIN_OPTIONS}
             onMarginChange={setMarginPct}
+            onSave={() => {}}
+            onViewEstimates={() => setScreen('estimates')}
             onExport={() => setScreen('preview')}
           />
         )}

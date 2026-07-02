@@ -1094,7 +1094,7 @@ body { background: var(--page-bg); }
 .totals-inner {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 20px;
 }
 .totals-left { flex: 1; }
 
@@ -1447,6 +1447,190 @@ body { background: var(--page-bg); }
 }
 
 /* =====================================================
+   TOTALS ACTIONS (buttons inside TotalsBar)
+   ===================================================== */
+.totals-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 210px;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  padding-left: 20px;
+}
+
+.totals-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.totals-action-btn:active { transform: translateY(1px); }
+
+.totals-action-btn--save {
+  background: #059669;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+}
+.totals-action-btn--save:hover { background: #047857; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.45); }
+
+.totals-action-btn--view {
+  background: #7c3aed;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.3);
+}
+.totals-action-btn--view:hover { background: #6d28d9; box-shadow: 0 2px 8px rgba(124, 58, 237, 0.45); }
+
+.totals-action-btn--export {
+  background: #2563eb;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+}
+.totals-action-btn--export:hover { background: #1d4ed8; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45); }
+
+/* =====================================================
+   ESTIMATES MODAL
+   ===================================================== */
+.estimates-modal {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+.estimates-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.estimates-heading {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background: #7c3aed;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.4);
+}
+.back-btn:hover {
+  background: #6d28d9;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.55);
+}
+.back-btn:active { transform: translateY(1px); }
+
+.estimates-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.estimates-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.estimates-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.estimates-sort-select {
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.estimates-sort-select:focus { outline: none; border-color: var(--accent); }
+
+.estimates-cols {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 100px 80px 90px 80px 60px;
+  gap: 0 12px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.estimates-col-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #6b7280);
+}
+
+.estimates-col-label--right {
+  text-align: right;
+}
+
+.estimates-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 64px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.estimates-empty-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.estimates-empty-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.estimates-empty-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* =====================================================
    RESPONSIVE — TABLET (≤ 900px)
    ===================================================== */
 @media (max-width: 900px) {
@@ -1469,6 +1653,14 @@ body { background: var(--page-bg); }
   /* TotalsBar wraps */
   .totals-inner { flex-wrap: wrap; gap: 20px; }
   .export-btn   { flex: 1 1 200px; }
+
+  /* Totals actions on tablet */
+  .totals-actions { min-width: 160px; padding-left: 20px; gap: 8px; }
+  .totals-action-btn { font-size: 13px; padding: 10px 14px; }
+
+  /* EstimatesModal */
+  .estimates-modal { padding: 0 16px 80px; }
+  .estimates-cols { grid-template-columns: 1.2fr 1.2fr 90px 90px 70px 50px 60px 50px; font-size: 10px; }
 }
 
 /* =====================================================
@@ -1547,4 +1739,15 @@ body { background: var(--page-bg); }
   /* Additional videos (microvideo) */
   .additional-video-row { flex-wrap: wrap; gap: 8px; }
   .additional-video-cost { margin-left: auto; }
+
+  /* Totals actions — move below cost info on mobile */
+  .totals-inner { flex-direction: column; }
+  .totals-actions { flex-direction: row; border-left: none; border-top: 1px solid rgba(255,255,255,0.1); padding-left: 0; padding-top: 16px; min-width: unset; width: 100%; }
+  .totals-action-btn { flex: 1; font-size: 13px; padding: 11px 8px; }
+
+  /* EstimatesModal */
+  .estimates-modal { padding: 0 12px 60px; }
+  .estimates-controls { flex-direction: column; }
+  .estimates-cols { display: none; }
+  .estimates-sort-select { width: 100%; }
 }

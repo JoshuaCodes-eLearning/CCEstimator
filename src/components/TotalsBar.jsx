@@ -10,6 +10,8 @@ export default function TotalsBar({
   marginPct,
   marginOptions,
   onMarginChange,
+  onSave,
+  onViewEstimates,
   onExport,
 }) {
   return (
@@ -67,9 +69,19 @@ export default function TotalsBar({
 
         </div>
 
-        <button type="button" className="export-btn" onClick={onExport}>
-          Export to Word
-        </button>
+        {/* ── Action buttons ───────────────────────── */}
+        <div className="totals-actions">
+          <button type="button" className="totals-action-btn totals-action-btn--save" onClick={onSave}>
+            Save Estimate
+          </button>
+          <button type="button" className="totals-action-btn totals-action-btn--view" onClick={onViewEstimates}>
+            View Estimates
+          </button>
+          <button type="button" className="totals-action-btn totals-action-btn--export" onClick={onExport}>
+            ↓ Export to Word
+          </button>
+        </div>
+
       </div>
     </div>
   )
