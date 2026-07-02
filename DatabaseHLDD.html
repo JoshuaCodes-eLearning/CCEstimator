@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CCEstimator — Database Phase HLD</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:       #1a1a2e;
+    --ink-soft:  #4a4a6a;
+    --accent:    #6c63ff;
+    --accent-lt: #ede9ff;
+    --green:     #22c55e;
+    --green-lt:  #dcfce7;
+    --amber:     #f59e0b;
+    --amber-lt:  #fef3c7;
+    --red:       #ef4444;
+    --red-lt:    #fee2e2;
+    --border:    #e2e0f0;
+    --bg:        #f8f7ff;
+    --card:      #ffffff;
+    --mono:      'Courier New', monospace;
+    --sans:      system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    padding: 2rem 1rem 6rem;
+  }
+
+  .page { max-width: 900px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .doc-header {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 12px;
+    padding: 2.5rem 2.5rem 2rem;
+    margin-bottom: 2.5rem;
+  }
+  .doc-header .tag {
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    opacity: .75;
+    margin-bottom: .5rem;
+  }
+  .doc-header h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; }
+  .doc-header .sub { font-size: 1rem; opacity: .85; margin-top: .5rem; }
+  .meta-row {
+    display: flex; gap: 2rem; margin-top: 1.5rem; flex-wrap: wrap;
+  }
+  .meta-item { font-size: .85rem; opacity: .8; }
+  .meta-item strong { opacity: 1; display: block; font-size: .95rem; }
+
+  /* ── Section ── */
+  section { margin-bottom: 2.5rem; }
+  h2 {
+    font-size: 1.2rem; font-weight: 700;
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent-lt);
+    padding-bottom: .4rem;
+    margin-bottom: 1.25rem;
+  }
+  h3 { font-size: 1rem; font-weight: 700; color: var(--ink); margin: 1.25rem 0 .5rem; }
+  p { margin-bottom: .75rem; color: var(--ink-soft); }
+  ul, ol { padding-left: 1.5rem; color: var(--ink-soft); margin-bottom: .75rem; }
+  li { margin-bottom: .3rem; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-weight: 700; font-size: .95rem; margin-bottom: .5rem;
+  }
+
+  /* ── Pill badges ── */
+  .badge {
+    display: inline-block;
+    padding: .2rem .65rem;
+    border-radius: 99px;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+  .badge-green  { background: var(--green-lt);  color: #166534; }
+  .badge-amber  { background: var(--amber-lt);  color: #92400e; }
+  .badge-accent { background: var(--accent-lt); color: #4338ca; }
+  .badge-red    { background: var(--red-lt);    color: #991b1b; }
+
+  /* ── Utility callout ── */
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-lt);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--ink);
+    font-size: .95rem;
+  }
+  .callout.green { border-color: var(--green); background: var(--green-lt); }
+  .callout.amber { border-color: var(--amber); background: var(--amber-lt); }
+
+  /* ── Screen mockups ── */
+  .mockup-wrap {
+    background: #1e1e2e;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 1rem 0 1.5rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+  }
+  .mockup-bar {
+    background: #2d2b3d;
+    padding: .5rem 1rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .mockup-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .mockup-dot.r { background: #ff5f57; }
+  .mockup-dot.y { background: #febc2e; }
+  .mockup-dot.g { background: #28c840; }
+  .mockup-url {
+    background: #3a3852; border-radius: 4px;
+    color: #aaa8c4; font-size: .78rem;
+    padding: .2rem .75rem; margin-left: .5rem;
+    font-family: var(--mono);
+  }
+  .mockup-body {
+    padding: 1.5rem;
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: #cdd6f4;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.6;
+  }
+
+  /* ── Schema table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: .88rem; }
+  thead tr { background: var(--accent); color: #fff; }
+  thead th { padding: .6rem .85rem; text-align: left; font-weight: 700; }
+  tbody tr:nth-child(even) { background: var(--accent-lt); }
+  td { padding: .55rem .85rem; color: var(--ink-soft); border-bottom: 1px solid var(--border); }
+  td:first-child { font-family: var(--mono); font-size: .8rem; color: var(--ink); font-weight: 600; }
+
+  /* ── Phase timeline ── */
+  .phases { display: flex; flex-direction: column; gap: 0; }
+  .phase-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0 1.5rem;
+    position: relative;
+  }
+  .phase-item::before {
+    content: '';
+    position: absolute;
+    left: 37px; top: 2.5rem; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .phase-item:last-child::before { display: none; }
+  .phase-num {
+    display: flex; flex-direction: column; align-items: center;
+    padding-top: .25rem;
+  }
+  .phase-circle {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1rem;
+    flex-shrink: 0; position: relative; z-index: 1;
+  }
+  .phase-body {
+    padding-bottom: 2rem;
+  }
+  .phase-body h3 { margin-top: .2rem; }
+  .phase-hrs {
+    font-size: .8rem; font-weight: 700;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+
+  /* ── Total effort bar ── */
+  .effort-bar {
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+    margin-top: 1rem;
+  }
+  .effort-bar .label { font-weight: 700; font-size: 1rem; }
+  .effort-bar .number { font-size: 2rem; font-weight: 800; color: var(--accent); }
+  .effort-bar .detail { font-size: .85rem; color: var(--ink-soft); }
+
+  /* ── Two-col grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Comparison table ── */
+  .compare-table thead tr { background: var(--ink); }
+  .compare-table thead th:first-child { background: #3d2a2a; }
+  .compare-table thead th:last-child  { background: #1a3d2a; }
+  .compare-table tbody td:first-child { background: #fff5f5; color: #7f1d1d; font-family: var(--sans); font-size: .88rem; font-weight: 400; }
+  .compare-table tbody td:last-child  { background: #f0fdf4; color: #14532d; font-family: var(--sans); font-size: .88rem; font-weight: 400; }
+  .compare-table tbody tr:hover td:first-child { background: #fee2e2; }
+  .compare-table tbody tr:hover td:last-child  { background: #dcfce7; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    font-size: .9rem;
+  }
+  .toc h3 { margin-bottom: .75rem; color: var(--ink); }
+  .toc ol { margin: 0; }
+  .toc li { margin-bottom: .25rem; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── HEADER ── -->
+  <header class="doc-header">
+    <div class="tag">High-Level Design Document</div>
+    <h1>CCEstimator — Database Phase</h1>
+    <div class="sub">Save, reload, and manage estimates in Supabase</div>
+    <div class="meta-row">
+      <div class="meta-item"><strong>Status</strong>Planned — not started</div>
+      <div class="meta-item"><strong>Date</strong>June 19, 2026</div>
+      <div class="meta-item"><strong>Target user</strong>Laurie (single user)</div>
+      <div class="meta-item"><strong>Effort estimate</strong>~16 hrs / 2–3 days</div>
+    </div>
+  </header>
+
+  <!-- ── TOC ── -->
+  <nav class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#why">Why this matters — utility for Laurie</a></li>
+      <li><a href="#comparison">Without database vs. with database</a></li>
+      <li><a href="#scope">What's in scope (and what's not)</a></li>
+      <li><a href="#stack">Stack decisions</a></li>
+      <li><a href="#data">Data model</a></li>
+      <li><a href="#auth">Authentication</a></li>
+      <li><a href="#screens">New screens &amp; UI changes</a></li>
+      <li><a href="#flow">Full user flow</a></li>
+      <li><a href="#plan">Implementation plan — phase by phase</a></li>
+      <li><a href="#effort">Effort summary</a></li>
+      <li><a href="#unchanged">What does NOT change</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- ── §1 WHY ── -->
+  <section id="why">
+    <h2>1 — Why this matters — utility for Laurie</h2>
+
+    <div class="callout green">
+      The core value isn't filing or finding estimates — Laurie already organizes Word docs by company and course name. The real value is keeping the estimate <strong>alive as a live calculator</strong> after the Word doc has been sent.
+    </div>
+
+    <p>Once Laurie exports a .docx today, that estimate is frozen. Editing it means manually updating Word tables with no live math. The database means she can always come back to the working tool version — with all the live totals, checkboxes, and recalculation still intact. That's what she described as "editing the information online multiple different ways."</p>
+
+    <h3>What the database actually unlocks</h3>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Client asks for a revision</div>
+        Client says "can we cut the QA pass?" or "what if we add ADA?" Laurie reopens the saved estimate, checks or unchecks one row, and totals recalculate instantly. Without saving, she's either manually editing Word tables or rebuilding the whole estimate from scratch.
+      </div>
+      <div class="card">
+        <div class="card-title">Live scenario testing</div>
+        During a sales call: "what if we do Rise instead of Storyline?" or "what does the 45% margin look like?" She can open the estimate right there and toggle things in real time. The live tool is far more powerful than the static Word doc for this.
+      </div>
+      <div class="card">
+        <div class="card-title">Duplicate for similar clients</div>
+        A new client with nearly identical scope — compliance training, same team, similar length. Duplicate a saved estimate, update the company and course name, tweak a few hours, export a fresh .docx. Two minutes instead of twenty.
+      </div>
+      <div class="card">
+        <div class="card-title">Mid-draft saves</div>
+        Estimates sometimes take more than one sitting. Save mid-way, close the browser, come back and everything is exactly as she left it — no re-entry.
+      </div>
+    </div>
+
+    <div class="callout amber">
+      <strong>Honest time savings:</strong> This won't save 30–60 minutes per estimate on its own — the tool already handles that. The savings are situational: revision requests (10–20 min saved), duplicating for similar clients (15–25 min saved), scenario testing in a sales call (5–10 min saved). The bigger gain is qualitative — the estimate stays flexible instead of becoming a static document the moment it's exported.
+    </div>
+  </section>
+
+  <!-- ── §1b WITHOUT VS WITH ── -->
+  <section id="comparison">
+    <h2>1b — Without database vs. with database</h2>
+
+    <p>Same scenario played out both ways, so the difference is concrete.</p>
+
+    <table class="compare-table">
+      <thead>
+        <tr><th style="width:50%">Without database (today)</th><th>With database</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Laurie builds an estimate, exports the Word doc, closes the browser. The estimator state is gone.</td>
+          <td>Laurie clicks Save before closing. Full state persisted — every checked box, every edited hour, every setting.</td>
+        </tr>
+        <tr>
+          <td>Client emails back asking to remove QA 2 and add ADA. Laurie opens the Word doc and manually edits the table cells and subtotals by hand — no live math.</td>
+          <td>Laurie opens the saved estimate in the tool, unchecks QA 2, toggles ADA on. Totals recalculate instantly. Re-exports a fresh .docx in 2 minutes.</td>
+        </tr>
+        <tr>
+          <td>During a sales call, client asks "what's the price at 45% margin instead of 50%?" Laurie either guesses or says she'll follow up with a revised doc.</td>
+          <td>Laurie opens the saved estimate on her laptop, changes the margin dropdown. Client price updates live. She answers the question in the room.</td>
+        </tr>
+        <tr>
+          <td>New client, almost identical scope to a prior client. Laurie starts from scratch — re-selecting categories, re-entering all hours, re-checking all tasks. ~20 minutes.</td>
+          <td>Laurie opens the prior similar estimate, clicks Duplicate, updates the company and course name, tweaks two or three tasks. ~3 minutes.</td>
+        </tr>
+        <tr>
+          <td>Laurie starts building a complex multi-module estimate, gets pulled into a meeting. Comes back later and the browser tab is closed. Starts over.</td>
+          <td>She saved mid-draft. Reopens exactly where she left off — module counts, second-state tasks, additional videos, all intact.</td>
+        </tr>
+        <tr>
+          <td>Six months later, client wants a Phase 2 estimate based on Phase 1. Laurie looks through saved Word docs to find the right numbers, then manually re-enters them into the estimator.</td>
+          <td>She opens the saved Phase 1 estimate in the tool, duplicates it, adjusts scope, and exports Phase 2. The original Phase 1 estimate stays untouched.</td>
+        </tr>
+        <tr>
+          <td>No central record of what was estimated for each client beyond the Word files stored wherever Laurie saves them locally.</td>
+          <td>All estimates in one place, grouped by company, with client price and margin visible at a glance. Quick reference without opening any file.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Summary:</strong> Without the database, the estimator is a one-shot calculator — great for the first export, but every change after that is manual. With the database, every estimate stays live and editable indefinitely.
+    </div>
+  </section>
+
+
+  <!-- ── §2 SCOPE ── -->
+  <section id="scope">
+    <h2>2 — What's in scope (and what's not)</h2>
+
+    <h3>In scope</h3>
+    <ul>
+      <li>Supabase project setup, schema, and browser client</li>
+      <li>GitHub OAuth login (Laurie's existing GitHub account via her Supabase account)</li>
+      <li>Save estimate button on the Export Preview screen</li>
+      <li>Update saved estimate (if viewing a previously saved estimate)</li>
+      <li>My Estimates list screen — grouped by company, with Open / Duplicate / Delete actions</li>
+      <li>Restore full App state from a saved estimate</li>
+      <li>New Estimate button (clears state back to blank)</li>
+      <li>Unsaved-changes indicator (dot on the Save button)</li>
+    </ul>
+
+    <h3>Explicitly out of scope</h3>
+    <ul>
+      <li>Multi-user accounts or permissions</li>
+      <li>Sharing estimates with clients</li>
+      <li>PDF export or storing the .docx file — .docx is always regenerated client-side on demand</li>
+      <li>SOW generation, invoicing, or CRM integration</li>
+      <li>Editing or commenting on saved estimates from the list view (open → edit → save is the flow)</li>
+    </ul>
+  </section>
+
+
+  <!-- ── §3 STACK ── -->
+  <section id="stack">
+    <h2>3 — Stack decisions</h2>
+
+    <div class="card">
+      <div class="card-title">Supabase <span class="badge badge-green">Chosen</span></div>
+      <p style="margin:.5rem 0 0">Hosted Postgres with a browser-native JS client. Laurie already has an account linked to her GitHub. Free tier supports up to 500 MB storage and 2 GB bandwidth per month — more than sufficient for a single-user tool storing JSON blobs. No server required: the browser talks directly to Supabase via the <code>@supabase/supabase-js</code> client, keeping the architecture the same as today (fully client-side, no backend).</p>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Auth method</div>
+        <span class="badge badge-accent">GitHub OAuth</span>&nbsp;
+        Laurie signs in with GitHub — one click, no password to remember. Supabase handles the OAuth flow and issues a session token stored in <code>localStorage</code>. On return visits the session auto-restores.
+      </div>
+      <div class="card">
+        <div class="card-title">New package</div>
+        <code>@supabase/supabase-js</code> — the official Supabase client. One install, no other dependencies. The existing <code>docx</code> and <code>file-saver</code> packages are untouched.
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ── §4 DATA MODEL ── -->
+  <section id="data">
+    <h2>4 — Data model</h2>
+
+    <p>One table. Estimates are stored as a JSON blob (full App state) plus a few quick-display columns so the list screen can render without parsing every blob.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Column</th><th>Type</th><th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>id</td><td>uuid (PK)</td><td>Auto-generated. Stable identifier — survives edits and re-saves.</td></tr>
+        <tr><td>user_id</td><td>uuid (FK → auth.users)</td><td>Supabase fills this automatically. Row-level security ensures Laurie only sees her own rows.</td></tr>
+        <tr><td>company_name</td><td>text</td><td>Copied from the Company Name field at save time. Used for grouping in the list view.</td></tr>
+        <tr><td>course_name</td><td>text</td><td>Copied from the Course Name field. Display label in the list.</td></tr>
+        <tr><td>categories</td><td>text[]</td><td>e.g. <code>['microvideo', 'rise360']</code> — for a quick visual badge in the list without parsing the blob.</td></tr>
+        <tr><td>total_internal</td><td>numeric</td><td>Snapshot of internal cost at save time. Shown in the list for quick reference.</td></tr>
+        <tr><td>total_client</td><td>numeric</td><td>Snapshot of client price at save time.</td></tr>
+        <tr><td>margin_pct</td><td>integer</td><td>40, 45, or 50. Shown as a badge in the list.</td></tr>
+        <tr><td>state_json</td><td>jsonb</td><td>Full serialized App state — all category tasks, hours, checked states, additionalMinutes, ADA toggles, module counts, additional videos. Everything needed to restore the estimator exactly.</td></tr>
+        <tr><td>created_at</td><td>timestamptz</td><td>Auto-set on insert.</td></tr>
+        <tr><td>updated_at</td><td>timestamptz</td><td>Updated on every save. Shown in list as "Last saved: …"</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Why JSON blob + display columns?</strong> The state structure evolves as new task types are added. Storing the full state as JSON means no schema migrations when the estimator gains new features. The display columns (company, total, margin) are only ever written, never queried — so they don't need to be perfectly normalized.
+    </div>
+
+    <h3>Row-level security (RLS)</h3>
+    <p>Supabase's RLS policy is two lines of SQL: users can only SELECT, INSERT, UPDATE, and DELETE rows where <code>user_id = auth.uid()</code>. Since there's only one user right now this is mostly a safety net, but it's the correct pattern and costs nothing.</p>
+  </section>
+
+
+  <!-- ── §5 AUTH ── -->
+  <section id="auth">
+    <h2>5 — Authentication</h2>
+
+    <p>Supabase Auth with GitHub OAuth. Laurie's existing Supabase account (linked to GitHub) handles everything — no new credentials, no separate password.</p>
+
+    <h3>Session behavior</h3>
+    <ul>
+      <li>On first visit: Login screen shown. Laurie clicks "Sign in with GitHub", gets redirected to GitHub, approves, and lands back on the estimator.</li>
+      <li>On return visits: Supabase auto-restores the session from <code>localStorage</code>. No login prompt unless the session has expired (default: 1 hour idle, extendable to 30 days).</li>
+      <li>Sign out: Available in the top-right corner of the app. Clears session and returns to Login screen.</li>
+    </ul>
+
+    <h3>What the app does before auth check</h3>
+    <p>The estimator itself loads immediately — no blocking spinner. The auth check happens in the background. If the user is not signed in, a non-intrusive banner appears at the top: <em>"Sign in to save your estimates"</em>. All estimation functionality works without being signed in; Save is the only gated action.</p>
+  </section>
+
+
+  <!-- ── §6 SCREENS ── -->
+  <section id="screens">
+    <h2>6 — New screens &amp; UI changes</h2>
+
+
+    <!-- Login -->
+    <h3>Screen A — Login (only shown when not authenticated)</h3>
+    <p>Minimal. Shown only when Laurie visits without an active session. After login, returns to wherever she was.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                  AI eLearning Estimator                         │
+│              Cobblestone Consulting                             │
+│                                                                 │
+│    ┌───────────────────────────────────────────────────┐        │
+│    │                                                   │        │
+│    │   Sign in to save and access your estimates       │        │
+│    │                                                   │        │
+│    │   ┌───────────────────────────────────────────┐   │        │
+│    │   │  🐙  Sign in with GitHub                  │   │        │
+│    │   └───────────────────────────────────────────┘   │        │
+│    │                                                   │        │
+│    │   Or  continue without signing in →              │        │
+│    │   (estimates won't be saved)                      │        │
+│    │                                                   │        │
+│    └───────────────────────────────────────────────────┘        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+
+    <!-- My Estimates -->
+    <h3>Screen B — My Estimates (new Screen 3)</h3>
+    <p>Accessible via a "My Estimates" button in the app header (next to the existing Company/Course name fields). Shows all saved estimates grouped by company name, sorted by most recently updated. Each row has three actions: Open, Duplicate, Delete.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌─────────────────────────────────────────────────────────────────┐
+│  AI eLearning Estimator          [+ New Estimate]  [← Back]     │
+├─────────────────────────────────────────────────────────────────┤
+│  My Estimates                                                   │
+│                                                                 │
+│  ▼  Cobblestone Consulting                                      │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Compliance Training 2026      Rise 360  50%            │   │
+│  │  Internal $9,240 · Client $18,480 · Saved Jun 18        │   │
+│  │                          [Open]  [Duplicate]  [Delete]  │   │
+│  ├─────────────────────────────────────────────────────────┤   │
+│  │  Safety Onboarding             Microvideo  45%          │   │
+│  │  Internal $4,100 · Client $7,636 · Saved Jun 15         │   │
+│  │                          [Open]  [Duplicate]  [Delete]  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ▼  Acme Corp                                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Leadership Dev Module 1       Rise 360 + Storyline 50% │   │
+│  │  Internal $14,600 · Client $29,200 · Saved Jun 10       │   │
+│  │                          [Open]  [Duplicate]  [Delete]  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ▼  (New company)                                               │
+│     No saved estimates yet.                                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+    <h3>Action details</h3>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Open</div>
+        Loads the saved state_json into App, navigates back to the main estimator screen. The save button will show "Update" since this is a known estimate (has an id).
+      </div>
+      <div class="card">
+        <div class="card-title">Duplicate</div>
+        Creates a new row in the database with the same state_json but a new id and <code>created_at</code>. Immediately opens it in the estimator. Useful for similar-client re-use.
+      </div>
+      <div class="card">
+        <div class="card-title">Delete</div>
+        Shows a one-line confirmation ("Delete Compliance Training 2026?"). On confirm, removes the row. No undo — the .docx export is the backup if Laurie ever needs recovery.
+      </div>
+      <div class="card">
+        <div class="card-title">New Estimate</div>
+        Clears all App state back to the blank starting point and navigates to the main estimator. If there are unsaved changes a prompt appears first: "You have unsaved changes — Save first or discard?"
+      </div>
+    </div>
+
+
+    <!-- Export Preview changes -->
+    <h3>Screen C — Export Preview (existing screen, two additions)</h3>
+    <p>The Export Preview screen (Screen 2) gets two small additions. Everything else stays the same.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌─────────────────────────────────────────────────────────────────┐
+│  ← Back to estimator                                            │
+│                                                                 │
+│  ┌──────────────────────────────────── Estimate preview ──┐    │
+│  │  Cobblestone Consulting                                 │    │
+│  │  Compliance Training 2026                               │    │
+│  │  ...                                                    │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  ┌───────────────────── Action bar ──────────────────────┐      │
+│  │                                                       │      │
+│  │  [↓ Download .docx]   [💾 Save Estimate ●]            │      │
+│  │                                                       │      │
+│  │  ● = unsaved changes indicator (hidden once saved)    │      │
+│  └───────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  — After saving, button label changes to:                       │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐      │
+│  │  [↓ Download .docx]   [✓ Saved]  [Update Estimate]   │      │
+│  └───────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+    <h3>Save button states</h3>
+    <div class="card">
+      <table style="margin:0">
+        <thead><tr><th>State</th><th>Button label</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr><td>Not signed in</td><td>Save Estimate (disabled)</td><td>Tooltip: "Sign in to save"</td></tr>
+          <tr><td>New estimate, unsaved</td><td>💾 Save Estimate ●</td><td>Inserts new row, shows "Saved ✓"</td></tr>
+          <tr><td>Just saved / no changes</td><td>✓ Saved</td><td>Inert — no action needed</td></tr>
+          <tr><td>Loaded from list, edited</td><td>Update Estimate ●</td><td>Updates existing row (same id)</td></tr>
+          <tr><td>Loaded from list, no changes</td><td>✓ Saved</td><td>Inert</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+
+    <!-- Header change -->
+    <h3>Screen D — Main estimator header (small addition)</h3>
+    <p>The top of the estimator (where Company Name and Course Name already live) gets one new element: a <strong>My Estimates</strong> link/button that navigates to Screen B, and a small user avatar/name chip showing who is signed in.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div><div class="mockup-dot y"></div><div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌─────────────────────────────────────────────────────────────────┐
+│  AI eLearning Estimator       [My Estimates]   [Laurie ▾ Sign out]  │
+│  ─────────────────────────────────────────────────────────────  │
+│  Company Name  [_________________]  Course Name  [____________]  │
+│  ─────────────────────────────────────────────────────────────  │
+│  [ Microvideo ]  [ Rise 360 ]  [ Storyline 360 ]                │
+└─────────────────────────────────────────────────────────────────┘</div>
+    </div>
+  </section>
+
+
+  <!-- ── §7 FLOW ── -->
+  <section id="flow">
+    <h2>7 — Full user flow</h2>
+
+    <h3>Flow A — Creating and saving a new estimate</h3>
+    <ol>
+      <li>Laurie visits cc-estimator.vercel.app. Session auto-restores (no login prompt on return visits).</li>
+      <li>She builds the estimate as today — selects categories, checks tasks, edits hours.</li>
+      <li>Clicks "Export / Preview". The Export Preview screen opens.</li>
+      <li>She clicks <strong>Save Estimate</strong>. A row is written to Supabase. Button becomes "✓ Saved".</li>
+      <li>Optionally clicks <strong>Download .docx</strong> as well.</li>
+    </ol>
+
+    <h3>Flow B — Returning to a saved estimate</h3>
+    <ol>
+      <li>Laurie clicks <strong>My Estimates</strong> in the header.</li>
+      <li>Finds the estimate by company name. Clicks <strong>Open</strong>.</li>
+      <li>App state is fully restored — all categories, checked tasks, hours, modules, ADA toggles exactly as she left them.</li>
+      <li>She makes changes, clicks Export / Preview, clicks <strong>Update Estimate</strong>. Existing row is overwritten.</li>
+    </ol>
+
+    <h3>Flow C — Duplicating for a similar client</h3>
+    <ol>
+      <li>Opens My Estimates. Finds an existing estimate for a similar client.</li>
+      <li>Clicks <strong>Duplicate</strong>. A new estimate is created and opened immediately.</li>
+      <li>Updates Company Name and Course Name at the top. Adjusts hours/tasks as needed.</li>
+      <li>Saves as a new entry under the new company name.</li>
+    </ol>
+
+    <h3>Flow D — First-ever visit (login)</h3>
+    <ol>
+      <li>Laurie visits the site for the first time after the database launch.</li>
+      <li>A non-blocking banner: "Sign in to save your estimates — Sign in with GitHub".</li>
+      <li>She clicks it. GitHub OAuth prompt. She approves. Returns to the estimator, now signed in.</li>
+      <li>Session persists for 30 days of activity.</li>
+    </ol>
+  </section>
+
+
+  <!-- ── §8 PLAN ── -->
+  <section id="plan">
+    <h2>8 — Implementation plan</h2>
+
+    <div class="phases">
+
+      <div class="phase-item">
+        <div class="phase-num"><div class="phase-circle">1</div></div>
+        <div class="phase-body">
+          <h3>Supabase setup &amp; client</h3>
+          <div class="phase-hrs">~2 hrs</div>
+          <ul>
+            <li>Create <code>estimates</code> table in Supabase dashboard (SQL provided above)</li>
+            <li>Enable RLS; add policy: all operations where <code>user_id = auth.uid()</code></li>
+            <li>Enable GitHub OAuth provider in Supabase Auth settings</li>
+            <li>Install <code>@supabase/supabase-js</code></li>
+            <li>Create <code>src/lib/supabase.js</code> — exports the initialized client using env vars</li>
+            <li>Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to Vercel environment variables</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-num"><div class="phase-circle">2</div></div>
+        <div class="phase-body">
+          <h3>Auth — login screen &amp; session management</h3>
+          <div class="phase-hrs">~3 hrs</div>
+          <ul>
+            <li>Create <code>src/components/LoginBanner.jsx</code> — non-blocking sign-in nudge shown when <code>user === null</code></li>
+            <li>Add <code>currentUser</code> state to <code>App.jsx</code>; populate via <code>supabase.auth.getUser()</code> on mount</li>
+            <li>Subscribe to <code>supabase.auth.onAuthStateChange</code> to keep <code>currentUser</code> in sync</li>
+            <li>Add user chip + Sign out button to app header</li>
+            <li>Handle OAuth redirect: Supabase auto-handles via <code>detectSessionInUrl</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-num"><div class="phase-circle">3</div></div>
+        <div class="phase-body">
+          <h3>Save estimate from Export Preview</h3>
+          <div class="phase-hrs">~3 hrs</div>
+          <ul>
+            <li>Add <code>savedEstimateId</code> and <code>hasUnsavedChanges</code> state to <code>App.jsx</code></li>
+            <li>Set <code>hasUnsavedChanges = true</code> on every state-mutating action in App (already have these — just add a flag)</li>
+            <li>Add <code>saveEstimate()</code> utility in <code>src/utils/saveEstimate.js</code> — serializes App state, upserts to Supabase</li>
+            <li>Wire Save / Update buttons in <code>ExportPreview.jsx</code> with correct label per state table above</li>
+            <li>Show inline success ("Saved ✓") and error messages</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-num"><div class="phase-circle">4</div></div>
+        <div class="phase-body">
+          <h3>My Estimates list screen</h3>
+          <div class="phase-hrs">~4 hrs</div>
+          <ul>
+            <li>Create <code>src/components/EstimatesList.jsx</code> — new Screen 3</li>
+            <li>Add <code>currentScreen</code> state to App: <code>'estimator' | 'preview' | 'list'</code></li>
+            <li>Add "My Estimates" nav button to header (next to Company Name)</li>
+            <li>Fetch all rows for current user on mount; group by <code>company_name</code> client-side</li>
+            <li>Implement Open: deserialize <code>state_json</code> → call <code>loadEstimate(state)</code> in App → navigate to estimator screen</li>
+            <li>Implement Duplicate: insert copy with new id, then open it</li>
+            <li>Implement Delete: confirm dialog → delete row → remove from local list state</li>
+            <li>New Estimate button: reset App state (existing <code>initCat()</code> logic), navigate to estimator</li>
+            <li>Unsaved-changes guard on New Estimate: prompt if <code>hasUnsavedChanges</code> is true</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-num"><div class="phase-circle">5</div></div>
+        <div class="phase-body">
+          <h3>Polish &amp; testing</h3>
+          <div class="phase-hrs">~2 hrs</div>
+          <ul>
+            <li>Mobile layout for Estimates list screen</li>
+            <li>Loading states (spinner while fetching list, saving)</li>
+            <li>Error handling: Supabase unreachable, session expired mid-session</li>
+            <li>Verify state round-trip: save → reload → all checkboxes/hours/modules match exactly</li>
+            <li>Verify Vercel env vars are set before deploy</li>
+            <li>End-to-end walkthrough: login → build estimate → save → list → open → edit → update → download .docx</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ── §9 EFFORT ── -->
+  <section id="effort">
+    <h2>9 — Effort summary</h2>
+
+    <table>
+      <thead><tr><th>Phase</th><th>Task</th><th>Hours</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Supabase setup, table, RLS, env vars, client module</td><td>2</td></tr>
+        <tr><td>2</td><td>Auth — session management, login banner, header user chip</td><td>3</td></tr>
+        <tr><td>3</td><td>Save / Update estimate from Export Preview</td><td>3</td></tr>
+        <tr><td>4</td><td>My Estimates list screen — fetch, open, duplicate, delete</td><td>4</td></tr>
+        <tr><td>5</td><td>Polish, mobile, error states, end-to-end testing</td><td>2</td></tr>
+      </tbody>
+    </table>
+
+    <div class="effort-bar">
+      <div>
+        <div class="label">Total estimated effort</div>
+        <div class="detail">2–3 working days</div>
+      </div>
+      <div class="number">~14 hrs</div>
+    </div>
+
+    <div class="callout amber" style="margin-top:1rem">
+      <strong>Note:</strong> These estimates assume Supabase credentials and GitHub OAuth are configured in advance. If Supabase project setup or OAuth configuration requires back-and-forth, add up to 1 hour. State serialization/deserialization testing may surface edge cases (e.g. additional-video state, second-state task arrays) that add ~1 hour.
+    </div>
+  </section>
+
+
+  <!-- ── §10 UNCHANGED ── -->
+  <section id="unchanged">
+    <h2>10 — What does NOT change</h2>
+
+    <div class="callout green">
+      The core estimator is untouched. All formulas, category logic, task rows, ADA toggles, module counts, additional video logic, and .docx export work exactly as today. The database phase is additive only.
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">No changes</div>
+        <ul style="margin:0; padding-left:1.2rem">
+          <li>App.jsx calculation logic</li>
+          <li>All formula functions in calc.js</li>
+          <li>CategoryBlock.jsx, SubtaskRow.jsx</li>
+          <li>TotalsBar.jsx</li>
+          <li>exportDocx.js — .docx always regenerated on demand</li>
+          <li>config.js — rates, tasks, defaults</li>
+          <li>index.css design system</li>
+          <li>All responsive breakpoints</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">New files only</div>
+        <ul style="margin:0; padding-left:1.2rem">
+          <li><code>src/lib/supabase.js</code></li>
+          <li><code>src/utils/saveEstimate.js</code></li>
+          <li><code>src/components/EstimatesList.jsx</code></li>
+          <li><code>src/components/LoginBanner.jsx</code></li>
+        </ul>
+        <br/>
+        <div class="card-title">Minimal edits to existing files</div>
+        <ul style="margin:0; padding-left:1.2rem">
+          <li><code>App.jsx</code> — add 3 state vars, auth subscription, load/reset helpers</li>
+          <li><code>ExportPreview.jsx</code> — add Save/Update buttons</li>
+          <li><code>index.css</code> — styles for new screens</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+  <p style="text-align:center; color: var(--ink-soft); font-size:.85rem">
+    CCEstimator — Database Phase HLD · Prepared June 19, 2026
+  </p>
+
+</div>
+</body>
+</html>

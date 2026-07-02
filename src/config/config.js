@@ -314,7 +314,7 @@ function makeSecondState(tasks, { removedIds = [], modifyHours = {} } = {}) {
     .filter(t => !removedIds.includes(t.id))
     .map(t => ({
       ...t,
-      included: false,
+      included: t.included !== false,
       assignees: t.assignees.map(a => ({
         ...a,
         hours: modifyHours[t.id]?.[a.person] ?? a.hours,

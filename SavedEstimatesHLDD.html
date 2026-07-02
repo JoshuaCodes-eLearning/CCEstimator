@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CCEstimator — Saved Estimates HLDD</title>
+<meta name="description" content="High-level design for Save Estimate, View Estimates, and Load Estimate — UX decisions and open questions." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #F5F4F9;
+    --card:        #FFFFFF;
+    --ink:         #1C1B2E;
+    --ink-soft:    #595872;
+    --ink-faint:   #9997B0;
+    --border:      #E3E1EF;
+    --accent:      #6C63FF;
+    --accent-lt:   #EDEAFF;
+    --save:        #059669;
+    --save-lt:     #D1FAE5;
+    --view:        #0284C7;
+    --view-lt:     #E0F2FE;
+    --amber:       #D97706;
+    --amber-lt:    #FEF3C7;
+    --mono:        'Courier New', Consolas, monospace;
+    --sans:        system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    padding: 2.5rem 1.25rem 7rem;
+    font-size: 15px;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ── Document header ── */
+  .doc-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 2px solid var(--border);
+  }
+  .doc-eyebrow {
+    display: flex; align-items: center; gap: .75rem;
+    margin-bottom: .85rem; flex-wrap: wrap;
+  }
+  .doc-badge {
+    background: var(--accent); color: #fff;
+    font-size: .68rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: .25rem .7rem; border-radius: 4px;
+  }
+  .doc-status {
+    font-size: .78rem; font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .doc-header h1 {
+    font-size: 2.15rem; font-weight: 800; line-height: 1.15;
+    color: var(--ink); text-wrap: balance;
+    margin-bottom: .5rem;
+  }
+  .doc-sub {
+    color: var(--ink-soft); font-size: 1rem;
+    max-width: 64ch; line-height: 1.6;
+  }
+  .doc-meta {
+    display: flex; gap: 2rem; margin-top: 1.25rem; flex-wrap: wrap;
+  }
+  .doc-meta-item { font-size: .82rem; color: var(--ink-soft); }
+  .doc-meta-item strong {
+    display: block; color: var(--ink);
+    font-size: .87rem; margin-bottom: .1rem;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2.5rem;
+    font-size: .88rem;
+  }
+  .toc-label {
+    font-size: .68rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: .75rem;
+  }
+  .toc ol { padding-left: 1.25rem; }
+  .toc li { margin-bottom: .3rem; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Sections ── */
+  section { margin-bottom: 3.25rem; }
+  .section-eyebrow {
+    font-size: .68rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: .35rem;
+  }
+  .section-rule {
+    height: 2px;
+    background: linear-gradient(to right, var(--accent-lt) 0%, transparent 70%);
+    border: none;
+    margin-bottom: 1rem;
+  }
+  h2 {
+    font-size: 1.3rem; font-weight: 800;
+    color: var(--ink); text-wrap: balance;
+    margin-bottom: 1rem;
+  }
+  h2 .n { color: var(--accent); margin-right: .35rem; }
+  h3 {
+    font-size: .93rem; font-weight: 700;
+    color: var(--ink); margin: 1.5rem 0 .5rem;
+  }
+  p {
+    color: var(--ink-soft); margin-bottom: .75rem;
+    max-width: 68ch; line-height: 1.7;
+  }
+  ul, ol { padding-left: 1.5rem; color: var(--ink-soft); margin-bottom: .75rem; }
+  li { margin-bottom: .3rem; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: .87rem; font-weight: 700;
+    color: var(--ink); margin-bottom: .45rem;
+  }
+  .card p { margin-bottom: 0; font-size: .88rem; }
+  .card ul { font-size: .88rem; }
+
+  .feature-card { border-left: 4px solid transparent; }
+  .feature-card.save { border-left-color: var(--save); }
+  .feature-card.view { border-left-color: var(--view); }
+  .feature-card.load { border-left-color: var(--accent); }
+
+  /* ── Grids ── */
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr;         gap: 1rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr;     gap: 1rem; }
+  @media (max-width: 640px) {
+    .two-col, .three-col { grid-template-columns: 1fr; }
+  }
+
+  /* ── Callouts ── */
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-lt);
+    border-radius: 0 8px 8px 0;
+    padding: .9rem 1.2rem;
+    margin-bottom: 1rem;
+    font-size: .9rem; color: var(--ink);
+    max-width: 68ch; line-height: 1.6;
+  }
+  .callout.save  { border-color: var(--save);  background: var(--save-lt);  }
+  .callout.view  { border-color: var(--view);  background: var(--view-lt);  }
+  .callout.amber { border-color: var(--amber); background: var(--amber-lt); }
+
+  /* ── Decision cards ── */
+  .decisions-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1rem; margin: 1rem 0;
+  }
+  @media (max-width: 640px) { .decisions-grid { grid-template-columns: 1fr; } }
+  .dc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .dc.save { border-top: 3px solid var(--save); }
+  .dc.view { border-top: 3px solid var(--view); }
+  .dc.load { border-top: 3px solid var(--accent); }
+  .dc-label {
+    font-size: .67rem; font-weight: 700;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: .35rem;
+  }
+  .dc-title {
+    font-size: .9rem; font-weight: 700;
+    color: var(--ink); margin-bottom: .35rem;
+  }
+  .dc-desc { font-size: .82rem; color: var(--ink-soft); line-height: 1.55; }
+
+  /* ── Mockups ── */
+  .mockup-wrap {
+    background: #1e1c2e;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 1rem 0 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,.14);
+  }
+  .mockup-bar {
+    background: #2a2740;
+    padding: .5rem 1rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mockup-dot.r { background: #ff5f57; }
+  .mockup-dot.y { background: #febc2e; }
+  .mockup-dot.g { background: #28c840; }
+  .mockup-url {
+    background: #3d3a56; border-radius: 4px;
+    color: #b0adc8; font-size: .75rem;
+    padding: .2rem .7rem; margin-left: .5rem;
+    font-family: var(--mono);
+  }
+  .mockup-body {
+    padding: 1.4rem 1.5rem;
+    font-family: var(--mono);
+    font-size: .76rem;
+    color: #cdd6f4;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.65;
+  }
+
+  /* ── Flow steps ── */
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 1rem 0; }
+  .flow-step {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 0 1rem;
+    position: relative;
+  }
+  .flow-step::after {
+    content: '';
+    position: absolute;
+    left: 13px; top: 28px; bottom: -4px;
+    width: 2px; background: var(--border);
+  }
+  .flow-step:last-child::after { display: none; }
+  .step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .74rem; font-weight: 800;
+    flex-shrink: 0; position: relative; z-index: 1;
+    margin-top: .15rem;
+  }
+  .step-num.save { background: var(--save); }
+  .step-num.view { background: var(--view); }
+  .step-body { padding-bottom: 1.4rem; }
+  .step-body p {
+    margin-bottom: 0; font-size: .9rem; max-width: 60ch;
+  }
+
+  /* ── Data table ── */
+  .table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 520px; }
+  thead tr { background: var(--ink); color: #fff; }
+  thead th { padding: .65rem .9rem; text-align: left; font-weight: 700; }
+  tbody tr:nth-child(even) { background: var(--accent-lt); }
+  tbody tr:hover { background: #e8e5ff; }
+  td { padding: .6rem .9rem; color: var(--ink-soft); border-bottom: 1px solid var(--border); vertical-align: top; }
+  td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+
+  /* ── Open questions ── */
+  .open-list { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .open-item {
+    display: grid; grid-template-columns: 80px 1fr;
+    gap: .75rem 1rem; align-items: start;
+    padding: .9rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .88rem;
+  }
+  .open-item:last-child { border-bottom: none; }
+  .open-tag {
+    font-size: .68rem; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase;
+    color: var(--amber); padding-top: .15rem;
+    line-height: 1.4;
+  }
+  .open-text { color: var(--ink-soft); line-height: 1.6; }
+  .open-text strong { color: var(--ink); }
+
+  /* ── Dividers ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  .doc-footer {
+    text-align: center; color: var(--ink-faint);
+    font-size: .8rem; padding-top: 1rem;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="doc-header">
+    <div class="doc-eyebrow">
+      <span class="doc-badge">HLDD</span>
+      <span class="doc-status">Decisions made — development not started</span>
+    </div>
+    <h1>CCEstimator — Saved Estimates</h1>
+    <p class="doc-sub">How Laurie will save estimates, browse them in a searchable list, and reload any past estimate directly into the estimator — plus what still needs to be defined before anything is built.</p>
+    <div class="doc-meta">
+      <div class="doc-meta-item"><strong>Primary user</strong>Laurie (sole user)</div>
+      <div class="doc-meta-item"><strong>Date</strong>June 29, 2026</div>
+      <div class="doc-meta-item"><strong>Status</strong>UX spec only — no code written</div>
+      <div class="doc-meta-item"><strong>See also</strong>DatabaseHLDD.html (technical/Supabase spec)</div>
+    </div>
+  </header>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#who">Who uses this, and what changes for them</a></li>
+      <li><a href="#decisions">Confirmed decisions at a glance</a></li>
+      <li><a href="#button-row">The new button row</a></li>
+      <li><a href="#save">Save Estimate — new vs. existing logic</a></li>
+      <li><a href="#view">View Estimates — the modal</a></li>
+      <li><a href="#load">Loading an estimate — double-click to prefill</a></li>
+      <li><a href="#data">What gets stored per estimate</a></li>
+      <li><a href="#open">Open questions — to flesh out later</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- §1 WHO -->
+  <section id="who">
+    <div class="section-eyebrow">Section 1</div>
+    <hr class="section-rule" />
+    <h2><span class="n">01</span>Who uses this, and what changes for them</h2>
+
+    <p>The estimator has one user: Laurie, a project manager at Cobblestone Consulting. She uses the tool to build eLearning quotes — choosing task categories, editing hours per person, and exporting a Word document for clients.</p>
+
+    <p>Right now, once she closes the browser, the estimate is gone. The Word file is the only record. Any revision — a client asking to cut a task, a margin question during a call, a new quote for a similar client — means starting from scratch or manually editing Word tables by hand.</p>
+
+    <p>This feature changes that. Every estimate can be saved as a live working version: something she can come back to, adjust, and re-export at any time.</p>
+
+    <div class="two-col" style="margin-top:1.25rem">
+      <div class="card">
+        <div class="card-title">What Laurie can do today</div>
+        <ul style="margin:0;padding-left:1.2rem">
+          <li>Build an estimate with live math</li>
+          <li>Export a formatted Word document</li>
+          <li>That's it — everything resets when she closes the tab</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">What she'll be able to do</div>
+        <ul style="margin:0;padding-left:1.2rem">
+          <li>Save any estimate with one click</li>
+          <li>Browse all saved estimates in a searchable, sortable list</li>
+          <li>Reopen a past estimate and pick up exactly where she left off</li>
+          <li>Revise and re-export without rebuilding from scratch</li>
+          <li>Save a copy instead of overwriting an original</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- §2 DECISIONS -->
+  <section id="decisions">
+    <div class="section-eyebrow">Section 2</div>
+    <hr class="section-rule" />
+    <h2><span class="n">02</span>Confirmed decisions at a glance</h2>
+
+    <p>These choices have been made. Everything in sections 3–7 follows from them.</p>
+
+    <div class="decisions-grid">
+      <div class="dc save">
+        <div class="dc-label">Save Estimate</div>
+        <div class="dc-title">New vs. existing check on every save</div>
+        <div class="dc-desc">Brand new estimates save directly with a unique ID. Estimates loaded from a previous save ask first: overwrite the original, or save as a separate copy?</div>
+      </div>
+      <div class="dc view">
+        <div class="dc-label">View Estimates</div>
+        <div class="dc-title">Opens as a modal — same window</div>
+        <div class="dc-desc">Works like the Export Preview: an overlay in the same browser window with a Back button to close it. Not a new page or browser tab.</div>
+      </div>
+      <div class="dc load">
+        <div class="dc-label">Load Estimate</div>
+        <div class="dc-title">Double-click to open and prefill</div>
+        <div class="dc-desc">Double-clicking any row in the list closes the modal and fully restores that estimate into the estimator — every task, hour, and setting.</div>
+      </div>
+    </div>
+
+    <div class="dc view" style="border-top:3px solid var(--view); margin-top:0">
+      <div class="dc-label">Button placement — confirmed</div>
+      <div class="dc-title">Export to Word · Save Estimate · View Estimates — one row, equal weight</div>
+      <div class="dc-desc">All three actions sit on a single row. No button is treated as primary over the others. Exact placement (Export Preview screen only, or also on the main estimator) is an open question — see Section 8.</div>
+    </div>
+  </section>
+
+
+  <!-- §3 BUTTON ROW -->
+  <section id="button-row">
+    <div class="section-eyebrow">Section 3</div>
+    <hr class="section-rule" />
+    <h2><span class="n">03</span>The new button row</h2>
+
+    <p>The most visible change is the action row at the bottom of the Export Preview screen. Instead of just "Export to Word," there are three actions side by side.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div>
+        <div class="mockup-dot y"></div>
+        <div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back to estimator                                             │
+│                                                                  │
+│  ┌─────────────────── Estimate preview ──────────────────────┐  │
+│  │  Cobblestone Consulting                                    │  │
+│  │  Compliance Training 2026                                  │  │
+│  │  Rise 360  ·  3 modules  ·  ADA  ·  50% margin            │  │
+│  │  ...                                                       │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─────────────────── Action row ────────────────────────────┐  │
+│  │                                                           │  │
+│  │  [ ↓ Export to Word ]  [ 💾 Save Estimate ]  [ 📋 View Estimates ] │  │
+│  │                                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+    <p>The three buttons carry equal visual weight — no primary/secondary hierarchy that would imply one action is more "official" than the others. Exact sizing and styling will be finalized during development.</p>
+  </section>
+
+
+  <!-- §4 SAVE -->
+  <section id="save">
+    <div class="section-eyebrow">Section 4</div>
+    <hr class="section-rule" />
+    <h2><span class="n">04</span>Save Estimate — new vs. existing logic</h2>
+
+    <p>When Laurie clicks <strong>Save Estimate</strong>, the tool checks whether she's working on a brand new estimate or one she loaded from a previous save. The behavior is different in each case.</p>
+
+    <div class="two-col">
+      <div class="card feature-card save">
+        <div class="card-title">Brand new estimate</div>
+        <p>No saved record exists. The estimate is saved immediately — assigned a unique ID and written to the database. No dialog, no extra step. The button updates to confirm it was saved.</p>
+      </div>
+      <div class="card feature-card view">
+        <div class="card-title">Loaded from a previous save</div>
+        <p>A record already exists. Before writing anything, the tool asks: overwrite the current version, or keep the original and create a separate copy?</p>
+      </div>
+    </div>
+
+    <h3>The overwrite dialog</h3>
+    <p>When a saved version already exists, clicking <strong>Save Estimate</strong> opens a small dialog before any data is written:</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div>
+        <div class="mockup-dot y"></div>
+        <div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+             ┌───────────────────────────────────────────────┐
+             │  Save Estimate                            [✕]  │
+             │  ─────────────────────────────────────────    │
+             │                                               │
+             │  "Cobblestone — Compliance Training 2026"     │
+             │  already has a saved version.                 │
+             │                                               │
+             │  ┌─────────────────────────────────────────┐  │
+             │  │  Overwrite current estimate              │  │
+             │  │  Replaces the saved copy with your       │  │
+             │  │  latest changes.                         │  │
+             │  └─────────────────────────────────────────┘  │
+             │                                               │
+             │  ┌─────────────────────────────────────────┐  │
+             │  │  Save as a separate estimate             │  │
+             │  │  Keeps the original untouched and        │  │
+             │  │  creates a new independent copy.         │  │
+             │  └─────────────────────────────────────────┘  │
+             │                                               │
+             └───────────────────────────────────────────────┘</div>
+    </div>
+
+    <div class="callout save">
+      <strong>Why both options?</strong> Overwrite handles the common case: "I revised this estimate and want to replace it." Save as separate handles the other case: "I'm building a Phase 2 and need Phase 1 to stay intact" — or "I want to try a different scope without losing what I had."
+    </div>
+
+    <h3>What "save as separate" does</h3>
+    <p>Creates a new estimate record with a new unique ID. The original is untouched. The new copy becomes the "active" estimate — so if Laurie saves again after more changes, the dialog will ask about the new copy, not the original.</p>
+
+    <p>Whether the new copy is auto-named (e.g. "Compliance Training 2026 — copy") or Laurie names it herself is an open question — see Section 8.</p>
+  </section>
+
+
+  <!-- §5 VIEW -->
+  <section id="view">
+    <div class="section-eyebrow">Section 5</div>
+    <hr class="section-rule" />
+    <h2><span class="n">05</span>View Estimates — the modal</h2>
+
+    <p>Clicking <strong>View Estimates</strong> opens a modal overlay in the same browser window. It works exactly like the Export Preview screen: the estimator dims behind it, and a Back button closes the modal and returns to wherever Laurie was.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup-bar">
+        <div class="mockup-dot r"></div>
+        <div class="mockup-dot y"></div>
+        <div class="mockup-dot g"></div>
+        <div class="mockup-url">cc-estimator.vercel.app</div>
+      </div>
+      <div class="mockup-body">
+┌──────────────────────────────────────────────────────────────────┐
+│  ← Back                                        My Estimates      │
+│  ────────────────────────────────────────────────────────────    │
+│                                                                  │
+│  [ 🔍  Search by company, course, date... ]   Sort: [ Most Recent ▾ ] │
+│                                                                  │
+│  ────────────────────────────────────────────────────────────    │
+│  Company               Course                 Cat.   Client $    │
+│  ────────────────────────────────────────────────────────────    │
+│  Cobblestone           Compliance 2026         Rise   $18,480    │
+│                                                50%    Jun 18     │
+│  ────────────────────────────────────────────────────────────    │
+│  Cobblestone           Safety Onboarding       MV     $7,636     │
+│                                                45%    Jun 15     │
+│  ────────────────────────────────────────────────────────────    │
+│  Acme Corp             Leadership Dev          R+S    $29,200    │
+│                                                50%    Jun 10     │
+│  ────────────────────────────────────────────────────────────    │
+│                                                                  │
+│  Double-click any row to open that estimate in the estimator     │
+└──────────────────────────────────────────────────────────────────┘</div>
+    </div>
+
+    <h3>Search and sort</h3>
+    <p>The search bar and sort dropdown let Laurie find any estimate quickly. The confirmed search variables and sort options are listed below — additional ones will be defined in a later session.</p>
+
+    <div class="two-col">
+      <div class="card feature-card view">
+        <div class="card-title">Confirmed — searchable by</div>
+        <ul style="margin:0;padding-left:1.2rem">
+          <li>Company name</li>
+          <li>Course name</li>
+          <li>Date (saved / created)</li>
+          <li style="color:var(--ink-faint);font-style:italic">More to be defined</li>
+        </ul>
+      </div>
+      <div class="card feature-card view">
+        <div class="card-title">Confirmed — sortable by</div>
+        <ul style="margin:0;padding-left:1.2rem">
+          <li>Most recent (default)</li>
+          <li>Alphabetical by company name</li>
+          <li style="color:var(--ink-faint);font-style:italic">More to be defined</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout amber">
+      <strong>To flesh out later:</strong> The full set of search fields, filter controls (e.g. filter by category type, by margin %), and sort options will be defined before the View Estimates screen is built. The structure above is the agreed-upon starting point.
+    </div>
+  </section>
+
+
+  <!-- §6 LOAD -->
+  <section id="load">
+    <div class="section-eyebrow">Section 6</div>
+    <hr class="section-rule" />
+    <h2><span class="n">06</span>Loading an estimate — double-click to prefill</h2>
+
+    <p>From the View Estimates modal, Laurie double-clicks any row. The modal closes, the estimator screen appears, and every field is fully restored to exactly how the estimate was when it was last saved.</p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-num view">1</div>
+        <div class="step-body"><p>Laurie double-clicks an estimate row in the modal.</p></div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num view">2</div>
+        <div class="step-body"><p>The modal closes. The main estimator screen appears.</p></div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num view">3</div>
+        <div class="step-body"><p><strong>Everything is prefilled:</strong> selected categories, checked and unchecked tasks, all hours per person, additional minutes, ADA toggles, number of modules, additional video settings — exactly as last saved.</p></div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num view">4</div>
+        <div class="step-body"><p>Laurie can edit anything freely. All live math recalculates as normal.</p></div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num save">5</div>
+        <div class="step-body"><p>When she clicks <strong>Save Estimate</strong>, the tool recognizes this as an existing record and shows the overwrite-or-save-as dialog from Section 4.</p></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>The core guarantee:</strong> Loading an estimate is completely lossless. Every setting that was saved comes back exactly as it was. There should be no visible difference between an estimate built from scratch and one loaded from a save.
+    </div>
+  </section>
+
+
+  <!-- §7 DATA -->
+  <section id="data">
+    <div class="section-eyebrow">Section 7</div>
+    <hr class="section-rule" />
+    <h2><span class="n">07</span>What gets stored per estimate</h2>
+
+    <p>Each saved estimate holds two kinds of data: quick-display fields that power the list view, and the full estimate state that enables lossless reload.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Field</th><th>What it is</th><th>Used for</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Unique ID</td>
+            <td>Auto-generated on first save, never changes</td>
+            <td>Identifies the estimate; drives the overwrite-vs-save-as check</td>
+          </tr>
+          <tr>
+            <td>Company name</td>
+            <td>From the Company Name field at save time</td>
+            <td>Shown in the list; searchable</td>
+          </tr>
+          <tr>
+            <td>Course name</td>
+            <td>From the Course Name field at save time</td>
+            <td>Shown in the list; searchable</td>
+          </tr>
+          <tr>
+            <td>Categories</td>
+            <td>Which category blocks were active (Microvideo, Rise 360, Storyline 360)</td>
+            <td>Shown as badges in the list</td>
+          </tr>
+          <tr>
+            <td>Client price</td>
+            <td>The client-facing total at save time</td>
+            <td>Shown in the list for at-a-glance reference</td>
+          </tr>
+          <tr>
+            <td>Margin %</td>
+            <td>40%, 45%, or 50%</td>
+            <td>Shown in the list; filterable in a later iteration</td>
+          </tr>
+          <tr>
+            <td>Saved date</td>
+            <td>When the estimate was last saved or updated</td>
+            <td>Shown in the list; used for "Most Recent" sort</td>
+          </tr>
+          <tr>
+            <td>Full estimate state</td>
+            <td>All tasks, all hours per person, checked/unchecked states, additional minutes, ADA toggles, module counts, additional video configurations — everything</td>
+            <td>Restores the estimator exactly on load</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout save">
+      <strong>The Word document is not stored.</strong> The .docx is always generated fresh from the live estimate state when Laurie clicks "Export to Word." Saving an estimate and exporting a Word file are separate, independent actions — she can do one, both, or neither in any order.
+    </div>
+  </section>
+
+
+  <!-- §8 OPEN QUESTIONS -->
+  <section id="open">
+    <div class="section-eyebrow">Section 8</div>
+    <hr class="section-rule" />
+    <h2><span class="n">08</span>Open questions — to flesh out later</h2>
+
+    <p>These items are intentionally unresolved. Nothing in sections 1–7 is blocked by any of them — they'll be defined before the relevant part of the feature is built.</p>
+
+    <div class="open-list">
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Where does View Estimates live?</strong> Confirmed on the Export Preview action row. Does it also appear somewhere on the main estimator — in the header, as a top-level button? Or is it only accessible through the Export Preview screen?</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Full search and filter variables.</strong> Company name, course name, and date are confirmed. What else — filter by category type, by margin %, by date range? To be finalized before the View Estimates modal is built.</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Full sort options.</strong> Most Recent and Alphabetical by Company are confirmed. Anything else — sort by client price, sort by course name, sort by date created vs. date last updated?</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Delete from the list.</strong> Can Laurie delete a saved estimate from within the View Estimates modal? If yes, does it require a confirmation step? This wasn't addressed in the initial brief.</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Naming a "save as separate" copy.</strong> When Laurie saves as a separate estimate, does it get an automatic name ("Compliance Training 2026 — copy") or does she get a chance to give it a new name before it saves?</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Unsaved changes guard when opening View Estimates.</strong> If Laurie is mid-estimate and opens View Estimates, then double-clicks a different one — what happens to the in-progress work? Should there be a prompt: "You have unsaved changes — save first or discard?"</div>
+      </div>
+      <div class="open-item">
+        <div class="open-tag">To define</div>
+        <div class="open-text"><strong>Authentication approach.</strong> Saving to a database requires some form of login to keep Laurie's estimates private and persistent across devices/sessions. Auth method and flow are specified in <strong>DatabaseHLDD.html</strong> — confirm that approach still fits before building.</div>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+  <div class="doc-footer">
+    CCEstimator — Saved Estimates HLDD &middot; June 29, 2026 &middot; UX spec, development not started &middot; See also: DatabaseHLDD.html
+  </div>
+
+</div>
+</body>
+</html>
