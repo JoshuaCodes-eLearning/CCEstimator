@@ -21,7 +21,7 @@ function initCat(key) {
     adaEnabled:        false,
     tasks: DEFAULT_TASKS[key].map(t => ({
       ...t,
-      included:  t.included !== false,
+      included:  true,
       assignees: initAssignees(t.assignees),
     })),
     removedStack: [],
