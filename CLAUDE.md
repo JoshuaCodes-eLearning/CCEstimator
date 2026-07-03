@@ -90,12 +90,26 @@ src/
   components/
     CategoryBlock.jsx   — one card per selected category; props-driven
     SubtaskRow.jsx      — one row; inner AssigneeRow component per person
-    TotalsBar.jsx       — bottom bar; member hours + costs
-    ActionBar.jsx       — NEW: 3-button bar below TotalsBar:
-                          [Save Estimate] [View Estimates] [Export to Word]
+    TotalsBar.jsx       — bottom bar; member hours + costs; ALSO renders the
+                          3 action buttons (Save Estimate / View Estimates /
+                          Export to Word) inline via `.totals-actions` — see
+                          note below, ActionBar.jsx is NOT used for this.
+    ActionBar.jsx       — UNUSED / dead code. Originally planned as a separate
+                          bar below TotalsBar, but the 3 buttons were built
+                          directly into TotalsBar.jsx instead (Step 1). Not
+                          imported anywhere. Safe to delete or repurpose later.
     ExportPreview.jsx   — screen 2; renders estimate preview + download
-    EstimatesModal.jsx  — NEW: full-screen modal overlay; spreadsheet-style
-                          list of all saved estimates with sort/search/actions
+    EstimatesModal.jsx  — full-screen "My Estimates" modal: fetches, searches,
+                          sorts, paginates, inline-renames, status-toggles,
+                          opens, and hard-deletes saved estimates. Fully wired
+                          to Supabase — see Database phase section below.
+    ConfirmDialog.jsx   — generic reusable Yes/No(/third-option) modal dialog;
+                          used by both the Save Estimate flow (App.jsx) and
+                          the Open/Delete confirms in EstimatesModal.jsx.
+  utils/ (continued)
+    estimatePayload.js  — resolveName() (blank → "Unnamed"), estimateDisplayName()
+                          (`"{Company}'s Estimate"`), buildEstimateRow() (App
+                          state → estimates-table row shape for insert/update)
 ```
 
 ---
@@ -229,136 +243,197 @@ auto-generated from DEFAULT_TASKS via `makeSecondState()`.
 
 ---
 
-## Database phase — Supabase (IN PROGRESS as of 2026-07-02)
+## Database phase — Supabase (Steps 1–6 DONE as of 2026-07-03; Step 7 auth pending)
 
 ### Overview
-Laurie can save estimates to Supabase, browse them in a modal, and reload any
-saved estimate back into the estimator exactly as it was. Auth is Supabase
-email/password. **Auth is implemented LAST** — do not add an auth gate until
-all DB functionality is tested and working.
+Laurie can save estimates to Supabase, browse/search/sort/paginate them in a
+modal, rename/close/delete them inline, and reopen any saved estimate back
+into the estimator exactly as it was. Auth is Supabase email/password.
+**Auth (Step 7) is not built yet** — do not add an auth gate until explicitly
+asked; everything below currently works with NO login, by design, so it could
+be fully tested first.
 
 ### Supabase project
 - URL: `https://nterokbwaflejbsrwjqr.supabase.co`
 - Credentials in `.env` (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — never hardcode
-- `estimates` table: created and empty, RLS enabled
+- `estimates` table: created, has real data now, RLS enabled
 - Auth user: `laurieb@cobblestoneconsulting.com` — confirmed, email verified
 - Signup disabled after user was created (single-user app)
 - Client module: `src/lib/supabase.js`
 
-### New state variables to add to App.jsx
+### State added to App.jsx for this phase
 ```js
-currentEstimateId   // string | null — UUID of the loaded/saved estimate
+currentEstimateId   // string | null — id of the loaded/saved estimate
+saveDialog          // null | { type: 'new' } | { type: 'overwrite', existingName }
+isSaving, justSaved // anti-spam: button disabled + "Saved ✓" flash after write
+saveToast           // { message, isError } — bottom-center toast, auto-clears
 ```
-That's the only new top-level state. Everything else is derived.
+Everything else (`selectedKeys`, `internalCost`, etc.) is derived, unchanged.
 
-### Action bar (new component: ActionBar.jsx)
-Sits in its own bar **below TotalsBar**, above nothing. Three equal-width buttons:
+### Save Estimate — actual implemented flow
+This deviates from the original SavedEstimatesHLDD.html §4 on purpose, per
+Laurie's explicit direction: **every** save shows a confirm dialog, including
+the very first save (the HLD originally said brand-new saves skip the dialog
+and save instantly — that's superseded now).
 
 ```
-[ 💾 Save Estimate ]   [ 📋 View Estimates ]   [ ↓ Export to Word ]
+Click Save Estimate → button disables immediately (can't double-fire)
+  │
+  ├─ currentEstimateId === null (never saved)
+  │     → dialog: `Save "{Company}'s Estimate" to your estimates?` → Yes/Cancel
+  │           Yes → INSERT → setCurrentEstimateId(new id) → toast + "Saved ✓"
+  │
+  └─ currentEstimateId !== null (previously saved / loaded)
+        → queries the DB FRESH by that id every time (never trusts cache)
+              ├─ row found  → dialog: `"{name}" already has a saved version.
+              │                Overwrite it, or save this as a new related
+              │                estimate?` → Cancel / Save As New / Overwrite
+              │     Overwrite   → UPDATE same row (is_closed NOT touched)
+              │     Save As New → INSERT new row → currentEstimateId = new id
+              └─ row not found (deleted elsewhere) → silently falls back to
+                 the brand-new flow above, no separate warning shown
 ```
+- Blank Company/Course resolve to `"Unnamed"` before hitting the DB
+  (`resolveName()` in `estimatePayload.js`). Display name everywhere is
+  `"{Company}'s Estimate"` (`estimateDisplayName()`), NOT the old
+  `"{Company} — {Course}"` format from the HLD mockup.
+- After a successful write: button shows "Saved ✓" and stays disabled for
+  ~1.8s (`justSaved` + `setTimeout`), so rapid re-clicks can't create dupes.
+- `buildEstimateRow()` in `estimatePayload.js` is the single source of truth
+  for App-state → DB-row shape. `additional_videos` MUST default to `[]`
+  (never `null`) — the column is `NOT NULL` with a `'[]'::jsonb` default;
+  sending `null` fails the constraint the moment a non-Microvideo estimate saves.
+- **No unsaved-changes / beforeunload warning exists.** Explicitly decided
+  against — Laurie doesn't want any autosave-adjacent behavior; if the tab
+  closes before Save Estimate is clicked, that work is genuinely lost. This
+  was a deliberate call, not an oversight (see "Operational risks" below).
 
-- Save Estimate + View Estimates: one color (DB-related)
-- Export to Word: different color (existing feature, unchanged)
-- Export to Word still navigates to Export Preview exactly as today
-- Only rendered when at least one category is selected (same condition as TotalsBar)
+### View Estimates modal (EstimatesModal.jsx) — actual implemented behavior
+Full-screen overlay, same pattern as Export Preview. Fetches the whole
+`estimates` table on open; search/sort/pagination are all client-side over
+that already-fetched array (fine at this table size; revisit if it ever grows
+into the thousands).
 
-### Save Estimate — full logic
+- **Pagination**: 5 rows per page (deliberately small — Laurie does ~50
+  estimates/year, no need for more). Previous/Next buttons appear once there
+  are 6+ matching rows; page resets to 1 whenever search or sort changes.
+- **Search**: case-insensitive substring match against `company_name` OR
+  `course_name`, client-side `.filter()`.
+- **Sort** (client-side `.sort()`): Most Recent (`updated_at` desc, default) /
+  Most Profitable (`client_price` desc) / Margin % (`margin_pct` desc) /
+  Alphabetical (`company_name` asc).
+- **Inline rename**: double-click Company or Course text → input appears →
+  commits on blur or Enter (Escape cancels) → `UPDATE` on that single column
+  only → also calls back to App.jsx to live-update `companyName`/`courseName`
+  if that row is the one currently loaded (`currentEstimateId` match).
+  Race-safety: `editingRef` + `commitPromiseRef` in EstimatesModal.jsx make
+  `commitEdit()` reentrant-safe and awaitable, because clicking Open/Delete
+  while a rename input is focused fires the input's `blur` (which starts the
+  async write) immediately before the button's own `click` in the same tick.
+  `flushPendingEditFor(row)` is called by both Open and Delete so they always
+  act on the just-committed value, never a stale one.
+- **Status toggle**: the Open/Closed pill is a button; click = instant
+  `UPDATE is_closed` (optimistic, rolls back on error). No separate save step.
+- **Delete**: confirm dialog → **hard delete** (`DELETE FROM estimates`), not
+  soft-delete — matches Laurie's explicit call, not the old soft-delete plan
+  from an earlier planning session. If the deleted row was the one currently
+  loaded, `currentEstimateId` resets to null in App.jsx too.
+- **Open**: confirm dialog (`Open "{name}'s Estimate"? This replaces what's
+  currently on screen.`) → Yes → `onLoad(row)` restores full state. **Button
+  only** — deliberately NOT wired to double-click-the-row (that gesture is
+  taken by inline rename on the Company/Course cells; wiring both would
+  conflict). This is an intentional deviation from the original HLD's
+  "double-click row to open" — flag if Laurie still wants that behavior added
+  on the non-name cells.
+- **Categories column**: double-click to expand/collapse truncated text
+  (per-row `expandedCats` Set state); also has a native `title` tooltip as a
+  hover fallback.
+- Hover affordances are deliberately per-element, not whole-row: a 2px dotted
+  underline appears only on Company/Course/Categories on hover (the genuinely
+  interactive cells). Client $/Margin/Saved Date get no hover effect — they
+  aren't clickable, and an earlier whole-row-highlight was removed because it
+  implied otherwise.
+
+### Loading an estimate (`handleLoadEstimate` in App.jsx)
 ```
-Click Save Estimate
-        │
-        ├─ currentEstimateId === null?
-        │       │
-        │  YES ─┴─► Insert new row → set currentEstimateId → flash "Saved ✓"
-        │
-        └─ currentEstimateId !== null?
-                │
-           YES ─┴─► Dialog: "Overwrite" or "Save as copy"
-                        Overwrite  → UPDATE existing row (same ID)
-                        Save copy  → INSERT new row, new ID → set currentEstimateId
+1. state = row.state_json ?? {}
+2. setCatStates(state.catStates ?? catStates), setSelected(state.selected ?? selected)
+3. companyName/courseName ← row.company_name / row.course_name  ⚠ NOT state_json
+4. marginPct ← state.marginPct, liveHours ← state.liveHours
+5. setCurrentEstimateId(row.id); setScreen('estimator')
 ```
+**Bug fixed 2026-07-03**: Company/Course must be read from the row's
+top-level columns, not `state_json.companyName`/`courseName`. Inline rename
+in the modal only ever updates the top-level columns — `state_json` is a
+frozen snapshot from whenever that estimate was last explicitly Saved, so
+reading names from it made Open show stale names after a rename. Loading
+self-heals the next time that estimate is Saved/Overwritten, since
+`buildEstimateRow()` rebuilds `state_json` fresh from current App state.
 
-- Button goes briefly inert after save (debounced — not spammable)
-- Auto-name on first save: `"{CompanyName} — {CourseName}"`,
-  or `"Untitled Estimate — {Month Day}"` if both name fields are blank
-- "Save as copy" auto-names: `"{CourseName} — copy"`
+### `estimates` table schema (as actually deployed — verified via
+`information_schema.columns`, not just the original design doc)
+| Column | Type | Nullable | Default | Notes |
+|---|---|---|---|---|
+| id | uuid PK | NO | `gen_random_uuid()` | never shown in UI |
+| user_id | uuid FK → auth.users | **YES** | NULL | made nullable pre-auth; will go back to NOT NULL in Step 7 |
+| company_name | text | NO | `''` | app always resolves blank → `'Unnamed'` before insert |
+| course_name | text | NO | `''` | same |
+| categories | text[] | NO | `'{}'` | e.g. `['rise360','microvideo']` |
+| internal_cost | numeric | NO | `0` | snapshot |
+| client_price | numeric | NO | `0` | snapshot; drives Most Profitable sort |
+| margin_pct | smallint | NO | `50` | 40 / 45 / 50 |
+| ada_enabled | jsonb | NO | `'{}'` | e.g. `{ "rise360": true }` |
+| module_counts | jsonb | NO | `'{}'` | e.g. `{ "rise360": 3 }` |
+| additional_mins | jsonb | NO | `'{}'` | e.g. `{ "rise360": 5 }` |
+| additional_videos | jsonb | NO | `'[]'` | **must send `[]` not `null`** for non-Microvideo saves |
+| is_closed | boolean | NO | `false` | |
+| state_json | jsonb | NO | `'{}'` | full App state snapshot for reload |
+| created_at | timestamptz | NO | `now()` | |
+| updated_at | timestamptz | NO | `now()` | bumped by DB trigger on UPDATE |
 
-### Unsaved changes warning
-Only fires when `currentEstimateId === null` (estimate has never been saved).
-If she opens View Estimates with unsaved work:
-> "This estimate hasn't been saved. If you leave without saving, your changes
-> will be lost." — [Save first] [Continue anyway]
-If `currentEstimateId !== null`, no warning — she can browse freely.
+### RLS — current state (TEMPORARY, must tighten in Step 7)
+Four policies exist scoped to the `anon` role, all wide open
+(`using (true)` / `with_check (true)`), named `"anon {select,insert,update,delete}
+(temp, pre-auth)"`. They coexist with older `"owner: {select,insert,delete}"`
+policies scoped to `auth.uid() = user_id` (harmless no-ops right now since
+nothing is authenticated). **Anyone with the deployed site's anon key — which
+is not secret, it ships in the JS bundle — can currently read/write/delete
+every row.** Acceptable temporarily for a low-stakes internal tool with no
+PII, but the `anon` policies must be dropped and replaced with
+`auth.uid() = user_id` scoping as part of Step 7, alongside making `user_id`
+NOT NULL again and populating it on every insert.
 
-### View Estimates modal (EstimatesModal.jsx)
-Full-screen overlay — same pattern as Export Preview (dims background,
-`← Back to estimator` top-left, preserves state on back).
+### Operational risks (Supabase free tier — flag to Laurie, don't silently fix)
+- **No automated backups on Free tier.** No daily backups, no point-in-time
+  recovery. The hard-delete confirm dialog is the only safety net that
+  exists today — if she confirms a delete she didn't mean, it's gone for
+  good. Mitigation options if this becomes a real concern: upgrade to
+  Supabase Pro (~$25/mo, adds daily backups + optional PITR), or a periodic
+  script that dumps the table to JSON as a manual backup.
+- **Free-tier projects auto-pause after ~1 week of no API activity.** Data
+  isn't lost, but the project must be manually resumed from the Supabase
+  dashboard before the app works again. Real risk for a low-traffic internal
+  tool that might go quiet for a week.
 
-**Always clickable** — shows "No estimates saved yet" empty state if DB is empty.
-
-**Spreadsheet-style list — one row per estimate:**
-
-| Company ✎ | Course ✎ | Categories | Client $ | Margin | Date | Closed | Actions |
-|---|---|---|---|---|---|---|---|
-| Cobblestone | Compliance 2026 | Rise | $18,480 | 50% | Jun 18 | ☐ | [Open] [Delete] |
-
-- **Company ✎ / Course ✎**: click to edit inline → auto-saves to DB on blur/Enter
-  → also updates App state companyName/courseName if this estimate is currently loaded
-- **Closed checkbox**: instant DB toggle, no save button needed
-- **Open button** OR **double-click row**: loads full state, closes modal
-- **Delete**: two-step — confirm dialog → delete row
-
-**Search**: single bar, searches company + course name simultaneously (case-insensitive)
-
-**Sort dropdown** (default = Most Recent):
-- Most Recent (updated_at DESC)
-- Most Profitable (client_price DESC)
-- Margin % (margin_pct DESC)
-- Alphabetical (company_name ASC)
-
-### Loading an estimate
-On Open / double-click:
-1. Read `state_json` from the row
-2. Restore full App state: `catStates`, `selected`, `companyName`, `courseName`,
-   `marginPct`, `liveHours`
-3. Set `currentEstimateId` to the row's `id`
-4. Close modal, return to estimator
-
-Loading is lossless — every task, hour, check state, ADA toggle, module count,
-additional video, and second-state task comes back exactly as saved.
-
-### `estimates` table schema
-| Column | Type | Notes |
-|---|---|---|
-| id | uuid PK | auto, never shown in UI |
-| user_id | uuid FK → auth.users | RLS anchor |
-| company_name | text | editable inline |
-| course_name | text | editable inline |
-| categories | text[] | `['rise360', 'microvideo']` |
-| internal_cost | numeric(10,2) | snapshot |
-| client_price | numeric(10,2) | snapshot; drives sort |
-| margin_pct | smallint | 40 / 45 / 50 |
-| ada_enabled | jsonb | `{ "rise360": true }` |
-| module_counts | jsonb | `{ "rise360": 3 }` |
-| additional_mins | jsonb | `{ "rise360": 5 }` |
-| additional_videos | jsonb | microvideo only |
-| is_closed | boolean | default false |
-| state_json | jsonb | full App state for reload |
-| created_at | timestamptz | auto |
-| updated_at | timestamptz | auto via trigger |
-
-### Build order — one piece at a time, confirm before moving on
-1. **ActionBar component** — 3-button bar below TotalsBar, Export to Word wired,
-   Save + View stubbed (no DB calls yet). Confirm layout + styling.
-2. **Save Estimate** — wire Save button to Supabase INSERT/UPDATE logic,
-   `currentEstimateId` state, auto-naming, overwrite dialog. Test saving.
-3. **View Estimates modal** — fetch list, render rows, search, sort. No load yet.
-   Confirm layout + data display.
-4. **Load estimate** — Open button + double-click restores full state. Test round-trip.
-5. **Inline rename** — company/course edit in modal → DB update → state sync.
-6. **Closed toggle + Delete** — wire remaining row actions.
-7. **Auth gate** — login screen, session management, wired to Laurie's account.
-   Added LAST after all DB functionality confirmed working.
+### Step 7 — Auth gate (NOT STARTED — open design questions, ask before building)
+1. **Session persistence**: Supabase's default is to persist the login
+   session in `localStorage` (so she doesn't have to re-login every visit).
+   This app has a standing rule against `localStorage`/`sessionStorage` for
+   *estimate draft state* (to avoid autosave-style behavior she's explicitly
+   said she doesn't want) — that rule was not written with auth tokens in
+   mind, and auth-session storage is a different, standard concern. Still,
+   get an explicit call before building: persistent login (stay signed in
+   across closes/refreshes) vs. session-only (re-login every time the tab
+   closes)?
+2. **RLS tightening**: drop the 4 `anon` policies, restore `user_id NOT NULL`,
+   scope all policies to `auth.uid() = user_id`, populate `user_id` on insert.
+3. **Iframe embedding caveat**: if this app is later embedded cross-origin
+   (see "Embedding" section below), browser storage partitioning (Safari ITP
+   today, Chrome/Firefox increasingly) means a login session may not reliably
+   carry over between a direct visit and an iframe embed, or between two
+   different embedding pages. This is a browser privacy behavior, not
+   something fixable at the app level — occasional re-login inside an embed
+   is the accepted tradeoff for this single-user tool, not a bug to chase.
 
 ---
 
@@ -405,8 +480,15 @@ payments · editable settings screen · PDF export · sharing estimates with cli
 - All state lives in App.jsx; components are props-driven.
 - Commit + push to main after any meaningful change (Vercel auto-deploys).
 - When something is genuinely ambiguous vs. the HLD, ask rather than guess.
-- **DB phase**: build one piece at a time per the build order above.
-  Get explicit confirmation before moving to the next step.
+- **DB phase**: Steps 1–6 are done (Save Estimate, View Estimates modal with
+  search/sort/pagination/inline-rename/status-toggle/delete/open). Step 7
+  (auth gate) is the only remaining piece — see open design questions in the
+  Database phase section before building it.
 - **No auth gate until step 7** — test all DB functionality without login.
 - Supabase credentials come from `.env` only — never hardcode keys.
-- `currentEstimateId` is the only new top-level state in App.jsx for the DB phase.
+- Any RLS policy change (dashboard or SQL) is Laurie's action to take, not
+  something to attempt via the anon key — always hand her exact SQL to run
+  and re-verify with a live round-trip test afterward, don't assume it worked.
+- Before trusting a Supabase write path works, verify with a real (self-cleaning)
+  insert/update/delete round trip against the live table — reading the code
+  is not enough; RLS/schema constraints only show up at request time.

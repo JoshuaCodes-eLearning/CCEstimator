@@ -1494,11 +1494,122 @@ body { background: var(--page-bg); }
 }
 .totals-action-btn--export:hover { background: #1d4ed8; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45); }
 
+.totals-action-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+.totals-action-btn:disabled:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+
+/* =====================================================
+   CONFIRM DIALOG (Save Estimate flow)
+   ===================================================== */
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 35, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.confirm-dialog {
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  max-width: 460px;
+  width: 100%;
+  padding: 26px;
+}
+.confirm-dialog-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.confirm-dialog-message {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+.confirm-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+/* 3+ choices read much cleaner stacked full-width than crammed into one
+   row — avoids awkward wrapping on longer labels like "Continue Without
+   Saving". Order in the JSX for these is: primary action top, alternate
+   choice middle, Cancel last/most de-emphasized at the bottom. */
+.confirm-dialog-actions:has(> :nth-child(3)) {
+  flex-direction: column-reverse;
+}
+.confirm-dialog-actions:has(> :nth-child(3)) .confirm-dialog-btn {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+.confirm-dialog-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.confirm-dialog-btn--secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.confirm-dialog-btn--secondary:hover { background: var(--border-light); }
+.confirm-dialog-btn--primary {
+  background: #059669;
+  color: var(--white);
+}
+.confirm-dialog-btn--primary:hover { background: #047857; }
+.confirm-dialog-btn--related {
+  background: #2563eb;
+  color: var(--white);
+}
+.confirm-dialog-btn--related:hover { background: #1d4ed8; }
+.confirm-dialog-btn--danger {
+  background: var(--red);
+  color: var(--white);
+}
+.confirm-dialog-btn--danger:hover { background: #b91c1c; }
+
+/* =====================================================
+   SAVE TOAST
+   ===================================================== */
+.save-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--navy);
+  color: var(--white);
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 200;
+  max-width: 90vw;
+  text-align: center;
+}
+.save-toast--error {
+  background: var(--red);
+}
+
 /* =====================================================
    ESTIMATES MODAL
    ===================================================== */
 .estimates-modal {
-  max-width: 960px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 0 20px 80px;
 }
@@ -1577,9 +1688,9 @@ body { background: var(--page-bg); }
 
 .estimates-cols {
   display: grid;
-  grid-template-columns: 1.4fr 1.4fr 1fr 100px 80px 90px 80px 60px;
-  gap: 0 12px;
-  padding: 6px 16px;
+  grid-template-columns: 165px 180px 130px 90px 60px 100px 80px 195px;
+  gap: 0 14px;
+  padding: 10px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1593,9 +1704,9 @@ body { background: var(--page-bg); }
   color: var(--text-muted, #6b7280);
 }
 
-.estimates-col-label--right {
-  text-align: right;
-}
+.estimates-col-label--right  { text-align: right; }
+.estimates-col-label--center { text-align: center; }
+.estimates-col-label--actions { padding-left: 16px; }
 
 .estimates-empty {
   display: flex;
@@ -1630,6 +1741,143 @@ body { background: var(--page-bg); }
   margin: 0;
 }
 
+.estimates-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.estimates-row {
+  display: grid;
+  grid-template-columns: 165px 180px 130px 90px 60px 100px 80px 195px;
+  gap: 0 14px;
+  padding: 18px 20px;
+  min-height: 58px;
+  align-items: center;
+  background: var(--white);
+  border-bottom: 1px solid var(--border-light);
+}
+.estimates-row:last-child { border-bottom: none; }
+
+.estimates-cell {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.estimates-cell--strong { font-weight: 600; }
+.estimates-cell--muted  { color: var(--text-muted); cursor: pointer; }
+.estimates-cell--right  { text-align: right; }
+.estimates-cell--center { text-align: center; }
+.estimates-cell--expanded {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
+/* Only the truly interactive pieces get a hover cue — the row itself
+   doesn't light up as a whole, since most cells aren't clickable.
+   Company/Course (rename) and Categories (expand) all share the same
+   bigger, more visible dotted-underline-on-hover treatment. */
+.estimates-editable,
+.estimates-cell--muted {
+  border-bottom: 2px dotted transparent;
+  transition: border-color 0.1s;
+}
+.estimates-editable       { cursor: pointer; }
+.estimates-editable:hover,
+.estimates-cell--muted:hover {
+  border-bottom-color: var(--text-muted);
+}
+
+.estimates-edit-input {
+  width: 100%;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--blue-border);
+  border-radius: 4px;
+  background: var(--blue-light);
+  color: var(--text);
+}
+.estimates-edit-input:focus { outline: none; border-color: var(--blue); }
+
+.estimates-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--green-light);
+  color: var(--green);
+  border: none;
+  cursor: pointer;
+}
+.estimates-status:hover { filter: brightness(0.96); }
+.estimates-status--closed {
+  background: var(--border-light);
+  color: var(--text-muted);
+}
+
+.estimates-cell--actions {
+  display: flex;
+  gap: 6px;
+  overflow: visible;
+}
+
+.estimates-action-btn {
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.estimates-action-btn--open {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.estimates-action-btn--open:hover { background: var(--blue-border); }
+.estimates-action-btn--delete {
+  background: var(--red-light);
+  color: var(--red);
+}
+.estimates-action-btn--delete:hover { background: #fecaca; }
+
+.estimates-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.estimates-page-btn {
+  border: 1px solid var(--border);
+  background: var(--white);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.estimates-page-btn:hover:not(:disabled) { background: var(--surface); }
+.estimates-page-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.estimates-page-info {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* =====================================================
    RESPONSIVE — TABLET (≤ 900px)
    ===================================================== */
@@ -1659,8 +1907,10 @@ body { background: var(--page-bg); }
   .totals-action-btn { font-size: 13px; padding: 10px 14px; }
 
   /* EstimatesModal */
-  .estimates-modal { padding: 0 16px 80px; }
-  .estimates-cols { grid-template-columns: 1.2fr 1.2fr 90px 90px 70px 50px 60px 50px; font-size: 10px; }
+  .estimates-modal { max-width: 100%; padding: 0 16px 80px; }
+  .estimates-cols,
+  .estimates-row { grid-template-columns: 130px 145px 105px 75px 50px 80px 65px 120px; gap: 0 10px; }
+  .estimates-cols { font-size: 10px; }
 }
 
 /* =====================================================

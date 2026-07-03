@@ -13,6 +13,8 @@ export default function TotalsBar({
   onSave,
   onViewEstimates,
   onExport,
+  saveLabel = 'Save Estimate',
+  saveDisabled = false,
 }) {
   return (
     <div className="totals-bar">
@@ -71,8 +73,9 @@ export default function TotalsBar({
 
         {/* ── Action buttons ───────────────────────── */}
         <div className="totals-actions">
-          <button type="button" className="totals-action-btn totals-action-btn--save" onClick={onSave}>
-            Save Estimate
+          <button type="button" className="totals-action-btn totals-action-btn--save"
+            onClick={onSave} disabled={saveDisabled}>
+            {saveLabel}
           </button>
           <button type="button" className="totals-action-btn totals-action-btn--view" onClick={onViewEstimates}>
             View Estimates

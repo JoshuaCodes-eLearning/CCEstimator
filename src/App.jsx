@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import CategoryBlock    from './components/CategoryBlock'
 import TotalsBar        from './components/TotalsBar'
-import ActionBar        from './components/ActionBar'
 import ExportPreview    from './components/ExportPreview'
 import EstimatesModal   from './components/EstimatesModal'
+import ConfirmDialog    from './components/ConfirmDialog'
 import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeAssigneeHoursForTask } from './utils/calc'
+import { supabase } from './lib/supabase'
+import { buildEstimateRow, estimateDisplayName } from './utils/estimatePayload'
 
 export { CAT_LABELS }
 
@@ -60,6 +62,25 @@ export default function App() {
     storyline360: initCat('storyline360'),
   }))
   const [marginPct, setMarginPct] = useState(DEFAULT_MARGIN_PCT)
+
+  // ── Save Estimate (DB) ────────────────────────────────────
+  const [currentEstimateId, setCurrentEstimateId] = useState(null)
+  const [saveDialog,  setSaveDialog]  = useState(null) // { type: 'new' } | { type: 'overwrite', existingName }
+  const [isSaving,    setIsSaving]    = useState(false)
+  const [justSaved,   setJustSaved]   = useState(false)
+  const [saveToast,   setSaveToast]   = useState(null) // { message, isError }
+  const [navGuard,    setNavGuard]    = useState(null) // null | 'view' — the "unsaved work" warning for View Estimates
+  // Serialized snapshot of the meaningful state as of the last load/save —
+  // NOT re-queried from the DB. Comparing against this in-memory string is
+  // cheap (only computed at the moment of clicking View Estimates/Open) and
+  // is what lets an untouched loaded estimate skip the warning entirely.
+  const savedSnapshotRef = useRef(null)
+
+  useEffect(() => {
+    if (!saveToast) return
+    const t = setTimeout(() => setSaveToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [saveToast])
 
   // ── Category selection ───────────────────────────────────
   function toggleCat(key) {
@@ -319,6 +340,196 @@ export default function App() {
     Object.entries(memberHours).filter(([, h]) => h > 0)
   )
 
+  // ── Save Estimate handlers ────────────────────────────────
+  function currentRowPayload() {
+    return buildEstimateRow({
+      companyName, courseName, selected, selectedKeys, catStates,
+      marginPct, liveHours, internalCost, clientPrice,
+    })
+  }
+
+  function buildSnapshot(cs, sel, company, course, margin, hours) {
+    return JSON.stringify({ catStates: cs, selected: sel, companyName: company, courseName: course, marginPct: margin, liveHours: hours })
+  }
+
+  function currentSnapshot() {
+    return buildSnapshot(catStates, selected, companyName, courseName, marginPct, liveHours)
+  }
+
+  // Never saved this session → dirty iff there's a real in-progress estimate
+  // (which, since View Estimates/Save don't even render without one, just
+  // means a category is selected). Previously saved/loaded → dirty iff the
+  // live state has actually diverged from the snapshot taken at that time.
+  function hasUnsavedChanges() {
+    if (currentEstimateId === null) return selectedKeys.length > 0
+    return currentSnapshot() !== savedSnapshotRef.current
+  }
+
+  function cancelSaveDialog() {
+    setSaveDialog(null)
+    setIsSaving(false)
+  }
+
+  async function handleSaveClick() {
+    if (isSaving) return
+    setIsSaving(true)
+
+    if (currentEstimateId === null) {
+      setSaveDialog({ type: 'new' })
+      return
+    }
+
+    const { data: existing, error } = await supabase
+      .from('estimates')
+      .select('id, company_name')
+      .eq('id', currentEstimateId)
+      .maybeSingle()
+
+    if (error) {
+      setSaveToast({ message: `Couldn't reach the database — ${error.message}`, isError: true })
+      setIsSaving(false)
+      return
+    }
+
+    if (!existing) {
+      // Loaded/previous id no longer exists in the DB (e.g. deleted elsewhere) — treat as brand new.
+      setSaveDialog({ type: 'new' })
+      return
+    }
+
+    setSaveDialog({ type: 'overwrite', existingName: estimateDisplayName(existing.company_name) })
+  }
+
+  function finishSave(successMessage) {
+    setSaveDialog(null)
+    setJustSaved(true)
+    setSaveToast({ message: successMessage })
+    setTimeout(() => { setIsSaving(false); setJustSaved(false) }, 1800)
+  }
+
+  function failSave(error) {
+    setSaveDialog(null)
+    setSaveToast({ message: `Save failed — ${error.message}`, isError: true })
+    setIsSaving(false)
+  }
+
+  // Shared by the normal Save Estimate dialog AND the silent "Save & Open" /
+  // "Save & Continue" paths triggered from the unsaved-changes warnings below
+  // — those warnings are themselves the user's confirmation, so no second
+  // dialog here, just do the write and update the dirty-tracking snapshot.
+  async function insertNewEstimate() {
+    const row = { ...currentRowPayload(), is_closed: false }
+    const { data, error } = await supabase.from('estimates').insert(row).select().single()
+    if (error) throw error
+    setCurrentEstimateId(data.id)
+    savedSnapshotRef.current = currentSnapshot()
+    return data
+  }
+
+  async function overwriteEstimate() {
+    const row = currentRowPayload()
+    const { data, error } = await supabase
+      .from('estimates')
+      .update(row)
+      .eq('id', currentEstimateId)
+      .select()
+      .single()
+    if (error) throw error
+    savedSnapshotRef.current = currentSnapshot()
+    return data
+  }
+
+  async function performInsert() {
+    try {
+      const data = await insertNewEstimate()
+      finishSave(`Saved: "${estimateDisplayName(data.company_name)}"`)
+    } catch (error) {
+      failSave(error)
+    }
+  }
+
+  async function performOverwrite() {
+    try {
+      const data = await overwriteEstimate()
+      finishSave(`Saved: "${estimateDisplayName(data.company_name)}"`)
+    } catch (error) {
+      failSave(error)
+    }
+  }
+
+  // ── Unsaved-changes navigation guards ─────────────────────
+  function handleViewEstimatesClick() {
+    if (hasUnsavedChanges()) setNavGuard('view')
+    else setScreen('estimates')
+  }
+
+  async function handleSaveAndBrowse() {
+    try {
+      if (currentEstimateId === null) await insertNewEstimate()
+      else await overwriteEstimate()
+      setNavGuard(null)
+      setScreen('estimates')
+    } catch (error) {
+      setSaveToast({ message: `Save failed — ${error.message}`, isError: true })
+    }
+  }
+
+  function handleContinueWithoutSaving() {
+    setNavGuard(null)
+    setScreen('estimates')
+  }
+
+  async function handleSaveAndOpen(row) {
+    try {
+      if (currentEstimateId === null) await insertNewEstimate()
+      else await overwriteEstimate()
+      handleLoadEstimate(row)
+    } catch (error) {
+      setSaveToast({ message: `Save failed — ${error.message}`, isError: true })
+    }
+  }
+
+  function handleDiscardAndOpen(row) {
+    handleLoadEstimate(row)
+  }
+
+  // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
+  function handleLoadEstimate(row) {
+    const state = row.state_json ?? {}
+    const nextCatStates = state.catStates ?? catStates
+    const nextSelected  = state.selected ?? selected
+    // Company/Course come from the top-level columns, not state_json — inline
+    // rename in View Estimates only ever updates those columns, so state_json's
+    // copy can be stale if it was renamed since the last full Save.
+    const nextCompany   = row.company_name ?? state.companyName ?? ''
+    const nextCourse    = row.course_name ?? state.courseName ?? ''
+    const nextMargin    = state.marginPct ?? DEFAULT_MARGIN_PCT
+    const nextLiveHours = state.liveHours ?? ''
+
+    setCatStates(nextCatStates)
+    setSelected(nextSelected)
+    setCompanyName(nextCompany)
+    setCourseName(nextCourse)
+    setMarginPct(nextMargin)
+    setLiveHours(nextLiveHours)
+    setCurrentEstimateId(row.id)
+    // Computed from the values just set (not read back from state, which
+    // wouldn't reflect these updates until next render) — this becomes the
+    // dirty-check baseline for this estimate going forward.
+    savedSnapshotRef.current = buildSnapshot(nextCatStates, nextSelected, nextCompany, nextCourse, nextMargin, nextLiveHours)
+    setScreen('estimator')
+  }
+
+  function handleEstimateRenamed(id, patch) {
+    if (id !== currentEstimateId) return
+    if ('company_name' in patch) setCompanyName(patch.company_name)
+    if ('course_name' in patch) setCourseName(patch.course_name)
+  }
+
+  function handleEstimateDeleted(id) {
+    if (id === currentEstimateId) setCurrentEstimateId(null)
+  }
+
   // ── Live training prediction (reference only, does not auto-fill module count) ──
   // Formula: 1 hr live = 40% × 60 = 24 min of eLearning
   const liveNum         = parseFloat(liveHours)
@@ -348,6 +559,13 @@ export default function App() {
     return (
       <EstimatesModal
         onBack={() => setScreen('estimator')}
+        onLoad={handleLoadEstimate}
+        onEstimateRenamed={handleEstimateRenamed}
+        onEstimateDeleted={handleEstimateDeleted}
+        hasUnsavedChanges={hasUnsavedChanges()}
+        currentEstimateName={estimateDisplayName(companyName)}
+        onSaveAndOpen={handleSaveAndOpen}
+        onDiscardAndOpen={handleDiscardAndOpen}
       />
     )
   }
@@ -472,13 +690,59 @@ export default function App() {
             marginPct={marginPct}
             marginOptions={MARGIN_OPTIONS}
             onMarginChange={setMarginPct}
-            onSave={() => {}}
-            onViewEstimates={() => setScreen('estimates')}
+            onSave={handleSaveClick}
+            onViewEstimates={handleViewEstimatesClick}
             onExport={() => setScreen('preview')}
+            saveLabel={justSaved ? 'Saved ✓' : 'Save Estimate'}
+            saveDisabled={isSaving}
           />
         )}
 
       </main>
+
+      {saveDialog?.type === 'new' && (
+        <ConfirmDialog
+          title="Save Estimate"
+          message={`Save "${estimateDisplayName(companyName)}" to your estimates?`}
+          onDismiss={cancelSaveDialog}
+          actions={[
+            { label: 'Cancel',   kind: 'secondary', onClick: cancelSaveDialog },
+            { label: 'Yes, Save', kind: 'primary',   onClick: performInsert },
+          ]}
+        />
+      )}
+
+      {saveDialog?.type === 'overwrite' && (
+        <ConfirmDialog
+          title="Save Estimate"
+          message={`"${saveDialog.existingName}" already has a saved version. Overwrite it, or save this as a new related estimate?`}
+          onDismiss={cancelSaveDialog}
+          actions={[
+            { label: 'Cancel',       kind: 'secondary', onClick: cancelSaveDialog },
+            { label: 'Save As New',  kind: 'related',   onClick: performInsert },
+            { label: 'Overwrite',    kind: 'primary',   onClick: performOverwrite },
+          ]}
+        />
+      )}
+
+      {navGuard === 'view' && (
+        <ConfirmDialog
+          title="Unsaved Changes"
+          message={`You're currently working on "${estimateDisplayName(companyName)}". Save it before browsing, or continue without saving?`}
+          onDismiss={() => setNavGuard(null)}
+          actions={[
+            { label: 'Cancel',                  kind: 'secondary', onClick: () => setNavGuard(null) },
+            { label: 'Continue Without Saving', kind: 'related',   onClick: handleContinueWithoutSaving },
+            { label: 'Save & Continue',         kind: 'primary',   onClick: handleSaveAndBrowse },
+          ]}
+        />
+      )}
+
+      {saveToast && (
+        <div className={`save-toast${saveToast.isError ? ' save-toast--error' : ''}`}>
+          {saveToast.message}
+        </div>
+      )}
     </div>
   )
 }
