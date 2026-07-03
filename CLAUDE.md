@@ -106,6 +106,16 @@ src/
     ConfirmDialog.jsx   — generic reusable Yes/No(/third-option) modal dialog;
                           used by both the Save Estimate flow (App.jsx) and
                           the Open/Delete confirms in EstimatesModal.jsx.
+    AppHeader.jsx       — shared header (title + screen label + Sign Out /
+                          Change Password when authenticated); replaces what
+                          used to be 3x duplicated inline <header> markup
+                          across App.jsx/EstimatesModal.jsx/ExportPreview.jsx.
+    LoginScreen.jsx     — sign-in form + forgot-password (no email input by
+                          design — single-account app, see Step 7 below).
+    ResetPasswordScreen.jsx — shown when the emailed reset link lands back
+                          on the app (Supabase PASSWORD_RECOVERY event).
+    ChangePasswordModal.jsx — logged-in password change; re-verifies the
+                          current password before allowing a new one.
   utils/ (continued)
     estimatePayload.js  — resolveName() (blank → "Unnamed"), estimateDisplayName()
                           (`"{Company}'s Estimate"`), buildEstimateRow() (App
@@ -243,15 +253,17 @@ auto-generated from DEFAULT_TASKS via `makeSecondState()`.
 
 ---
 
-## Database phase — Supabase (Steps 1–6 DONE as of 2026-07-03; Step 7 auth pending)
+## Database phase — Supabase (Steps 1–7 ALL DONE as of 2026-07-03)
 
 ### Overview
 Laurie can save estimates to Supabase, browse/search/sort/paginate them in a
 modal, rename/close/delete them inline, and reopen any saved estimate back
-into the estimator exactly as it was. Auth is Supabase email/password.
-**Auth (Step 7) is not built yet** — do not add an auth gate until explicitly
-asked; everything below currently works with NO login, by design, so it could
-be fully tested first.
+into the estimator exactly as it was. The entire app is now gated behind
+Supabase email/password auth — nothing renders, not even the calculator,
+until signed in. RLS is fully tightened: the anon key has zero access to the
+`estimates` table (verified live, not just assumed — see RLS section below).
+A companion user-facing reference doc lives at `DATABASE_PHASE2_GUIDE.md` —
+point Laurie there for "how do I..." questions instead of re-explaining.
 
 ### Supabase project
 - URL: `https://nterokbwaflejbsrwjqr.supabase.co`
@@ -303,10 +315,41 @@ Click Save Estimate → button disables immediately (can't double-fire)
   for App-state → DB-row shape. `additional_videos` MUST default to `[]`
   (never `null`) — the column is `NOT NULL` with a `'[]'::jsonb` default;
   sending `null` fails the constraint the moment a non-Microvideo estimate saves.
-- **No unsaved-changes / beforeunload warning exists.** Explicitly decided
-  against — Laurie doesn't want any autosave-adjacent behavior; if the tab
-  closes before Save Estimate is clicked, that work is genuinely lost. This
-  was a deliberate call, not an oversight (see "Operational risks" below).
+- **No browser-level beforeunload/tab-close warning exists.** Explicitly
+  decided against — Laurie doesn't want any autosave-adjacent behavior; if
+  the tab or browser closes before Save Estimate is clicked, that work is
+  genuinely lost. Deliberate call, not an oversight.
+
+### Unsaved-changes guard (in-app navigation only — different from the above)
+This is a separate, deliberately-scoped-smaller feature than a beforeunload
+warning: it only fires on *in-app* navigation (View Estimates button, Open on
+a different estimate), not on tab close/refresh.
+
+- `savedSnapshotRef` (a `useRef`, not state) holds a JSON-serialized snapshot
+  of `{ catStates, selected, companyName, courseName, marginPct, liveHours }`
+  taken at the moment an estimate is loaded or successfully saved.
+  `hasUnsavedChanges()`: if `currentEstimateId === null`, dirty iff a category
+  is selected (the only way to even reach these buttons); otherwise dirty iff
+  `JSON.stringify(current state)` differs from the ref. This is a cheap
+  in-memory comparison, NOT a DB round-trip — computed only at the moment of
+  clicking, not on every render/keystroke.
+- **Clicking View Estimates while dirty** → `navGuard` dialog: *"You're
+  currently working on '{name}'. Save it before browsing, or continue without
+  saving?"* → Cancel / Continue Without Saving / Save & Continue. Save &
+  Continue calls `insertNewEstimate()`/`overwriteEstimate()` directly with NO
+  second confirmation dialog (this warning IS the confirmation).
+- **Clicking Open on a different estimate while dirty** → EstimatesModal shows
+  a richer variant instead of the plain "Open X?" dialog: *"You're currently
+  working on '{current}'. Opening '{target}' will replace it — save your
+  current work, or discard it?"* → Cancel / Discard & Open / Save & Open.
+  Requires `hasUnsavedChanges`/`currentEstimateName` props passed down from
+  App.jsx, plus `onSaveAndOpen`/`onDiscardAndOpen` callbacks.
+- **Not dirty** (opened/saved an estimate, changed nothing) → both of the
+  above skip straight through with no warning at all — this is the exact
+  case Laurie asked about ("what if she opens the estimate and doesn't change
+  anything") and it's handled correctly by the snapshot comparison.
+- If "Save & ___" itself fails (network error), nothing is discarded and no
+  navigation happens — stays exactly where it was, shows an error toast.
 
 ### View Estimates modal (EstimatesModal.jsx) — actual implemented behavior
 Full-screen overlay, same pattern as Export Preview. Fetches the whole
@@ -375,7 +418,7 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | Column | Type | Nullable | Default | Notes |
 |---|---|---|---|---|
 | id | uuid PK | NO | `gen_random_uuid()` | never shown in UI |
-| user_id | uuid FK → auth.users | **YES** | NULL | made nullable pre-auth; will go back to NOT NULL in Step 7 |
+| user_id | uuid FK → auth.users | NO | none | nullable pre-auth, restored to NOT NULL once auth shipped; populated from `session.user.id` on every insert |
 | company_name | text | NO | `''` | app always resolves blank → `'Unnamed'` before insert |
 | course_name | text | NO | `''` | same |
 | categories | text[] | NO | `'{}'` | e.g. `['rise360','microvideo']` |
@@ -391,17 +434,23 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | created_at | timestamptz | NO | `now()` | |
 | updated_at | timestamptz | NO | `now()` | bumped by DB trigger on UPDATE |
 
-### RLS — current state (TEMPORARY, must tighten in Step 7)
-Four policies exist scoped to the `anon` role, all wide open
-(`using (true)` / `with_check (true)`), named `"anon {select,insert,update,delete}
-(temp, pre-auth)"`. They coexist with older `"owner: {select,insert,delete}"`
-policies scoped to `auth.uid() = user_id` (harmless no-ops right now since
-nothing is authenticated). **Anyone with the deployed site's anon key — which
-is not secret, it ships in the JS bundle — can currently read/write/delete
-every row.** Acceptable temporarily for a low-stakes internal tool with no
-PII, but the `anon` policies must be dropped and replaced with
-`auth.uid() = user_id` scoping as part of Step 7, alongside making `user_id`
-NOT NULL again and populating it on every insert.
+### RLS — final tightened state (shipped 2026-07-03, verified live)
+The 4 temporary `"anon {select,insert,update,delete} (temp, pre-auth)"`
+policies are gone. Current policies on `estimates`:
+- `owner: select`, `owner: insert`, `owner: delete` (pre-existing, `to public`,
+  `using/with_check (auth.uid() = user_id)`)
+- `owner: update` (added during Step 7 — the original setup never had one;
+  discovered when a `create policy` collided with an existing same-named
+  policy of unknown definition, so it's now `drop policy if exists` +
+  recreate, idempotent) — same `auth.uid() = user_id` shape.
+- `user_id` is `NOT NULL` again, populated from `session.user.id` in
+  `insertNewEstimate()`.
+
+**Verified live against the real table, not just assumed:** anon key gets an
+empty result from `SELECT`, a `42501` rejection on `INSERT`, and 0-rows-
+affected on `UPDATE`/`DELETE` against an actual Laurie-owned row (tested by
+ID, not a fake one — a fake ID would "succeed" at 0-rows-affected regardless
+of RLS, which isn't a real test). Anon has zero access, confirmed.
 
 ### Operational risks (Supabase free tier — flag to Laurie, don't silently fix)
 - **No automated backups on Free tier.** No daily backups, no point-in-time
@@ -414,26 +463,49 @@ NOT NULL again and populating it on every insert.
   isn't lost, but the project must be manually resumed from the Supabase
   dashboard before the app works again. Real risk for a low-traffic internal
   tool that might go quiet for a week.
+- **Storage is a non-issue at this scale.** Measured a realistic worst-case
+  full estimate row (all 3 categories, 3 modules, ADA, extra videos) at
+  ~16.4 KB. 500MB Free-tier storage ÷ that ≈ 31,000 rows ≈ 600+ years of
+  runway at ~50 estimates/year. Free tier is not the constraint here — the
+  backup/auto-pause gaps above are the only real Free-tier risks.
 
-### Step 7 — Auth gate (NOT STARTED — open design questions, ask before building)
-1. **Session persistence**: Supabase's default is to persist the login
-   session in `localStorage` (so she doesn't have to re-login every visit).
-   This app has a standing rule against `localStorage`/`sessionStorage` for
-   *estimate draft state* (to avoid autosave-style behavior she's explicitly
-   said she doesn't want) — that rule was not written with auth tokens in
-   mind, and auth-session storage is a different, standard concern. Still,
-   get an explicit call before building: persistent login (stay signed in
-   across closes/refreshes) vs. session-only (re-login every time the tab
-   closes)?
-2. **RLS tightening**: drop the 4 `anon` policies, restore `user_id NOT NULL`,
-   scope all policies to `auth.uid() = user_id`, populate `user_id` on insert.
-3. **Iframe embedding caveat**: if this app is later embedded cross-origin
-   (see "Embedding" section below), browser storage partitioning (Safari ITP
-   today, Chrome/Firefox increasingly) means a login session may not reliably
-   carry over between a direct visit and an iframe embed, or between two
-   different embedding pages. This is a browser privacy behavior, not
-   something fixable at the app level — occasional re-login inside an embed
-   is the accepted tradeoff for this single-user tool, not a bug to chase.
+### Step 7 — Auth gate (DONE, shipped 2026-07-03)
+Full-app gate — nothing renders, not even the calculator, until signed in.
+New files: `LoginScreen.jsx`, `ResetPasswordScreen.jsx`,
+`ChangePasswordModal.jsx`, `AppHeader.jsx` (shared header w/ Sign Out +
+Change Password, replaces 3x-duplicated inline header markup).
+
+- **Session persistence**: went with Supabase's default (`localStorage`,
+  persistent across closes/refreshes) — this is a different concern from the
+  standing no-localStorage rule for *estimate draft state*, which is about
+  not auto-saving in-progress work, not about auth tokens.
+- **`onAuthStateChange`** drives everything: `session` state (`undefined` =
+  still checking, `null` = signed out, object = signed in) plus a special
+  `isRecovery` flag set by the `PASSWORD_RECOVERY` event, checked *before*
+  the session check so the reset-password link always lands on "set new
+  password," never straight into the app.
+- **Forgot password**: no email input — single-account app, so any email
+  typed wouldn't change where the link goes anyway. Hardcoded
+  `LAURIE_EMAIL` constant in `LoginScreen.jsx`, UI just confirms "sent to
+  Laurie's email."
+- **Change Password requires re-entering the current password** — Supabase's
+  `updateUser()` doesn't check this itself (an active session is sufficient
+  for it), so `ChangePasswordModal` calls `signInWithPassword` with the
+  entered current password first as a verification step, only calling
+  `updateUser` if that succeeds. Guards against an already-unlocked/open
+  session being used to lock the real owner out.
+- **Sign Out** (`supabase.auth.signOut()`) is global-scope by default — signs
+  out of every device/session for that account, not just the current tab.
+- **Signup is confirmed disabled server-side**, not just assumed from a
+  dashboard toggle — a real signup attempt via the anon key returns
+  `422 signup_disabled`, no account created. Only one login exists.
+- **Iframe embedding caveat** (unchanged, still relevant if this is ever
+  embedded elsewhere): browser storage partitioning (Safari ITP today,
+  Chrome/Firefox increasingly) means a session may not carry over between a
+  direct visit and an iframe embed. Not fixable at the app level — accepted
+  tradeoff for this single-user tool.
+- Companion user-facing doc: `DATABASE_PHASE2_GUIDE.md` — point Laurie there
+  for usage questions instead of re-deriving answers from this file.
 
 ---
 
@@ -480,11 +552,12 @@ payments · editable settings screen · PDF export · sharing estimates with cli
 - All state lives in App.jsx; components are props-driven.
 - Commit + push to main after any meaningful change (Vercel auto-deploys).
 - When something is genuinely ambiguous vs. the HLD, ask rather than guess.
-- **DB phase**: Steps 1–6 are done (Save Estimate, View Estimates modal with
-  search/sort/pagination/inline-rename/status-toggle/delete/open). Step 7
-  (auth gate) is the only remaining piece — see open design questions in the
-  Database phase section before building it.
-- **No auth gate until step 7** — test all DB functionality without login.
+- **DB phase**: Steps 1–7 are ALL done (Save Estimate, View Estimates modal,
+  full-app auth gate, RLS tightened and verified live). See
+  `DATABASE_PHASE2_GUIDE.md` for the user-facing "what does this do" version.
+- If the app ever needs a new DB feature, remember RLS is now tight — anon
+  can do nothing; every code path that touches `estimates` only ever runs
+  post-login, and inserts must keep stamping `user_id` from the session.
 - Supabase credentials come from `.env` only — never hardcode keys.
 - Any RLS policy change (dashboard or SQL) is Laurie's action to take, not
   something to attempt via the anon key — always hand her exact SQL to run
