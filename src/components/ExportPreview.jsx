@@ -1,6 +1,8 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
 import { computeAssigneeHoursForTask, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
+import AppHeader from './AppHeader'
+import ChangePasswordModal from './ChangePasswordModal'
 
 function taskCost(task, catKey, addedMin) {
   return (task.assignees ?? []).reduce((sum, a) => {
@@ -18,6 +20,10 @@ export default function ExportPreview({
   clientPrice,
   marginPct,
   onBack,
+  onSignOut,
+  onChangePassword,
+  changePasswordOpen,
+  onCloseChangePassword,
 }) {
   async function handleDownload() {
     await generateAndSaveDocx({
@@ -34,10 +40,13 @@ export default function ExportPreview({
 
   return (
     <div className="app">
-      <header className="app-header">
-        <span className="app-title">Cobblestone AI eLearning Estimator</span>
-        <span className="screen-label">Screen 2 — Export Preview</span>
-      </header>
+      <AppHeader
+        screenLabel="Screen 2 — Export Preview"
+        onSignOut={onSignOut}
+        onChangePassword={onChangePassword}
+      />
+
+      {changePasswordOpen && <ChangePasswordModal onClose={onCloseChangePassword} />}
 
       <div className="preview-toolbar">
         <button type="button" className="back-btn" onClick={onBack}>← Back to edit</button>

@@ -95,6 +95,118 @@ body { background: var(--page-bg); }
   letter-spacing: 0.01em;
 }
 
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-user-menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-menu-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.75);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.header-menu-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+.header-menu-btn--signout {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #fca5a5;
+}
+.header-menu-btn--signout:hover {
+  background: rgba(220, 38, 38, 0.15);
+  color: #fecaca;
+}
+
+/* =====================================================
+   AUTH — Login / Reset Password
+   ===================================================== */
+.login-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.login-card {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  padding: 36px;
+  max-width: 380px;
+  width: 100%;
+}
+
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.login-form .field-input { margin-bottom: 14px; }
+
+.login-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.login-error {
+  font-size: 13px;
+  color: var(--red);
+  background: var(--red-light);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 4px 0 10px;
+}
+
+.login-submit-btn {
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.login-submit-btn:hover { background: var(--navy-hover); }
+.login-submit-btn:disabled { opacity: 0.6; cursor: default; }
+
+.login-link-btn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 0 0;
+  text-align: center;
+}
+.login-link-btn:hover { text-decoration: underline; }
+
 /* Scrollable content */
 .app-main {
   flex: 1;

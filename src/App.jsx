@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
-import CategoryBlock    from './components/CategoryBlock'
-import TotalsBar        from './components/TotalsBar'
-import ExportPreview    from './components/ExportPreview'
-import EstimatesModal   from './components/EstimatesModal'
-import ConfirmDialog    from './components/ConfirmDialog'
+import CategoryBlock       from './components/CategoryBlock'
+import TotalsBar           from './components/TotalsBar'
+import ExportPreview       from './components/ExportPreview'
+import EstimatesModal      from './components/EstimatesModal'
+import ConfirmDialog       from './components/ConfirmDialog'
+import LoginScreen         from './components/LoginScreen'
+import ResetPasswordScreen from './components/ResetPasswordScreen'
+import ChangePasswordModal from './components/ChangePasswordModal'
+import AppHeader           from './components/AppHeader'
 import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeAssigneeHoursForTask } from './utils/calc'
 import { supabase } from './lib/supabase'
@@ -48,6 +52,25 @@ const QUESTIONS = [
 ]
 
 export default function App() {
+  // ── Auth ───────────────────────────────────────────────────
+  // session: undefined = "checking on load", null = "signed out", object = "signed in"
+  const [session,             setSession]             = useState(undefined)
+  const [isRecovery,          setIsRecovery]          = useState(false)
+  const [showChangePassword,  setShowChangePassword]  = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') setIsRecovery(true)
+      setSession(newSession)
+    })
+    return () => subscription.subscription.unsubscribe()
+  }, [])
+
+  function handleSignOut() {
+    supabase.auth.signOut()
+  }
+
   const [screen,        setScreen]        = useState('estimator')
   const [companyName,   setCompanyName]   = useState('')
   const [courseName,    setCourseName]    = useState('')
@@ -418,7 +441,7 @@ export default function App() {
   // — those warnings are themselves the user's confirmation, so no second
   // dialog here, just do the write and update the dirty-tracking snapshot.
   async function insertNewEstimate() {
-    const row = { ...currentRowPayload(), is_closed: false }
+    const row = { ...currentRowPayload(), is_closed: false, user_id: session?.user?.id ?? null }
     const { data, error } = await supabase.from('estimates').insert(row).select().single()
     if (error) throw error
     setCurrentEstimateId(data.id)
@@ -538,6 +561,28 @@ export default function App() {
   const predictedWhole  = hasPrediction ? Math.floor(predictedMin / 15) : null
   const predictedRem    = hasPrediction ? (predictedMin % 15) : null
 
+  // ── Auth gate ──────────────────────────────────────────────
+  // Nothing below this renders until signed in — this is a single-user
+  // internal tool, so there's no case where the calculator itself should be
+  // usable by someone who isn't Laurie, even if Save were disabled for them.
+  if (session === undefined) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <span className="app-title">Cobblestone AI eLearning Estimator</span>
+        </header>
+      </div>
+    )
+  }
+
+  if (isRecovery) {
+    return <ResetPasswordScreen onDone={() => setIsRecovery(false)} />
+  }
+
+  if (!session) {
+    return <LoginScreen />
+  }
+
   // ── Screens ──────────────────────────────────────────────
   if (screen === 'preview') {
     return (
@@ -551,6 +596,10 @@ export default function App() {
         clientPrice={clientPrice}
         marginPct={marginPct}
         onBack={() => setScreen('estimator')}
+        onSignOut={handleSignOut}
+        onChangePassword={() => setShowChangePassword(true)}
+        changePasswordOpen={showChangePassword}
+        onCloseChangePassword={() => setShowChangePassword(false)}
       />
     )
   }
@@ -566,16 +615,21 @@ export default function App() {
         currentEstimateName={estimateDisplayName(companyName)}
         onSaveAndOpen={handleSaveAndOpen}
         onDiscardAndOpen={handleDiscardAndOpen}
+        onSignOut={handleSignOut}
+        onChangePassword={() => setShowChangePassword(true)}
+        changePasswordOpen={showChangePassword}
+        onCloseChangePassword={() => setShowChangePassword(false)}
       />
     )
   }
 
   return (
     <div className="app">
-      <header className="app-header">
-        <span className="app-title">Cobblestone AI eLearning Estimator</span>
-        <span className="screen-label">Estimator</span>
-      </header>
+      <AppHeader
+        screenLabel="Estimator"
+        onSignOut={handleSignOut}
+        onChangePassword={() => setShowChangePassword(true)}
+      />
 
       <main className="app-main">
 
@@ -742,6 +796,10 @@ export default function App() {
         <div className={`save-toast${saveToast.isError ? ' save-toast--error' : ''}`}>
           {saveToast.message}
         </div>
+      )}
+
+      {showChangePassword && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
     </div>
   )

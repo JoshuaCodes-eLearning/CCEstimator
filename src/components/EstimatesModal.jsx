@@ -4,6 +4,8 @@ import { CAT_LABELS } from '../config/config'
 import { fmt } from '../utils/calc'
 import { resolveName, estimateDisplayName } from '../utils/estimatePayload'
 import ConfirmDialog from './ConfirmDialog'
+import AppHeader from './AppHeader'
+import ChangePasswordModal from './ChangePasswordModal'
 
 const PAGE_SIZE = 5
 
@@ -21,6 +23,7 @@ function formatDate(iso) {
 export default function EstimatesModal({
   onBack, onLoad, onEstimateRenamed, onEstimateDeleted,
   hasUnsavedChanges, currentEstimateName, onSaveAndOpen, onDiscardAndOpen,
+  onSignOut, onChangePassword, changePasswordOpen, onCloseChangePassword,
 }) {
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState('recent')
@@ -174,10 +177,13 @@ export default function EstimatesModal({
 
   return (
     <div className="app">
-      <header className="app-header">
-        <span className="app-title">Cobblestone AI eLearning Estimator</span>
-        <span className="screen-label">My Estimates</span>
-      </header>
+      <AppHeader
+        screenLabel="My Estimates"
+        onSignOut={onSignOut}
+        onChangePassword={onChangePassword}
+      />
+
+      {changePasswordOpen && <ChangePasswordModal onClose={onCloseChangePassword} />}
 
       <div className="estimates-modal">
 
