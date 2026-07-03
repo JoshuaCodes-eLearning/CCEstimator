@@ -12,7 +12,10 @@ and one button exports the whole estimate to a Word document.
 
 The authoritative spec is the High-Level Design (HLD). If anything here conflicts
 with the HLD, the HLD wins — flag the conflict, don't silently pick one.
-HLD documents in repo root: `DatabaseHLDD.html`, `SavedEstimatesHLDD.html`.
+HLD document in repo root: `SavedEstimatesHLDD.html`. (`DatabaseHLDD.html`
+was removed 2026-07-03 — outdated, superseded by the DB phase now being
+fully built. `DatabasePhase2Guide.html` is the current user-facing
+reference for that phase, not an HLD.)
 
 ---
 
