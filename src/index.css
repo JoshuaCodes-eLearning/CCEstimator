@@ -1628,29 +1628,42 @@ body { background: var(--page-bg); }
 }
 .confirm-dialog {
   background: var(--white);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
-  max-width: 460px;
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(15, 25, 40, 0.22), 0 2px 8px rgba(15, 25, 40, 0.08);
+  max-width: 440px;
   width: 100%;
-  padding: 26px;
+  padding: 28px;
+  animation: confirm-dialog-in 0.16s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog { animation: none; }
+}
+@keyframes confirm-dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .confirm-dialog-title {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--text);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .confirm-dialog-message {
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--text-muted);
-  line-height: 1.55;
-  margin-bottom: 22px;
+  line-height: 1.6;
+  margin-bottom: 24px;
 }
 .confirm-dialog-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 10px;
+}
+/* Exactly 2 choices: equal-width side by side, primary action on the left. */
+.confirm-dialog-btn {
+  flex: 1;
+  min-width: 0;
 }
 /* 3+ choices read much cleaner stacked full-width than crammed into one
    row — avoids awkward wrapping on longer labels like "Continue Without
@@ -1666,12 +1679,14 @@ body { background: var(--page-bg); }
 }
 .confirm-dialog-btn {
   border: none;
-  border-radius: 6px;
-  padding: 9px 16px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 8px;
+  padding: 11px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
   cursor: pointer;
+  transition: background 0.12s, transform 0.08s;
 }
+.confirm-dialog-btn:active { transform: translateY(1px); }
 .confirm-dialog-btn--secondary {
   background: var(--surface);
   color: var(--text);

@@ -760,8 +760,8 @@ export default function App() {
           message={`Save "${estimateDisplayName(companyName)}" to your estimates?`}
           onDismiss={cancelSaveDialog}
           actions={[
-            { label: 'Cancel',   kind: 'secondary', onClick: cancelSaveDialog },
             { label: 'Yes, Save', kind: 'primary',   onClick: performInsert },
+            { label: 'Cancel',    kind: 'secondary', onClick: cancelSaveDialog },
           ]}
         />
       )}

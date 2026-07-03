@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Saved Estimates — Reference Guide</title>
+<meta name="description" content="Plain-language reference for the Save Estimate / View Estimates / sign-in phase of the CCEstimator." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #f5f6fa;
+    --card:      #ffffff;
+    --ink:       #1b2030;
+    --ink-soft:  #5b6274;
+    --ink-faint: #9398a8;
+    --border:    #e1e4ee;
+    --border-lo: #edeff5;
+
+    /* Topic accents — Save/View are lifted directly from the real app's own
+       button colors, so the color language here matches what's already on
+       screen in the tool itself. */
+    --identity:    #4f46e5; --identity-bg:   #eef0fd;
+    --save:        #059669; --save-bg:       #e7f8f1;
+    --view:        #7c3aed; --view-bg:       #f3ecfd;
+    --warn:        #d97706; --warn-bg:       #fef3e2;
+    --infra:       #0891b2; --infra-bg:      #e5f6f9;
+    --security:    #dc2626; --security-bg:   #fdeaea;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, Consolas, "SF Mono", Menlo, monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    font-size: 15.5px;
+    padding: 3rem 1.25rem 6rem;
+  }
+
+  .page { max-width: 900px; margin: 0 auto; }
+
+  a { color: var(--identity); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--identity); outline-offset: 2px; }
+
+  code, .code {
+    font-family: var(--mono);
+    font-size: 0.9em;
+    background: var(--border-lo);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* ── Header ── */
+  .doc-header { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 2px solid var(--border); }
+  .doc-eyebrow {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--identity); background: var(--identity-bg);
+    padding: 0.3rem 0.7rem; border-radius: 5px; margin-bottom: 1rem;
+  }
+  .doc-header h1 {
+    font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 800; letter-spacing: -0.01em;
+    line-height: 1.15; text-wrap: balance; margin-bottom: 0.6rem;
+  }
+  .doc-sub { color: var(--ink-soft); font-size: 1.02rem; max-width: 62ch; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.25rem 1.5rem; margin-bottom: 3rem;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.55rem 2rem;
+  }
+  .toc-label {
+    grid-column: 1 / -1;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 0.25rem;
+  }
+  .toc a {
+    text-decoration: none; font-size: 0.92rem; font-weight: 600; color: var(--ink-soft);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .toc a:hover { color: var(--ink); }
+  .toc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Sections ── */
+  section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+  .section-head {
+    display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1.1rem;
+    padding-left: 1rem; border-left: 4px solid var(--accent, var(--identity));
+  }
+  .section-eyebrow {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent, var(--identity));
+  }
+  h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+  h3 { font-size: 1rem; font-weight: 700; margin: 1.4rem 0 0.6rem; }
+  p { margin-bottom: 0.85rem; max-width: 68ch; }
+  ul, ol { margin: 0 0 0.9rem 1.3rem; max-width: 66ch; }
+  li { margin-bottom: 0.45rem; }
+  strong { font-weight: 700; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.4rem 1.6rem; margin: 1rem 0;
+  }
+
+  /* ── Dialog mockups — styled like the app's own confirm dialogs ── */
+  .dialog-mock {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(20, 24, 40, 0.06);
+    padding: 1.25rem 1.4rem; margin: 1.1rem 0; max-width: 460px;
+  }
+  .dialog-mock-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .dialog-mock-msg { font-size: 0.88rem; color: var(--ink-soft); line-height: 1.55; margin-bottom: 1rem; }
+  .dialog-mock-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+  .dbtn {
+    display: block; width: 100%; text-align: center;
+    border: none; border-radius: 6px; padding: 0.6rem 1rem;
+    font-size: 0.85rem; font-weight: 700; font-family: var(--sans); color: #fff;
+  }
+  .dbtn.secondary { background: var(--border-lo); color: var(--ink-soft); border: 1px solid var(--border); }
+  .dbtn.save { background: var(--save); }
+  .dbtn.view { background: var(--view); }
+  .dbtn.warn { background: var(--warn); }
+  .dbtn.security { background: var(--security); }
+
+  /* ── Callouts ── */
+  .callout {
+    border-radius: 10px; padding: 1rem 1.25rem; margin: 1.1rem 0;
+    border-left: 4px solid var(--accent, var(--identity));
+    background: var(--accent-bg, var(--identity-bg));
+    font-size: 0.93rem;
+  }
+  .callout strong.tag {
+    display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent, var(--identity)); margin-bottom: 0.35rem;
+  }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 1.1rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 480px; }
+  th, td { text-align: left; padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border-lo); }
+  th { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  .pill {
+    display: inline-block; font-size: 0.72rem; font-weight: 700;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+  }
+  .pill.open   { background: var(--save-bg); color: var(--save); }
+  .pill.closed { background: var(--border-lo); color: var(--ink-faint); }
+
+  hr.rule { border: none; height: 1px; background: var(--border); margin: 2.5rem 0; }
+
+  footer { color: var(--ink-faint); font-size: 0.82rem; text-align: center; margin-top: 3rem; }
+
+  @media (max-width: 640px) {
+    .toc { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <span class="doc-eyebrow">Cobblestone AI eLearning Estimator</span>
+    <h1>Saved Estimates — Reference Guide</h1>
+    <p class="doc-sub">
+      Everything the database phase — Save Estimate, View Estimates, sign-in —
+      actually does, in plain language. If something here doesn't match what
+      you're seeing in the app, that's a bug worth flagging.
+    </p>
+  </header>
+
+  <nav class="toc">
+    <span class="toc-label">On this page</span>
+    <a href="#overview"><span class="toc-dot" style="background:var(--identity)"></span>What this phase added</a>
+    <a href="#identity"><span class="toc-dot" style="background:var(--identity)"></span>Signing in / out</a>
+    <a href="#saving"><span class="toc-dot" style="background:var(--save)"></span>Saving an estimate</a>
+    <a href="#browsing"><span class="toc-dot" style="background:var(--view)"></span>Browsing — My Estimates</a>
+    <a href="#unsaved"><span class="toc-dot" style="background:var(--warn)"></span>Unsaved-changes warnings</a>
+    <a href="#infra"><span class="toc-dot" style="background:var(--infra)"></span>Supabase — what it can handle</a>
+    <a href="#security"><span class="toc-dot" style="background:var(--security)"></span>Security, in plain terms</a>
+  </nav>
+
+  <!-- ═══ OVERVIEW ═══ -->
+  <section id="overview" style="--accent:var(--identity); --accent-bg:var(--identity-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Overview</span>
+    </div>
+    <h2>What this phase added</h2>
+    <p>
+      Before this, the estimator was a calculator only — build an estimate,
+      export it to Word, and it's gone the moment you close the tab. Now:
+    </p>
+    <ul>
+      <li>Every estimate can be <strong>saved</strong> to a real database and reopened later.</li>
+      <li>A <strong>My Estimates</strong> list lets you search, sort, and browse everything you've saved.</li>
+      <li>The whole app is <strong>locked behind sign-in</strong> — nobody can see or use it, not even the calculator, without logging in as you.</li>
+    </ul>
+    <p>
+      The Word export still works exactly the same as before, and is completely
+      independent of saving — export, save, both, or neither, in any order.
+    </p>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ IDENTITY ═══ -->
+  <section id="identity" style="--accent:var(--identity); --accent-bg:var(--identity-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Identity</span>
+    </div>
+    <h2>Signing in / out</h2>
+
+    <ul>
+      <li><strong>Sign In</strong> — email + password, on a screen that appears before anything else loads. There is no "browse without logging in" mode.</li>
+      <li><strong>Staying signed in</strong> — once logged in, you stay logged in. Closing the tab or restarting the browser won't sign you out. Deliberate choice, since you're the only person using this daily.</li>
+    </ul>
+
+    <h3>Sign Out — when it's actually useful</h3>
+    <ul>
+      <li>You're on <strong>someone else's computer</strong> and want to make sure the next person who opens that browser doesn't land straight into your estimates.</li>
+      <li>You're <strong>getting rid of a device</strong> — selling it, sending it for repair, handing it down.</li>
+      <li><strong>Something feels off</strong> and you want to end that session immediately.</li>
+    </ul>
+    <div class="callout">
+      <strong class="tag">Heads up</strong>
+      Sign Out ends the session on <em>every</em> device you're signed in on, not just
+      the one you clicked it from. Signed in on your laptop and phone and hit
+      Sign Out on the laptop? You'll need to sign back in on the phone too.
+    </div>
+
+    <h3>Change Password</h3>
+    <p>
+      In the header, while signed in. Asks for your <strong>current</strong>
+      password first, then the new one twice.
+    </p>
+    <div class="callout">
+      <strong class="tag">Why the current password is required</strong>
+      If a device is ever left signed in and unattended, this stops someone
+      from hijacking that open session to lock you out by changing the
+      password without ever knowing what it was.
+    </div>
+
+    <h3>Forgot Password</h3>
+    <p>
+      On the sign-in screen. There's no email field to fill in — since there's
+      only ever one account, it just sends the reset link straight to your
+      email. Click the link and you'll land on a "set a new password" screen
+      inside the app.
+    </p>
+
+    <h3>Who else can get in?</h3>
+    <p>
+      Nobody, unless you hand them your email and password directly. There's
+      no sign-up option — account creation is turned off at the database
+      level, not just hidden in the UI, so no one can create a second account
+      even if they found the app's URL.
+    </p>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ SAVING ═══ -->
+  <section id="saving" style="--accent:var(--save); --accent-bg:var(--save-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Saving</span>
+    </div>
+    <h2>Saving an estimate</h2>
+    <p>
+      Click <strong>Save Estimate</strong> any time after selecting at least
+      one category. What happens depends on whether this estimate has been
+      saved before.
+    </p>
+
+    <h3>Never saved before</h3>
+    <div class="dialog-mock">
+      <div class="dialog-mock-title">Save Estimate</div>
+      <div class="dialog-mock-msg">Save "Acme Corp's Estimate" to your estimates?</div>
+      <div class="dialog-mock-actions">
+        <button class="dbtn save" type="button">Yes, Save</button>
+        <button class="dbtn secondary" type="button">Cancel</button>
+      </div>
+    </div>
+    <p>
+      Confirm, and it's written to the database. The button flashes
+      "Saved ✓" for about two seconds — and is unclickable during that time,
+      so mashing the button can't create duplicates.
+    </p>
+
+    <h3>Already saved (or just opened from the list)</h3>
+    <p>The app re-checks the database fresh every time — it doesn't trust its own memory — then asks:</p>
+    <div class="dialog-mock">
+      <div class="dialog-mock-title">Save Estimate</div>
+      <div class="dialog-mock-msg">"Acme Corp's Estimate" already has a saved version. Overwrite it, or save this as a new related estimate?</div>
+      <div class="dialog-mock-actions">
+        <button class="dbtn save" type="button">Overwrite</button>
+        <button class="dbtn view" type="button">Save As New</button>
+        <button class="dbtn secondary" type="button">Cancel</button>
+      </div>
+    </div>
+    <ul>
+      <li><strong>Overwrite</strong> replaces the saved version with whatever's on screen. The Open/Closed status is untouched either way.</li>
+      <li><strong>Save As New</strong> keeps the original exactly as it was and creates a completely separate, independent copy with a new ID — useful for "I want a Phase 2 version but need to keep Phase 1 intact," or trying a different scope without losing what you had.</li>
+    </ul>
+
+    <div class="callout">
+      <strong class="tag">Blank names</strong>
+      Save without filling in Company or Course, and it's stored as
+      <code>"Unnamed"</code> rather than blank — never a mystery entry in the
+      list. Rename it later any time.
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ BROWSING ═══ -->
+  <section id="browsing" style="--accent:var(--view); --accent-bg:var(--view-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Browsing</span>
+    </div>
+    <h2>My Estimates</h2>
+    <p>Click <strong>View Estimates</strong> to open the list.</p>
+
+    <ul>
+      <li><strong>5 estimates per page</strong> — Previous/Next appear once you have more. Kept small on purpose; this is roughly a 50-estimates-a-year tool, not hundreds.</li>
+      <li><strong>Search</strong> looks at Company and Course name at the same time, case-insensitive.</li>
+      <li><strong>Sort</strong>: Most Recent (default), Most Profitable, Margin %, Alphabetical.</li>
+      <li><strong>Categories column</strong> — cut off? Double-click to expand, double-click again to collapse. Hovering also shows the full list as a tooltip.</li>
+      <li><strong>Renaming inline</strong> — double-click the Company or Course name to edit right there. Enter or click away saves, Escape cancels. Updates the database immediately. If you rename the estimate currently open in the estimator, those fields update live too.</li>
+      <li><strong>Status</strong> — click the <span class="pill open">Open</span> / <span class="pill closed">Closed</span> pill to toggle it. Instant, no confirmation.</li>
+      <li><strong>Opening an estimate</strong> — click Open Estimate, confirm, and everything comes back exactly as saved: every task, hour, checkbox, ADA toggle, module count, additional video. Nothing approximated.</li>
+      <li><strong>Deleting</strong> — click Delete, confirm. This is a genuine, permanent delete (see the Supabase section below for what that means in practice).</li>
+    </ul>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ UNSAVED CHANGES ═══ -->
+  <section id="unsaved" style="--accent:var(--warn); --accent-bg:var(--warn-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Guardrails</span>
+    </div>
+    <h2>"You're currently working on X" — the unsaved-changes warnings</h2>
+    <p>
+      These exist so you never lose real work by accident, without being
+      naggy about it. Two situations trigger a warning, and — importantly —
+      <strong>both only fire if there's actually something to lose.</strong>
+      Saved recently and haven't touched anything since? No warning at all.
+    </p>
+
+    <h3>Clicking View Estimates with unsaved work</h3>
+    <div class="dialog-mock">
+      <div class="dialog-mock-title">Unsaved Changes</div>
+      <div class="dialog-mock-msg">You're currently working on "X's Estimate". Save it before browsing, or continue without saving?</div>
+      <div class="dialog-mock-actions">
+        <button class="dbtn save" type="button">Save &amp; Continue</button>
+        <button class="dbtn view" type="button">Continue Without Saving</button>
+        <button class="dbtn secondary" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <h3>Opening a different estimate while you have unsaved work</h3>
+    <div class="dialog-mock">
+      <div class="dialog-mock-title">Unsaved Changes</div>
+      <div class="dialog-mock-msg">You're currently working on "X's Estimate". Opening "Y's Estimate" will replace it — save your current work, or discard it?</div>
+      <div class="dialog-mock-actions">
+        <button class="dbtn save" type="button">Save &amp; Open</button>
+        <button class="dbtn security" type="button">Discard &amp; Open</button>
+        <button class="dbtn secondary" type="button">Cancel</button>
+      </div>
+    </div>
+    <p>
+      Both "Save &amp; ___" options save immediately with no second
+      confirmation — clicking that button <em>is</em> the confirmation. If the
+      save itself fails (dropped connection), nothing is lost and nothing
+      navigates away; you stay exactly where you were.
+    </p>
+
+    <div class="callout">
+      <strong class="tag">What this does NOT protect against</strong>
+      Closing the browser tab or refreshing without clicking Save first —
+      that's deliberate. There's no autosave and no "are you sure you want to
+      leave" browser popup. Close the tab mid-edit without saving, and that
+      work is genuinely gone. Save Estimate is the one real save point in this
+      whole system.
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ INFRA ═══ -->
+  <section id="infra" style="--accent:var(--infra); --accent-bg:var(--infra-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Infrastructure</span>
+    </div>
+    <h2>Supabase — what it can actually handle</h2>
+
+    <p>
+      <strong>Storage isn't something you need to think about.</strong> A
+      fully-loaded estimate — all three categories, several modules, extras —
+      measures out to roughly 16&nbsp;KB.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Free-tier limit</th><th>What it means in practice</th></tr></thead>
+        <tbody>
+          <tr><td>500&nbsp;MB storage</td><td class="num">≈ 30,000 estimates worth of room</td></tr>
+          <tr><td>At ~50 estimates/year</td><td class="num">≈ 600+ years of runway</td></tr>
+          <tr><td>Automated backups</td><td>None on Free — no "restore to yesterday" button</td></tr>
+          <tr><td>Idle projects</td><td>Auto-pause after ~1 week of no activity</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>What actually matters on the free plan</strong> is not storage — it's these two:</p>
+    <ul>
+      <li><strong>No automated backups.</strong> If you delete something by mistake and confirm the delete, it's gone for good — the confirmation dialog is the only safety net there is.</li>
+      <li><strong>Projects pause after ~1 week idle.</strong> Nothing is lost, but the next visit may need a minute to "wake up," or rarely a manual resume from the Supabase dashboard.</li>
+    </ul>
+
+    <h3>When would Supabase Pro ($25/month) actually be worth it?</h3>
+    <p>Only if either of the above starts to genuinely matter:</p>
+    <ul>
+      <li>You want real daily backups and the ability to restore a previous day — the estimates become business-critical enough that "we deleted the wrong thing" would be a real problem, not just an annoyance.</li>
+      <li>The auto-pause becomes disruptive because the tool goes quiet for a week or more, regularly.</li>
+    </ul>
+    <p>
+      Until either becomes a real pain point, Free is genuinely sufficient —
+      there's no storage or performance reason to pay for Pro at this scale.
+    </p>
+  </section>
+
+  <hr class="rule" />
+
+  <!-- ═══ SECURITY ═══ -->
+  <section id="security" style="--accent:var(--security); --accent-bg:var(--security-bg)">
+    <div class="section-head">
+      <span class="section-eyebrow">Security</span>
+    </div>
+    <h2>Security, in plain terms</h2>
+    <ul>
+      <li>The database enforces its own access rules independently of the app — even if there were ever a bug in the website itself, the database refuses to hand over or accept data for anyone who isn't signed in as you. Tested directly against the live database, not just assumed from reading the code.</li>
+      <li>Passwords are never stored or handled by this app directly — that's managed by Supabase using standard, industry-normal practices.</li>
+      <li>Signing up for a new account is turned off at the database level. Verified directly — an actual signup attempt is rejected outright, it's not just a hidden button.</li>
+    </ul>
+    <div class="callout">
+      <strong class="tag">The one real limitation</strong>
+      Since there's only one login, sharing that password with someone means
+      sharing full access with no way to tell who did what. If you ever need
+      to hand off temporary access, that's the tradeoff to know about.
+    </div>
+  </section>
+
+  <footer>Cobblestone AI eLearning Estimator — Saved Estimates Reference Guide</footer>
+
+</div>
+</body>
+</html>
