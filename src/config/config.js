@@ -37,7 +37,11 @@ export const DEFAULT_MINUTES = {
 // { id, name, type, included?, indent?, assignees: [{ person, hours }] }
 // included defaults true — set false to start unchecked.
 // indent: true — visually nested under the row above it (used for Internal meetings under PM).
-// type: 'Fixed' | 'Dynamic'
+// type: 'Fixed' | 'Dynamic' | 'Expense'
+// 'Expense' — a flat-dollar line item with no hours/assignees (flatCost field
+// instead). forceUnchecked: true — overrides initCat()'s normal "module 1
+// always starts checked" rule (see App.jsx initCat) so this starts unchecked
+// everywhere, module 1 included. Used for WellSaid.
 // ============================================================
 
 export const DEFAULT_TASKS = {
@@ -122,6 +126,10 @@ export const DEFAULT_TASKS = {
       id: 'mv-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
+    {
+      id: 'mv-wellsaid', name: 'WellSaid', type: 'Expense',
+      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
+    },
   ],
 
   // ── RISE 360 (15 min default) ────────────────────────────
@@ -203,6 +211,10 @@ export const DEFAULT_TASKS = {
     {
       id: 'r-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
       assignees: [{ person: 'Laurie', hours: 3 }],
+    },
+    {
+      id: 'r-wellsaid', name: 'WellSaid', type: 'Expense',
+      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
     },
   ],
 
@@ -302,6 +314,10 @@ export const DEFAULT_TASKS = {
     {
       id: 's-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
       assignees: [{ person: 'Laurie', hours: 3 }],
+    },
+    {
+      id: 's-wellsaid', name: 'WellSaid', type: 'Expense',
+      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
     },
   ],
 }

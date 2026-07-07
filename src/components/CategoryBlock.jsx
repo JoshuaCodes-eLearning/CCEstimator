@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeAssigneeHoursForTask, fmt } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt, expenseCostForCategory } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const COLLAPSED_ROWS = 2
@@ -86,7 +86,12 @@ export default function CategoryBlock({
     }
   }
   const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0)
-  const hasIncluded = Object.keys(memberMap).length > 0
+
+  // ── WellSaid flat expense (once per category, unaffected by ADA) ──
+  const wellsaidCost    = expenseCostForCategory(cat)
+  const wellsaidChecked = wellsaidCost > 0
+
+  const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked
 
   // ── Second state tasks ────────────────────────────────────
   const secondTasks        = secondState?.tasks ?? []
@@ -135,9 +140,9 @@ export default function CategoryBlock({
     ? (mod1BaseSum + additionalVideosTotalCost)
     : (mod1BaseSum + secondTotalCost)
   const adaAmount    = combinedBase * adaRate
-  const overallTotal = combinedBase + adaAmount
+  const overallTotal = combinedBase + adaAmount + wellsaidCost
   const singleAdaAmt = mod1BaseSum * adaRate
-  const singleTotal  = mod1BaseSum + singleAdaAmt
+  const singleTotal  = mod1BaseSum + singleAdaAmt + wellsaidCost
 
   const hasMultiple = isMicrovideo ? additionalVideos.length > 0 : moduleCount > 1
 
@@ -269,6 +274,12 @@ export default function CategoryBlock({
                   <span>+ {fmt(singleAdaAmt)}</span>
                 </div>
               )}
+              {!hasMultiple && wellsaidChecked && (
+                <div className="subtotal-ada-line">
+                  <span>WellSaid add-on</span>
+                  <span>+ {fmt(wellsaidCost)}</span>
+                </div>
+              )}
               <div className="subtotal-final-line">
                 <span>
                   {isMicrovideo
@@ -279,7 +290,7 @@ export default function CategoryBlock({
                 </span>
                 <span>
                   {isMicrovideo
-                    ? fmt(mod1BaseSum)
+                    ? fmt(mod1BaseSum + (hasMultiple ? 0 : wellsaidCost))
                     : fmt(moduleCount > 1 ? mod1BaseSum : singleTotal)}
                 </span>
               </div>
@@ -488,9 +499,15 @@ export default function CategoryBlock({
                     <span>{fmt(cost)}</span>
                   </div>
                 ))}
+                {wellsaidChecked && (
+                  <div className="subtotal-ada-line">
+                    <span>WellSaid add-on</span>
+                    <span>+ {fmt(wellsaidCost)}</span>
+                  </div>
+                )}
                 <div className="overall-total-line">
                   <span>{label} total — {additionalVideos.length + 1} videos</span>
-                  <span>{fmt(mod1BaseSum + additionalVideosTotalCost)}</span>
+                  <span>{fmt(mod1BaseSum + additionalVideosTotalCost + wellsaidCost)}</span>
                 </div>
               </>
             ) : (
@@ -499,6 +516,12 @@ export default function CategoryBlock({
                   <div className="subtotal-ada-line">
                     <span>ADA +10% on {fmt(combinedBase)}</span>
                     <span>+ {fmt(adaAmount)}</span>
+                  </div>
+                )}
+                {wellsaidChecked && (
+                  <div className="subtotal-ada-line">
+                    <span>WellSaid add-on</span>
+                    <span>+ {fmt(wellsaidCost)}</span>
                   </div>
                 )}
                 <div className="overall-total-line">

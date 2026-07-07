@@ -20,6 +20,16 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function monthKey(iso) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(key) {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
 export default function EstimatesModal({
   onBack, onLoad, onEstimateRenamed, onEstimateDeleted,
   hasUnsavedChanges, currentEstimateName, onSaveAndOpen, onDiscardAndOpen,
@@ -27,6 +37,8 @@ export default function EstimatesModal({
 }) {
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState('recent')
+  const [monthFilter,  setMonthFilter]  = useState('all')
+  const [wonFilter,    setWonFilter]    = useState('all')
   const [estimates,    setEstimates]    = useState([])
   const [loading,      setLoading]      = useState(true)
   const [loadError,    setLoadError]    = useState(null)
@@ -59,14 +71,18 @@ export default function EstimatesModal({
     return () => clearTimeout(t)
   }, [toast])
 
-  useEffect(() => { setPage(1) }, [search, sort])
+  useEffect(() => { setPage(1) }, [search, sort, monthFilter, wonFilter])
+
+  const monthOptions = Array.from(new Set(estimates.map(e => monthKey(e.created_at)))).sort().reverse()
 
   const query = search.trim().toLowerCase()
-  const filtered = query
+  let filtered = query
     ? estimates.filter(e =>
         e.company_name.toLowerCase().includes(query) ||
         e.course_name.toLowerCase().includes(query))
     : estimates
+  if (monthFilter !== 'all') filtered = filtered.filter(e => monthKey(e.created_at) === monthFilter)
+  if (wonFilter !== 'all')   filtered = filtered.filter(e => wonFilter === 'won' ? e.is_won : !e.is_won)
   const sorted = [...filtered].sort(SORTERS[sort])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
@@ -147,6 +163,17 @@ export default function EstimatesModal({
     }
   }
 
+  // ── Won/Lost toggle (independent of Open/Closed) ───────────
+  async function toggleWon(row) {
+    const next = !row.is_won
+    setEstimates(prev => prev.map(e => e.id === row.id ? { ...e, is_won: next } : e))
+    const { error } = await supabase.from('estimates').update({ is_won: next }).eq('id', row.id)
+    if (error) {
+      setEstimates(prev => prev.map(e => e.id === row.id ? { ...e, is_won: !next } : e))
+      setToast({ message: `Couldn't update Won status — ${error.message}`, isError: true })
+    }
+  }
+
   // ── Delete ────────────────────────────────────────────────
   async function performDelete(row) {
     setConfirmDialog(null)
@@ -215,17 +242,38 @@ export default function EstimatesModal({
               <option value="margin">Margin %</option>
               <option value="alpha">Alphabetical</option>
             </select>
+            <select
+              className="estimates-sort-select"
+              value={monthFilter}
+              onChange={e => setMonthFilter(e.target.value)}
+            >
+              <option value="all">All Months</option>
+              {monthOptions.map(key => (
+                <option key={key} value={key}>{monthLabel(key)}</option>
+              ))}
+            </select>
+            <select
+              className="estimates-sort-select"
+              value={wonFilter}
+              onChange={e => setWonFilter(e.target.value)}
+            >
+              <option value="all">Won &amp; Lost</option>
+              <option value="won">Won Only</option>
+              <option value="lost">Lost Only</option>
+            </select>
           </div>
 
           {/* ── Column headers ────────────────────────── */}
           <div className="estimates-cols">
             <span className="estimates-col-label">Company</span>
+            <span className="estimates-col-label">Client Name</span>
             <span className="estimates-col-label">Course</span>
             <span className="estimates-col-label">Categories</span>
             <span className="estimates-col-label estimates-col-label--right">Client $</span>
             <span className="estimates-col-label estimates-col-label--right">Margin</span>
             <span className="estimates-col-label estimates-col-label--right">Saved Date</span>
             <span className="estimates-col-label estimates-col-label--center">Status</span>
+            <span className="estimates-col-label estimates-col-label--center">Won</span>
             <span className="estimates-col-label estimates-col-label--actions">Actions</span>
           </div>
 
@@ -296,6 +344,30 @@ export default function EstimatesModal({
                     </span>
                   )}
 
+                  {/* Client Name */}
+                  {editingCell?.id === row.id && editingCell.field === 'client_name' ? (
+                    <span className="estimates-cell">
+                      <input
+                        className="estimates-edit-input"
+                        autoFocus
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') e.currentTarget.blur()
+                          if (e.key === 'Escape') cancelEdit()
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className="estimates-cell estimates-editable"
+                      onDoubleClick={() => startEdit(row, 'client_name')}
+                    >
+                      {row.client_name}
+                    </span>
+                  )}
+
                   {/* Course */}
                   {editingCell?.id === row.id && editingCell.field === 'course_name' ? (
                     <span className="estimates-cell">
@@ -337,6 +409,15 @@ export default function EstimatesModal({
                       onClick={() => toggleClosed(row)}
                     >
                       {row.is_closed ? 'Closed' : 'Open'}
+                    </button>
+                  </span>
+                  <span className="estimates-cell estimates-cell--center">
+                    <button
+                      type="button"
+                      className={`estimates-won${row.is_won ? '' : ' estimates-won--lost'}`}
+                      onClick={() => toggleWon(row)}
+                    >
+                      {row.is_won ? 'Won' : 'Lost'}
                     </button>
                   </span>
                   <span className="estimates-cell estimates-cell--actions">

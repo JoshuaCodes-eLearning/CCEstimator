@@ -19,7 +19,7 @@ reference for that phase, not an HLD.)
 
 ---
 
-## Current implementation status (as of 2026-07-02)
+## Current implementation status (as of 2026-07-07)
 
 **FULLY BUILT AND DEPLOYED** at https://cc-estimator.vercel.app/
 
@@ -36,11 +36,23 @@ Everything below is live and working:
   all assignees, per-member math breakdown in subtotals, ADA uplift, grand total
 - TotalsBar: active members only (0h members hidden), per-category breakdown
   when >1 category selected, internal cost + client price + margin selector
-- **Company Name** + Course Name fields at the top
+- **Company Name** + **Client Name** + Course Name fields at the top (Client
+  Name is the person, distinct from Company — the business)
+- **"Do you have PPTs and Webinars..." (Yes/No)** and **"What eLearning have
+  you seen that you have liked?" (free text)** — two discovery-question fields
+  under Company/Client/Course, captured with the estimate but not printed on
+  the client-facing export (see July 2026 section below)
+- **Second "View Estimates" button** in the persistent header, always visible
+  even before any category is selected — the original button lives in
+  TotalsBar, which doesn't render until a category is checked. Both call the
+  same `handleViewEstimatesClick()`, so both get the identical unsaved-changes
+  guard for free.
 - **Profit margin dropdown** (40% / 45% / 50%, default 50%) in TotalsBar
 - **Fully responsive** — mobile (≤640px), tablet (≤900px), desktop
 - Export Preview screen (Screen 2) with real task data rendered as Word preview
 - Download .docx button — exports to `{CompanyName} - {CourseName} - Estimate.docx`
+  — now also prints Client Name and Date (the estimate's `created_at`, or
+  today if never saved)
 
 **Rise 360 & Storyline 360 — multi-module second state (live):**
 - "Number of modules" input (1–15) per category header
@@ -55,6 +67,35 @@ Everything below is live and working:
 - "Additional Video Template" (collapsible second state) — user checks which
   tasks apply to all additional videos; Dynamic tasks scale per video time
 - Per-video cost shown inline; overall Microvideo total when additional videos exist
+
+**WellSaid flat expense line (live, added July 2026):**
+- A `WellSaid` task (`type: 'Expense'`) sits at the bottom of all three
+  categories' task lists (module 1 and the second-state template) — no hours,
+  no assignees, flat `$50` (`flatCost` in config.js), unchecked by default.
+- Counted **once per category**, regardless of module/video count, whether
+  checked in module 1, the second-state template, or both — see
+  `expenseCostForCategory()` in calc.js, the single source of truth for this,
+  used identically by App.jsx's totals loop, CategoryBlock's own subtotal
+  display, and both export paths.
+- Added **after** the ADA 10% multiplier — it's a flat pass-through, not
+  inflated by ADA. Flows normally through the margin calc into client price
+  like any other cost.
+- Old estimates saved before this feature don't have a WellSaid row in their
+  stored `state_json` — `handleLoadEstimate()` backfills it in (unchecked) via
+  `backfillWellsaid()`, scoped narrowly to this one task id so it can't
+  reintroduce any other default task Laurie removed from an old estimate.
+
+**Won/Lost tracking (live, added July 2026):**
+- Independent boolean pill in EstimatesModal, next to (not replacing) the
+  existing Open/Closed pill — same optimistic-update/rollback pattern as
+  `toggleClosed`, new `toggleWon()`. Two states only (Won / Lost), no
+  "pending" — defaults to "Lost"/unmarked until explicitly flipped.
+- New "Won Only / Lost Only / Won & Lost" filter dropdown next to
+  search/sort — an actual subset filter, not just a sort, since the ask was
+  to "view the estimates by won or lost."
+- New "Month" filter dropdown (built from distinct `created_at` months
+  present in the fetched estimates) — this is the "searchable by month" Date
+  requirement; there's no new Date form field, `created_at` is reused as-is.
 
 ---
 
@@ -88,7 +129,8 @@ src/
                           and VITE_SUPABASE_ANON_KEY from env)
   utils/
     calc.js             — computeAssigneeHoursForTask(), computeHours(),
-                          lineCost(), categorySubtotal(), fmt()
+                          lineCost(), categorySubtotal(), fmt(),
+                          expenseCostForCategory() (WellSaid, added July 2026)
     exportDocx.js       — generateAndSaveDocx() — builds the Word document
   components/
     CategoryBlock.jsx   — one card per selected category; props-driven
@@ -150,7 +192,7 @@ each with their own hours.
 {
   id:        'mv-4',
   name:      'Internal meetings, client kickoff and status meetings',
-  type:      'Fixed',          // 'Fixed' | 'Dynamic'
+  type:      'Fixed',          // 'Fixed' | 'Dynamic' | 'Expense'
   included:  true,             // false = starts unchecked in second state only
   assignees: [
     { person: 'Laurie',   hours: 2.5 },
@@ -163,13 +205,24 @@ each with their own hours.
 `hours` in config → `baseHours` added at runtime in `initCat()`. Calculations
 always use `assignee.baseHours ?? assignee.hours ?? 0`.
 
+**`type: 'Expense'` (added July 2026, used only by WellSaid):** a flat-dollar
+task with `assignees: []` and a `flatCost` field instead of hours. `computeHours()`
+returns 0 and `lineCost()` returns `flatCost` for these — short-circuited before
+the normal assignee-based branches in calc.js. `SubtaskRow.jsx` hides the
+assignees block and Type dropdown for this type (neither makes sense for a
+flat expense).
+
 **Module 1 vs second state — included flag behavior (July 2026):**
 - `initCat()` sets `included: true` unconditionally for ALL module 1 tasks,
-  regardless of the `included` flag in `DEFAULT_TASKS`.
+  regardless of the `included` flag in `DEFAULT_TASKS` — **except** tasks with
+  `forceUnchecked: true` (added July 2026, used only by WellSaid), which stay
+  unchecked in module 1 too. This is a narrow, explicit opt-out — every other
+  task's module-1-always-checked behavior is unchanged.
 - `makeSecondState()` uses `included: t.included !== false` — so tasks marked
   `included: false` in config start unchecked in modules 2–N; everything else
   starts checked. This means the `included: false` flags in DEFAULT_TASKS exist
-  solely to control second-state defaults, not module 1 defaults.
+  solely to control second-state defaults, not module 1 defaults (WellSaid is
+  the one exception, via `forceUnchecked`, not `included`).
 
 ---
 
@@ -204,6 +257,8 @@ Per-assignee hours:
 line_cost          = Σ (h_i × rate(person_i))   for all assignees (checked tasks only)
 category_internal  = Σ line_cost across checked tasks
 if ADA:  category_internal *= 1.10              (flat 10%, Rise + Storyline only)
+if WellSaid checked (module 1 OR second state, once only): category_internal += 50
+                                                 (added AFTER the ADA multiplier — flat pass-through)
 member_hours       = Σ each person's hours across ALL checked categories
 internal_cost      = Σ category_internal
 client_price       = internal_cost / (1 − marginPct/100)   default 50%
@@ -211,11 +266,11 @@ client_price       = internal_cost / (1 − marginPct/100)   default 50%
 
 ---
 
-## Default subtask counts (June 2026)
+## Default subtask counts (June 2026; +1 WellSaid per category as of July 2026)
 
-- Microvideo: 16 tasks (mv-1 through mv-img; Sales SOW at bottom)
-- Rise 360: 15 tasks (r-1 through r-15; Sales SOW at bottom)
-- Storyline 360: 18 tasks (s-1 through s-16 + s-logo + s-narr; Sales SOW at bottom)
+- Microvideo: 17 tasks (mv-1 through mv-img + mv-wellsaid; Sales SOW then WellSaid at bottom)
+- Rise 360: 16 tasks (r-1 through r-15 + r-wellsaid; Sales SOW then WellSaid at bottom)
+- Storyline 360: 19 tasks (s-1 through s-16 + s-logo + s-narr + s-wellsaid; Sales SOW then WellSaid at bottom)
 
 All stored in `DEFAULT_TASKS` in config.js. `DEFAULT_SECOND_STATE_TASKS` is
 auto-generated from DEFAULT_TASKS via `makeSecondState()`.
@@ -232,8 +287,9 @@ auto-generated from DEFAULT_TASKS via `makeSecondState()`.
   every valid keystroke (live line-cost update). Back-calculation on Dynamic tasks:
   `baseHours = enteredValue / scale` so computeHours() returns what the user typed.
 - **initCat()** in App.jsx initializes module 1 tasks with `included: true`
-  (unconditional) and second-state tasks via DEFAULT_SECOND_STATE_TASKS which
-  respects the `included: false` flags from config.
+  (unconditional, except `forceUnchecked: true` tasks — see WellSaid above)
+  and second-state tasks via DEFAULT_SECOND_STATE_TASKS which respects the
+  `included: false` flags from config.
 - **memberHours in App.jsx** is `{ Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0 }`.
   Active-only filter (`h > 0`) means QA Resource only appears in TotalsBar when
   they have checked tasks.
@@ -329,8 +385,10 @@ warning: it only fires on *in-app* navigation (View Estimates button, Open on
 a different estimate), not on tab close/refresh.
 
 - `savedSnapshotRef` (a `useRef`, not state) holds a JSON-serialized snapshot
-  of `{ catStates, selected, companyName, courseName, marginPct, liveHours }`
-  taken at the moment an estimate is loaded or successfully saved.
+  of `{ catStates, selected, companyName, clientName, courseName, marginPct,
+  liveHours, hasPptsWebinars, elearningLiked }` (Client Name + the two
+  discovery questions added July 2026) taken at the moment an estimate is
+  loaded or successfully saved.
   `hasUnsavedChanges()`: if `currentEstimateId === null`, dirty iff a category
   is selected (the only way to even reach these buttons); otherwise dirty iff
   `JSON.stringify(current state)` differs from the ref. This is a cheap
@@ -403,10 +461,14 @@ into the thousands).
 ### Loading an estimate (`handleLoadEstimate` in App.jsx)
 ```
 1. state = row.state_json ?? {}
-2. setCatStates(state.catStates ?? catStates), setSelected(state.selected ?? selected)
-3. companyName/courseName ← row.company_name / row.course_name  ⚠ NOT state_json
-4. marginPct ← state.marginPct, liveHours ← state.liveHours
-5. setCurrentEstimateId(row.id); setScreen('estimator')
+2. catStates ← backfillWellsaid(state.catStates ?? catStates) — adds a missing
+   WellSaid task (unchecked) for estimates saved before July 2026
+3. setSelected(state.selected ?? selected)
+4. companyName/clientName/courseName ← row.company_name / row.client_name / row.course_name  ⚠ NOT state_json
+5. marginPct ← state.marginPct, liveHours ← state.liveHours
+6. hasPptsWebinars/elearningLiked ← state.hasPptsWebinars / state.elearningLiked
+7. loadedCreatedAt ← row.created_at (used by export's Date line)
+8. setCurrentEstimateId(row.id); setScreen('estimator')
 ```
 **Bug fixed 2026-07-03**: Company/Course must be read from the row's
 top-level columns, not `state_json.companyName`/`courseName`. Inline rename
@@ -423,6 +485,7 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | id | uuid PK | NO | `gen_random_uuid()` | never shown in UI |
 | user_id | uuid FK → auth.users | NO | none | nullable pre-auth, restored to NOT NULL once auth shipped; populated from `session.user.id` on every insert |
 | company_name | text | NO | `''` | app always resolves blank → `'Unnamed'` before insert |
+| client_name | text | NO | `''` | added July 2026; the person, not the business — blank stays `''`, NOT resolved to `'Unnamed'` (that's a company/course-only convention) |
 | course_name | text | NO | `''` | same |
 | categories | text[] | NO | `'{}'` | e.g. `['rise360','microvideo']` |
 | internal_cost | numeric | NO | `0` | snapshot |
@@ -433,9 +496,33 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | additional_mins | jsonb | NO | `'{}'` | e.g. `{ "rise360": 5 }` |
 | additional_videos | jsonb | NO | `'[]'` | **must send `[]` not `null`** for non-Microvideo saves |
 | is_closed | boolean | NO | `false` | |
-| state_json | jsonb | NO | `'{}'` | full App state snapshot for reload |
+| is_won | boolean | NO | `false` | added July 2026; independent of `is_closed` — two separate axes, not a sub-state |
+| state_json | jsonb | NO | `'{}'` | full App state snapshot for reload — also carries `clientName`, `hasPptsWebinars`, `elearningLiked` (July 2026; not their own columns, see below) |
 | created_at | timestamptz | NO | `now()` | |
 | updated_at | timestamptz | NO | `now()` | bumped by DB trigger on UPDATE |
+
+**July 2026 schema addition** — `client_name` and `is_won` were added via:
+```sql
+alter table public.estimates
+  add column if not exists client_name text not null default '',
+  add column if not exists is_won boolean not null default false;
+```
+No RLS changes needed — the existing `owner: insert`/`owner: update` policies
+already cover new columns. The two new discovery-question fields
+(`hasPptsWebinars`, `elearningLiked`) deliberately did **not** get their own
+columns — they're internal qualifying notes (like the existing static
+"Questions to ask customer" panel), not client-facing or filterable, so they
+just ride along inside `state_json`. Revisit if Laurie ever wants to
+search/sort by them.
+
+`client_name` goes through `resolveName()` in `buildEstimateRow()` exactly
+like `company_name`/`course_name` — blank resolves to `"Unnamed"` on save, so
+a blank client name reads the same way in the export and in View Estimates
+after saving. (Originally left un-resolved on purpose; reversed per explicit
+request so all three name fields behave identically.) `EstimatesModal.jsx`
+shows a **Client Name** column right after Company (own inline-rename cell,
+same double-click-to-edit pattern as Company/Course) — `handleEstimateRenamed`
+in App.jsx syncs it back to live state the same way it does for Company/Course.
 
 ### RLS — final tightened state (shipped 2026-07-03, verified live)
 The 4 temporary `"anon {select,insert,update,delete} (temp, pre-auth)"`

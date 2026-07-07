@@ -1,4 +1,4 @@
-export default function AppHeader({ screenLabel, onSignOut, onChangePassword }) {
+export default function AppHeader({ screenLabel, onSignOut, onChangePassword, onViewEstimates }) {
   return (
     <header className="app-header">
       <span className="app-title">Cobblestone AI eLearning Estimator</span>
@@ -6,6 +6,11 @@ export default function AppHeader({ screenLabel, onSignOut, onChangePassword }) 
         <span className="screen-label">{screenLabel}</span>
         {onSignOut && (
           <div className="header-user-menu">
+            {onViewEstimates && (
+              <button type="button" className="header-menu-btn" onClick={onViewEstimates}>
+                View Estimates
+              </button>
+            )}
             <button type="button" className="header-menu-btn" onClick={onChangePassword}>
               Change Password
             </button>

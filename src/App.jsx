@@ -10,7 +10,7 @@ import ResetPasswordScreen from './components/ResetPasswordScreen'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import AppHeader           from './components/AppHeader'
 import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
-import { computeAssigneeHoursForTask } from './utils/calc'
+import { computeAssigneeHoursForTask, expenseCostForCategory } from './utils/calc'
 import { supabase } from './lib/supabase'
 import { buildEstimateRow, estimateDisplayName } from './utils/estimatePayload'
 
@@ -29,7 +29,7 @@ function initCat(key) {
     adaEnabled:        false,
     tasks: DEFAULT_TASKS[key].map(t => ({
       ...t,
-      included:  true,
+      included:  t.forceUnchecked ? false : true,
       assignees: initAssignees(t.assignees),
     })),
     removedStack: [],
@@ -46,10 +46,42 @@ function initCat(key) {
   }
 }
 
-const QUESTIONS = [
-  'Is the course taught live? If so, how long is it and does that include time for activities and an exam?',
-  'If the course is already created what tool was used? Do you have access to the original Rise or Storyline files?',
-]
+// Old saved estimates predate the WellSaid task and won't have it in their
+// stored catStates — add it back in (unchecked) so it's still toggleable
+// after reopening. Scoped narrowly to this one task id, not a general
+// migration, so it can't reintroduce any other default task Laurie removed.
+function backfillWellsaid(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of CAT_KEYS) {
+    const cat = result[key]
+    if (!cat) continue
+    const defaultWellsaid       = DEFAULT_TASKS[key].find(t => t.type === 'Expense')
+    const defaultSecondWellsaid = DEFAULT_SECOND_STATE_TASKS[key].find(t => t.type === 'Expense')
+    if (!defaultWellsaid) continue
+    const hasWellsaid       = cat.tasks?.some(t => t.type === 'Expense')
+    const secondHasWellsaid = cat.secondState?.tasks?.some(t => t.type === 'Expense')
+    if (hasWellsaid && secondHasWellsaid) continue
+    result[key] = {
+      ...cat,
+      tasks: hasWellsaid
+        ? cat.tasks
+        : [...cat.tasks, { ...defaultWellsaid, assignees: initAssignees(defaultWellsaid.assignees) }],
+      secondState: {
+        ...cat.secondState,
+        tasks: secondHasWellsaid
+          ? cat.secondState.tasks
+          : [...(cat.secondState?.tasks ?? []), { ...defaultSecondWellsaid, assignees: initAssignees(defaultSecondWellsaid.assignees) }],
+      },
+    }
+  }
+  return result
+}
+
+// All of these live under one "Questions to ask customer" panel — they're a
+// reminder script for Laurie's discovery call, not separate form sections.
+// Answer input type matches the question: free text for open/multi-part
+// questions, a number field for the one purely-numeric question, a Yes/No
+// dropdown for the one binary question.
 
 export default function App() {
   // ── Auth ───────────────────────────────────────────────────
@@ -73,9 +105,18 @@ export default function App() {
 
   const [screen,        setScreen]        = useState('estimator')
   const [companyName,   setCompanyName]   = useState('')
+  const [clientName,    setClientName]    = useState('')
   const [courseName,    setCourseName]    = useState('')
   const [liveHours,     setLiveHours]     = useState('')
   const [questionsOpen, setQuestionsOpen] = useState(false)
+  const [liveCourseAnswer,  setLiveCourseAnswer]  = useState('')
+  const [existingToolAnswer, setExistingToolAnswer] = useState('')
+  const [hasPptsWebinars, setHasPptsWebinars] = useState('')
+  const [elearningLiked,  setElearningLiked]  = useState('')
+  // Creation date of the currently loaded estimate (from the DB row's
+  // created_at) — null for a never-saved estimate, in which case export
+  // falls back to "today". Immutable across re-saves, unlike updated_at.
+  const [loadedCreatedAt, setLoadedCreatedAt] = useState(null)
   const [selected,    setSelected]    = useState({
     microvideo: false, rise360: false, storyline360: false,
   })
@@ -326,7 +367,7 @@ export default function App() {
           }
         }
       }
-      categoryCosts[catKey] = totalCost
+      categoryCosts[catKey] = totalCost + expenseCostForCategory(cat)
     } else {
       const extraModules = (cat.moduleCount ?? 1) - 1
       let mod1BaseSum = 0
@@ -351,7 +392,7 @@ export default function App() {
       }
       const combinedBase = mod1BaseSum + mod2PerModule * extraModules
       const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
-      categoryCosts[catKey] = combinedBase * (1 + adaRate)
+      categoryCosts[catKey] = combinedBase * (1 + adaRate) + expenseCostForCategory(cat)
     }
   }
 
@@ -366,17 +407,21 @@ export default function App() {
   // ── Save Estimate handlers ────────────────────────────────
   function currentRowPayload() {
     return buildEstimateRow({
-      companyName, courseName, selected, selectedKeys, catStates,
+      companyName, clientName, courseName, selected, selectedKeys, catStates,
       marginPct, liveHours, internalCost, clientPrice,
+      hasPptsWebinars, elearningLiked, liveCourseAnswer, existingToolAnswer,
     })
   }
 
-  function buildSnapshot(cs, sel, company, course, margin, hours) {
-    return JSON.stringify({ catStates: cs, selected: sel, companyName: company, courseName: course, marginPct: margin, liveHours: hours })
+  function buildSnapshot(state) {
+    return JSON.stringify(state)
   }
 
   function currentSnapshot() {
-    return buildSnapshot(catStates, selected, companyName, courseName, marginPct, liveHours)
+    return buildSnapshot({
+      catStates, selected, companyName, clientName, courseName, marginPct, liveHours,
+      hasPptsWebinars, elearningLiked, liveCourseAnswer, existingToolAnswer,
+    })
   }
 
   // Never saved this session → dirty iff there's a real in-progress estimate
@@ -441,7 +486,7 @@ export default function App() {
   // — those warnings are themselves the user's confirmation, so no second
   // dialog here, just do the write and update the dirty-tracking snapshot.
   async function insertNewEstimate() {
-    const row = { ...currentRowPayload(), is_closed: false, user_id: session?.user?.id ?? null }
+    const row = { ...currentRowPayload(), is_closed: false, is_won: false, user_id: session?.user?.id ?? null }
     const { data, error } = await supabase.from('estimates').insert(row).select().single()
     if (error) throw error
     setCurrentEstimateId(data.id)
@@ -519,33 +564,50 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = state.catStates ?? catStates
+    const nextCatStates = backfillWellsaid(state.catStates ?? catStates)
     const nextSelected  = state.selected ?? selected
-    // Company/Course come from the top-level columns, not state_json — inline
-    // rename in View Estimates only ever updates those columns, so state_json's
-    // copy can be stale if it was renamed since the last full Save.
+    // Company/Course/Client come from the top-level columns, not state_json —
+    // inline rename in View Estimates only ever updates those columns, so
+    // state_json's copy can be stale if it was renamed since the last full Save.
     const nextCompany   = row.company_name ?? state.companyName ?? ''
+    const nextClient    = row.client_name ?? state.clientName ?? ''
     const nextCourse    = row.course_name ?? state.courseName ?? ''
     const nextMargin    = state.marginPct ?? DEFAULT_MARGIN_PCT
     const nextLiveHours = state.liveHours ?? ''
+    const nextPpts      = state.hasPptsWebinars ?? ''
+    const nextElearning = state.elearningLiked ?? ''
+    const nextLiveCourseAnswer  = state.liveCourseAnswer ?? ''
+    const nextExistingToolAnswer = state.existingToolAnswer ?? ''
 
     setCatStates(nextCatStates)
     setSelected(nextSelected)
     setCompanyName(nextCompany)
+    setClientName(nextClient)
     setCourseName(nextCourse)
     setMarginPct(nextMargin)
     setLiveHours(nextLiveHours)
+    setHasPptsWebinars(nextPpts)
+    setElearningLiked(nextElearning)
+    setLiveCourseAnswer(nextLiveCourseAnswer)
+    setExistingToolAnswer(nextExistingToolAnswer)
+    setLoadedCreatedAt(row.created_at ?? null)
     setCurrentEstimateId(row.id)
     // Computed from the values just set (not read back from state, which
     // wouldn't reflect these updates until next render) — this becomes the
     // dirty-check baseline for this estimate going forward.
-    savedSnapshotRef.current = buildSnapshot(nextCatStates, nextSelected, nextCompany, nextCourse, nextMargin, nextLiveHours)
+    savedSnapshotRef.current = buildSnapshot({
+      catStates: nextCatStates, selected: nextSelected, companyName: nextCompany,
+      clientName: nextClient, courseName: nextCourse, marginPct: nextMargin,
+      liveHours: nextLiveHours, hasPptsWebinars: nextPpts, elearningLiked: nextElearning,
+      liveCourseAnswer: nextLiveCourseAnswer, existingToolAnswer: nextExistingToolAnswer,
+    })
     setScreen('estimator')
   }
 
   function handleEstimateRenamed(id, patch) {
     if (id !== currentEstimateId) return
     if ('company_name' in patch) setCompanyName(patch.company_name)
+    if ('client_name' in patch) setClientName(patch.client_name)
     if ('course_name' in patch) setCourseName(patch.course_name)
   }
 
@@ -588,7 +650,9 @@ export default function App() {
     return (
       <ExportPreview
         companyName={companyName}
+        clientName={clientName}
         courseName={courseName}
+        estimateDate={loadedCreatedAt ? new Date(loadedCreatedAt) : new Date()}
         selectedKeys={selectedKeys}
         catStates={catStates}
         memberHours={activeMembers}
@@ -629,6 +693,7 @@ export default function App() {
         screenLabel="Estimator"
         onSignOut={handleSignOut}
         onChangePassword={() => setShowChangePassword(true)}
+        onViewEstimates={handleViewEstimatesClick}
       />
 
       <main className="app-main">
@@ -640,6 +705,12 @@ export default function App() {
               <input className="field-input" type="text"
                 placeholder="e.g. Acme Corp"
                 value={companyName} onChange={e => setCompanyName(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Client Name</label>
+              <input className="field-input" type="text"
+                placeholder="e.g. Jane Smith"
+                value={clientName} onChange={e => setClientName(e.target.value)} />
             </div>
             <div>
               <label className="field-label">Course Name</label>
@@ -657,29 +728,58 @@ export default function App() {
             </button>
             {questionsOpen && (
               <ol className="questions-list">
-                {QUESTIONS.map((q, i) => <li key={i}>{q}</li>)}
+                <li>
+                  <p className="qbank-question">
+                    Is the course taught live? If so, how long is it and does that include time for activities and an exam?
+                  </p>
+                  <input className="field-input" type="text"
+                    placeholder="Notes from the call…"
+                    value={liveCourseAnswer} onChange={e => setLiveCourseAnswer(e.target.value)} />
+                </li>
+                <li>
+                  <p className="qbank-question">How many hours of live training?</p>
+                  <div className="live-training-row">
+                    <input className="field-input live-training-input" type="text" inputMode="decimal"
+                      placeholder="e.g. 2"
+                      value={liveHours}
+                      onChange={e => setLiveHours(e.target.value)} />
+                    {hasPrediction && (
+                      <span className="live-training-prediction">
+                        ~{predictedMin} min of eLearning &nbsp;·&nbsp;
+                        {predictedWhole === 0
+                          ? `${predictedRem} min (less than 1 module)`
+                          : predictedRem === 0
+                            ? `~${predictedWhole} module${predictedWhole !== 1 ? 's' : ''} at 15 min`
+                            : `~${predictedWhole} module${predictedWhole !== 1 ? 's' : ''} + ${predictedRem} additional min`}
+                      </span>
+                    )}
+                  </div>
+                </li>
+                <li>
+                  <p className="qbank-question">
+                    If the course is already created what tool was used? Do you have access to the original Rise or Storyline files?
+                  </p>
+                  <input className="field-input" type="text"
+                    placeholder="Notes from the call…"
+                    value={existingToolAnswer} onChange={e => setExistingToolAnswer(e.target.value)} />
+                </li>
+                <li>
+                  <p className="qbank-question">Do you have PPTs and Webinars we can use for estimate?</p>
+                  <select className="field-select"
+                    value={hasPptsWebinars} onChange={e => setHasPptsWebinars(e.target.value)}>
+                    <option value="">Select…</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </li>
+                <li>
+                  <p className="qbank-question">What eLearning have you seen that you have liked?</p>
+                  <input className="field-input" type="text"
+                    placeholder="e.g. examples client shared"
+                    value={elearningLiked} onChange={e => setElearningLiked(e.target.value)} />
+                </li>
               </ol>
             )}
-          </div>
-
-          <div className="live-training-group">
-            <label className="field-label">How many hours of live training</label>
-            <div className="live-training-row">
-              <input className="field-input live-training-input" type="text" inputMode="decimal"
-                placeholder="e.g. 2"
-                value={liveHours}
-                onChange={e => setLiveHours(e.target.value)} />
-              {hasPrediction && (
-                <span className="live-training-prediction">
-                  ~{predictedMin} min of eLearning &nbsp;·&nbsp;
-                  {predictedWhole === 0
-                    ? `${predictedRem} min (less than 1 module)`
-                    : predictedRem === 0
-                      ? `~${predictedWhole} module${predictedWhole !== 1 ? 's' : ''} at 15 min`
-                      : `~${predictedWhole} module${predictedWhole !== 1 ? 's' : ''} + ${predictedRem} additional min`}
-                </span>
-              )}
-            </div>
           </div>
         </div>
 

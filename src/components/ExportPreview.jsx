@@ -1,5 +1,5 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeAssigneeHoursForTask, fmt } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt, expenseCostForCategory } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
 import AppHeader from './AppHeader'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -12,7 +12,9 @@ function taskCost(task, catKey, addedMin) {
 
 export default function ExportPreview({
   companyName,
+  clientName,
   courseName,
+  estimateDate,
   selectedKeys,
   catStates,
   memberHours,
@@ -25,10 +27,15 @@ export default function ExportPreview({
   changePasswordOpen,
   onCloseChangePassword,
 }) {
+  const dateObj = estimateDate ?? new Date()
+  const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+
   async function handleDownload() {
     await generateAndSaveDocx({
       companyName,
+      clientName,
       courseName,
+      estimateDate: dateObj,
       selectedKeys,
       cats: catStates,
       memberHours,
@@ -65,8 +72,16 @@ export default function ExportPreview({
               <span className="doc-meta-val">{companyName || '—'}</span>
             </div>
             <div className="doc-meta-row">
+              <span className="doc-meta-key">Client name</span>
+              <span className="doc-meta-val">{clientName || '—'}</span>
+            </div>
+            <div className="doc-meta-row">
               <span className="doc-meta-key">Course name</span>
               <span className="doc-meta-val">{courseName || '—'}</span>
+            </div>
+            <div className="doc-meta-row">
+              <span className="doc-meta-key">Date</span>
+              <span className="doc-meta-val">{dateStr}</span>
             </div>
           </div>
 
@@ -84,10 +99,11 @@ export default function ExportPreview({
             const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
             const additionalVideos = cat.additionalVideos ?? []
 
-            const mod1Tasks = cat.tasks.filter(t => t.included)
+            const mod1Tasks = cat.tasks.filter(t => t.included && t.type !== 'Expense')
             const mod1BaseSum = mod1Tasks.reduce((s, t) => s + taskCost(t, catKey, addedMin), 0)
+            const wellsaidCost = expenseCostForCategory(cat)
 
-            const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
+            const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
 
             // Renders all assignee rows for a task list
             function renderTaskRows(tasks, addMin) {
@@ -119,7 +135,7 @@ export default function ExportPreview({
                 return { video, cost }
               })
               const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
-              const totalCost = mod1BaseSum + additionalVideosTotalCost
+              const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost
 
               let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
               if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -141,10 +157,15 @@ export default function ExportPreview({
                   </table>
 
                   <div className="doc-subtotal-row">
+                    {!hasAdditional && wellsaidCost > 0 && (
+                      <span className="doc-subtotal-ada">
+                        + WellSaid add-on ({fmt(wellsaidCost)})
+                      </span>
+                    )}
                     <span className="doc-subtotal-label">
                       {hasAdditional ? 'Video 1 subtotal' : 'Microvideo subtotal'}
                     </span>
-                    <span className="doc-subtotal-value">{fmt(mod1BaseSum)}</span>
+                    <span className="doc-subtotal-value">{fmt(hasAdditional ? mod1BaseSum : mod1BaseSum + wellsaidCost)}</span>
                   </div>
 
                   {hasAdditional && (
@@ -169,6 +190,11 @@ export default function ExportPreview({
                       ))}
 
                       <div className="doc-subtotal-row doc-subtotal-row--overall">
+                        {wellsaidCost > 0 && (
+                          <span className="doc-subtotal-ada">
+                            + WellSaid add-on ({fmt(wellsaidCost)})
+                          </span>
+                        )}
                         <span className="doc-subtotal-label">
                           Microvideo total — {additionalVideos.length + 1} videos
                         </span>
@@ -185,7 +211,7 @@ export default function ExportPreview({
             const secondTotalCost  = secondPerModule * extraModules
             const combinedBase     = mod1BaseSum + secondTotalCost
             const adaAmount        = combinedBase * adaRate
-            const overallTotal     = combinedBase + adaAmount
+            const overallTotal     = combinedBase + adaAmount + wellsaidCost
 
             let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
             if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -213,11 +239,16 @@ export default function ExportPreview({
                       base {fmt(mod1BaseSum)} + ADA 10% ({fmt(mod1BaseSum * adaRate)})
                     </span>
                   )}
+                  {moduleCount === 1 && wellsaidCost > 0 && (
+                    <span className="doc-subtotal-ada">
+                      + WellSaid add-on ({fmt(wellsaidCost)})
+                    </span>
+                  )}
                   <span className="doc-subtotal-label">
                     {moduleCount > 1 ? `${Unit} 1 subtotal` : `${CAT_LABELS[catKey]} subtotal${hasAda ? ' (incl. ADA)' : ''}`}
                   </span>
                   <span className="doc-subtotal-value">
-                    {fmt(moduleCount > 1 ? mod1BaseSum : mod1BaseSum * (1 + adaRate))}
+                    {fmt(moduleCount > 1 ? mod1BaseSum : mod1BaseSum * (1 + adaRate) + wellsaidCost)}
                   </span>
                 </div>
 
@@ -250,6 +281,11 @@ export default function ExportPreview({
                       {hasAda && (
                         <span className="doc-subtotal-ada">
                           base {fmt(combinedBase)} + ADA 10% ({fmt(adaAmount)})
+                        </span>
+                      )}
+                      {wellsaidCost > 0 && (
+                        <span className="doc-subtotal-ada">
+                          + WellSaid add-on ({fmt(wellsaidCost)})
                         </span>
                       )}
                       <span className="doc-subtotal-label">

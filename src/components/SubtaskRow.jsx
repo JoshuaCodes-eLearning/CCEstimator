@@ -69,8 +69,9 @@ export default function SubtaskRow({
   onUpdateAssignees,
   onTypeChange,
 }) {
-  const excluded = task.included === false
-  const cost     = !excluded ? lineCost(task, catKey, addedMin) : null
+  const isExpense = task.type === 'Expense'
+  const excluded  = task.included === false
+  const cost      = !excluded ? lineCost(task, catKey, addedMin) : null
 
   function handlePersonChange(idx, person) {
     onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, person } : a))
@@ -107,35 +108,43 @@ export default function SubtaskRow({
         placeholder="Task name"
       />
 
-      <div className="subtask-assignees">
-        {(task.assignees ?? []).map((assignee, idx) => (
-          <AssigneeRow
-            key={idx}
-            assignee={assignee}
-            task={task}
-            catKey={catKey}
-            addedMin={addedMin}
-            canRemove={(task.assignees ?? []).length > 1}
-            onPersonChange={person    => handlePersonChange(idx, person)}
-            onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
-            onRemove={() => removeAssignee(idx)}
-          />
-        ))}
-        {(task.assignees ?? []).length < 4 && (
-          <button type="button" className="btn-add-assignee" onClick={addAssignee}>
-            + add person
-          </button>
-        )}
-      </div>
+      {isExpense ? (
+        <span className="subtask-expense-note">Flat expense — no hours/resource</span>
+      ) : (
+        <div className="subtask-assignees">
+          {(task.assignees ?? []).map((assignee, idx) => (
+            <AssigneeRow
+              key={idx}
+              assignee={assignee}
+              task={task}
+              catKey={catKey}
+              addedMin={addedMin}
+              canRemove={(task.assignees ?? []).length > 1}
+              onPersonChange={person    => handlePersonChange(idx, person)}
+              onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
+              onRemove={() => removeAssignee(idx)}
+            />
+          ))}
+          {(task.assignees ?? []).length < 4 && (
+            <button type="button" className="btn-add-assignee" onClick={addAssignee}>
+              + add person
+            </button>
+          )}
+        </div>
+      )}
 
-      <select
-        className={`subtask-type-select subtask-type-select--${(task.type || 'fixed').toLowerCase()}`}
-        value={task.type || 'Fixed'}
-        onChange={e => onTypeChange?.(e.target.value)}
-      >
-        <option value="Fixed">Fixed</option>
-        <option value="Dynamic">Dynamic</option>
-      </select>
+      {isExpense ? (
+        <span className="subtask-type-flat">Expense</span>
+      ) : (
+        <select
+          className={`subtask-type-select subtask-type-select--${(task.type || 'fixed').toLowerCase()}`}
+          value={task.type || 'Fixed'}
+          onChange={e => onTypeChange?.(e.target.value)}
+        >
+          <option value="Fixed">Fixed</option>
+          <option value="Dynamic">Dynamic</option>
+        </select>
+      )}
 
       <span className="subtask-cost">
         {cost !== null ? fmt(cost) : '—'}

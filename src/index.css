@@ -232,9 +232,10 @@ body { background: var(--page-bg); }
 }
 .field-group {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 28px;
 }
+.field-group + .field-group { margin-top: 16px; }
 .field-label {
   display: block;
   font-size: 11px;
@@ -258,6 +259,23 @@ body { background: var(--page-bg); }
 }
 .field-input::placeholder { color: #b0bec8; }
 .field-input:focus {
+  border-color: var(--blue-mid);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+.field-select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 13px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  background: var(--white);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-select:focus {
   border-color: var(--blue-mid);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
@@ -294,28 +312,30 @@ body { background: var(--page-bg); }
 .questions-chevron { font-size: 14px; flex-shrink: 0; }
 .questions-list {
   list-style: decimal;
-  padding: 12px 20px 14px 38px;
+  padding: 14px 20px 18px 38px;
   background: var(--white);
   border-top: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 18px;
 }
 .questions-list li {
   font-size: 14px;
   color: var(--text);
   line-height: 1.55;
 }
+.qbank-question {
+  margin: 0 0 8px;
+}
+.questions-list .field-input,
+.questions-list .field-select {
+  max-width: 420px;
+}
 
 /* ===================================================
    LIVE TRAINING HOURS FIELD
    =================================================== */
 
-.live-training-group {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-light);
-}
 .live-training-row {
   display: flex;
   align-items: center;
@@ -744,6 +764,15 @@ body { background: var(--page-bg); }
   color: var(--text);
   text-align: right;
   white-space: nowrap;
+}
+
+/* Flat "Expense" tasks (e.g. WellSaid) — no assignees/type dropdown */
+.subtask-expense-note,
+.subtask-type-flat {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: center;
 }
 
 /* ===================================================
@@ -1736,7 +1765,7 @@ body { background: var(--page-bg); }
    ESTIMATES MODAL
    ===================================================== */
 .estimates-modal {
-  max-width: 1160px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 0 20px 80px;
 }
@@ -1788,10 +1817,14 @@ body { background: var(--page-bg); }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* Safety net: if a narrow window still can't fit every column, only this
+     area scrolls horizontally — never the whole page (header stays put). */
+  overflow-x: auto;
 }
 
 .estimates-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
 }
@@ -1815,7 +1848,8 @@ body { background: var(--page-bg); }
 
 .estimates-cols {
   display: grid;
-  grid-template-columns: 165px 180px 130px 90px 60px 100px 80px 195px;
+  grid-template-columns: minmax(100px, 1.1fr) minmax(90px, 0.9fr) minmax(110px, 1.1fr) minmax(80px, 0.9fr) 82px 52px 88px 66px 58px 168px;
+  min-width: 1040px;
   gap: 0 14px;
   padding: 10px 20px;
   background: var(--surface);
@@ -1878,7 +1912,8 @@ body { background: var(--page-bg); }
 
 .estimates-row {
   display: grid;
-  grid-template-columns: 165px 180px 130px 90px 60px 100px 80px 195px;
+  grid-template-columns: minmax(100px, 1.1fr) minmax(90px, 0.9fr) minmax(110px, 1.1fr) minmax(80px, 0.9fr) 82px 52px 88px 66px 58px 168px;
+  min-width: 1040px;
   gap: 0 14px;
   padding: 18px 20px;
   min-height: 58px;
@@ -1946,6 +1981,23 @@ body { background: var(--page-bg); }
 }
 .estimates-status:hover { filter: brightness(0.96); }
 .estimates-status--closed {
+  background: var(--border-light);
+  color: var(--text-muted);
+}
+
+.estimates-won {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--blue-light);
+  color: var(--blue);
+  border: none;
+  cursor: pointer;
+}
+.estimates-won:hover { filter: brightness(0.96); }
+.estimates-won--lost {
   background: var(--border-light);
   color: var(--text-muted);
 }
@@ -2036,7 +2088,11 @@ body { background: var(--page-bg); }
   /* EstimatesModal */
   .estimates-modal { max-width: 100%; padding: 0 16px 80px; }
   .estimates-cols,
-  .estimates-row { grid-template-columns: 130px 145px 105px 75px 50px 80px 65px 120px; gap: 0 10px; }
+  .estimates-row {
+    grid-template-columns: 90px 80px 100px 70px 65px 45px 70px 55px 50px 130px;
+    min-width: 0;
+    gap: 0 8px;
+  }
   .estimates-cols { font-size: 10px; }
 }
 

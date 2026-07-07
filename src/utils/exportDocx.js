@@ -4,7 +4,7 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeAssigneeHoursForTask } from './calc'
+import { computeAssigneeHoursForTask, expenseCostForCategory } from './calc'
 import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES } from '../config/config'
 
 const NAVY       = '1E2D3D'
@@ -120,9 +120,11 @@ function subtotalPara(label, amount, opts = {}) {
   })
 }
 
-export async function generateAndSaveDocx({ companyName, courseName, selectedKeys, cats, memberHours, internalCost, clientPrice, marginPct = 50 }) {
+export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
-  const year = new Date().getFullYear()
+  const dateObj = estimateDate ?? new Date()
+  const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+  const generatedYear = new Date().getFullYear()
 
   // ── Title ─────────────────────────────────────────────────
   children.push(
@@ -138,7 +140,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
     }),
   )
 
-  // ── Company / Course info ──────────────────────────────────
+  // ── Company / Client / Course / Date info ──────────────────
   children.push(
     new Paragraph({
       children: [
@@ -149,8 +151,22 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
     }),
     new Paragraph({
       children: [
+        new TextRun({ text: 'Client name   ', color: '888888', size: 22 }),
+        new TextRun({ text: clientName || '—', bold: true, size: 22 }),
+      ],
+      spacing: { after: 60 },
+    }),
+    new Paragraph({
+      children: [
         new TextRun({ text: 'Course name   ', color: '888888', size: 22 }),
         new TextRun({ text: courseName || '—', bold: true, size: 22 }),
+      ],
+      spacing: { after: 60 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'Date          ', color: '888888', size: 22 }),
+        new TextRun({ text: dateStr, bold: true, size: 22 }),
       ],
       spacing: { after: 300 },
     }),
@@ -171,15 +187,16 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
     const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
     const additionalVideos = cat.additionalVideos ?? []
 
-    const mod1Tasks = cat.tasks.filter(t => t.included)
+    const mod1Tasks = cat.tasks.filter(t => t.included && t.type !== 'Expense')
     let mod1BaseSum = 0
     mod1Tasks.forEach(t => {
       ;(t.assignees ?? []).forEach(a => {
         mod1BaseSum += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
       })
     })
+    const wellsaidCost = expenseCostForCategory(cat)
 
-    const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included)
+    const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
 
     if (isMicrovideo) {
       // ── Microvideo section ──────────────────────────────────
@@ -195,7 +212,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
         return { video, cost }
       })
       const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
-      const totalCost = mod1BaseSum + additionalVideosTotalCost
+      const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost
 
       let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
       if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -209,7 +226,10 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       children.push(taskTable(mod1Tasks, catKey, addedMin))
 
       if (!hasAdditional) {
-        children.push(subtotalPara('Microvideo subtotal', mod1BaseSum, { afterSpacing: 240 }))
+        children.push(subtotalPara('Microvideo subtotal', mod1BaseSum + wellsaidCost, {
+          adaNote: wellsaidCost > 0 ? `+ WellSaid add-on (${fmtNum(wellsaidCost)})` : null,
+          afterSpacing: 240,
+        }))
       } else {
         children.push(subtotalPara('Video 1 subtotal', mod1BaseSum, { afterSpacing: 80 }))
 
@@ -229,7 +249,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
         children.push(subtotalPara(
           `Microvideo total — ${additionalVideos.length + 1} videos`,
           totalCost,
-          { afterSpacing: 240 }
+          { adaNote: wellsaidCost > 0 ? `+ WellSaid add-on (${fmtNum(wellsaidCost)})` : null, afterSpacing: 240 }
         ))
       }
     } else {
@@ -243,7 +263,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       const secondTotalCost = secondPerModule * extraModules
       const combinedBase = mod1BaseSum + secondTotalCost
       const adaAmount    = combinedBase * adaRate
-      const overallTotal = combinedBase + adaAmount
+      const overallTotal = combinedBase + adaAmount + wellsaidCost
 
       let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
       if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -258,11 +278,13 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       children.push(taskTable(mod1Tasks, catKey, addedMin))
 
       if (moduleCount === 1) {
-        const adaNote = hasAda ? `base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})` : null
+        const notes = []
+        if (hasAda) notes.push(`base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})`)
+        if (wellsaidCost > 0) notes.push(`+ WellSaid add-on (${fmtNum(wellsaidCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} subtotal`,
-          mod1BaseSum * (1 + adaRate),
-          { adaNote, afterSpacing: 240 }
+          mod1BaseSum * (1 + adaRate) + wellsaidCost,
+          { adaNote: notes.join('   ') || null, afterSpacing: 240 }
         ))
       } else {
         children.push(subtotalPara(`${Unit} 1 subtotal`, mod1BaseSum, { afterSpacing: 80 }))
@@ -281,11 +303,13 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
           children.push(subtotalPara(`${secondLabel} subtotal (× ${extraModules})`, secondTotalCost, { afterSpacing: 60 }))
         }
 
-        const adaNote = hasAda ? `base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})` : null
+        const notes = []
+        if (hasAda) notes.push(`base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})`)
+        if (wellsaidCost > 0) notes.push(`+ WellSaid add-on (${fmtNum(wellsaidCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
           overallTotal,
-          { adaNote, afterSpacing: 240 }
+          { adaNote: notes.join('   ') || null, afterSpacing: 240 }
         ))
       }
     }
@@ -357,7 +381,7 @@ export async function generateAndSaveDocx({ companyName, courseName, selectedKey
       spacing: { after: 200 },
     }),
     new Paragraph({
-      children: [new TextRun({ text: `Cobblestone AI eLearning Estimator · generated ${year}`, size: 18, color: 'AAAAAA' })],
+      children: [new TextRun({ text: `Cobblestone AI eLearning Estimator · generated ${generatedYear}`, size: 18, color: 'AAAAAA' })],
       alignment: AlignmentType.CENTER,
     }),
   )

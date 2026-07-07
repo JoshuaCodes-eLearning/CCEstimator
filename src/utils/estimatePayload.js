@@ -10,8 +10,9 @@ export function estimateDisplayName(companyName) {
 }
 
 export function buildEstimateRow({
-  companyName, courseName, selected, selectedKeys, catStates,
+  companyName, clientName, courseName, selected, selectedKeys, catStates,
   marginPct, liveHours, internalCost, clientPrice,
+  hasPptsWebinars, elearningLiked, liveCourseAnswer, existingToolAnswer,
 }) {
   const adaEnabled      = {}
   const moduleCounts    = {}
@@ -31,6 +32,7 @@ export function buildEstimateRow({
 
   return {
     company_name:       resolveName(companyName),
+    client_name:        resolveName(clientName),
     course_name:        resolveName(courseName),
     categories:         selectedKeys,
     internal_cost:      Number(internalCost.toFixed(2)),
@@ -41,7 +43,8 @@ export function buildEstimateRow({
     additional_mins:    additionalMins,
     additional_videos:  additionalVideos,
     state_json: {
-      catStates, selected, companyName, courseName, marginPct, liveHours,
+      catStates, selected, companyName, clientName, courseName, marginPct, liveHours,
+      hasPptsWebinars, elearningLiked, liveCourseAnswer, existingToolAnswer,
     },
   }
 }
