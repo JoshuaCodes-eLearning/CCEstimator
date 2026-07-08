@@ -364,7 +364,7 @@ export default function EstimatesModal({
                       className="estimates-cell estimates-editable"
                       onDoubleClick={() => startEdit(row, 'client_name')}
                     >
-                      {row.client_name}
+                      {row.client_name || 'Unnamed'}
                     </span>
                   )}
 

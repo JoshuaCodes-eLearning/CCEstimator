@@ -41,7 +41,11 @@ export const DEFAULT_MINUTES = {
 // 'Expense' — a flat-dollar line item with no hours/assignees (flatCost field
 // instead). forceUnchecked: true — overrides initCat()'s normal "module 1
 // always starts checked" rule (see App.jsx initCat) so this starts unchecked
-// everywhere, module 1 included. Used for WellSaid.
+// everywhere, module 1 included. Used for WellSaid and the optional
+// bottom-of-list tasks (Logo Stinger, VEO3/Vyond, custom images/software
+// sims, Sales meetings/SOW) — those already have included: false, which
+// alone only controls the second-state default; forceUnchecked extends
+// that to module 1 too.
 // ============================================================
 
 export const DEFAULT_TASKS = {
@@ -111,19 +115,19 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Megan', hours: 6 }],
     },
     {
-      id: 'mv-12', name: 'Logo stinger', type: 'Fixed', included: false,
+      id: 'mv-12', name: 'Logo stinger', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Megan', hours: 2 }],
     },
     {
-      id: 'mv-veo', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
+      id: 'mv-veo', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 6 }],
     },
     {
-      id: 'mv-img', name: 'Up to 5 custom AI images', type: 'Fixed', included: false,
+      id: 'mv-img', name: 'Up to 5 custom AI images', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 3 }],
     },
     {
-      id: 'mv-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      id: 'mv-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
     {
@@ -201,15 +205,15 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Megan', hours: 3 }],
     },
     {
-      id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
+      id: 'r-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 6 }],
     },
     {
-      id: 'r-15', name: 'Up to 5 custom AI images', type: 'Fixed', included: false,
+      id: 'r-15', name: 'Up to 5 custom AI images', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 3 }],
     },
     {
-      id: 'r-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      id: 'r-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
     {
@@ -296,23 +300,23 @@ export const DEFAULT_TASKS = {
       ],
     },
     {
-      id: 's-logo', name: 'Logo Stinger', type: 'Fixed', included: false,
+      id: 's-logo', name: 'Logo Stinger', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Megan', hours: 2 }],
     },
     {
-      id: 's-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false,
+      id: 's-14', name: 'Up to 5 min of VEO3 / Vyond scenarios', type: 'Dynamic', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 6 }],
     },
     {
-      id: 's-15', name: 'Up to 5 min of software simulations', type: 'Dynamic', included: false,
+      id: 's-15', name: 'Up to 5 min of software simulations', type: 'Dynamic', included: false, forceUnchecked: true,
       assignees: [{ person: 'Michelle', hours: 6 }],
     },
     {
-      id: 's-16', name: 'Up to 5 custom images', type: 'Fixed', included: false,
+      id: 's-16', name: 'Up to 5 custom images', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Megan', hours: 3 }],
     },
     {
-      id: 's-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false,
+      id: 's-1', name: 'Sales meetings / SOW', type: 'Fixed', included: false, forceUnchecked: true,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
     {

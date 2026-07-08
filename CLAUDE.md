@@ -38,10 +38,15 @@ Everything below is live and working:
   when >1 category selected, internal cost + client price + margin selector
 - **Company Name** + **Client Name** + Course Name fields at the top (Client
   Name is the person, distinct from Company — the business)
-- **"Do you have PPTs and Webinars..." (Yes/No)** and **"What eLearning have
-  you seen that you have liked?" (free text)** — two discovery-question fields
-  under Company/Client/Course, captured with the estimate but not printed on
-  the client-facing export (see July 2026 section below)
+- **"Questions to ask customer" — one consolidated panel** (reworked July
+  2026): every discovery question Laurie needs for the client call lives
+  here, each with an answer input matching its type — the original two
+  static questions now have free-text note fields, "How many hours of live
+  training" (number, still drives the eLearning-minutes prediction), "Do you
+  have PPTs and Webinars..." (Yes/No), and "What eLearning have you seen that
+  you have liked?" (free text). All answers save with the estimate but are
+  internal notes, not printed on the client-facing export — see July 2026
+  section below.
 - **Second "View Estimates" button** in the persistent header, always visible
   even before any category is selected — the original button lives in
   TotalsBar, which doesn't render until a category is checked. Both call the
@@ -96,6 +101,42 @@ Everything below is live and working:
 - New "Month" filter dropdown (built from distinct `created_at` months
   present in the fetched estimates) — this is the "searchable by month" Date
   requirement; there's no new Date form field, `created_at` is reused as-is.
+- **Client Name column** added to EstimatesModal, right after Company — same
+  inline double-click-to-rename pattern as Company/Course, synced back to
+  live App state via `handleEstimateRenamed` the same way.
+
+**"Questions to ask customer" — consolidated (live, added July 2026):**
+Originally the two static discovery questions (in a read-only collapsible
+list) and the newer PPT/eLearning/live-hours fields were three visually
+separate sections on the form. Laurie's feedback: everything here exists for
+the same reason (a reminder script for her discovery call) and should look
+and behave consistently. Reworked into one collapsible `<ol className="questions-list">`
+inside `.questions-panel`, each `<li>` pairing the question text with the
+right input type:
+1. Is the course taught live?... — free text (new `liveCourseAnswer` state)
+2. How many hours of live training? — number (`liveHours`, unchanged; still
+   drives the eLearning-minutes prediction shown inline)
+3. If the course is already created...access to source files? — free text
+   (new `existingToolAnswer` state)
+4. Do you have PPTs and Webinars...? — Yes/No (`hasPptsWebinars`)
+5. What eLearning have you seen that you've liked? — free text (`elearningLiked`)
+
+All five answers are threaded through `buildSnapshot()`/dirty-check,
+`buildEstimateRow()`'s `state_json`, and `handleLoadEstimate()` restoration —
+same treatment as every other draft field. None have their own DB column
+(internal notes only, per the existing `hasPptsWebinars`/`elearningLiked`
+precedent — see the schema section below).
+
+**View Estimates table CSS fix (July 2026):** the table was overflowing the
+viewport (a page-level horizontal scrollbar, even clipping the header) once
+Client Name + Won columns pushed the 10-column grid past `.estimates-modal`'s
+old 1160px max-width. Fixed by: widening `.estimates-modal` to 1320px,
+switching `.estimates-cols`/`.estimates-row` from all-fixed-px columns to a
+`minmax()`/`fr` mix (short numeric/label columns like Client $/Margin/Status/
+Won stay fixed-px; text columns like Company/Client Name/Course/Categories
+flex), and adding `overflow-x: auto` on `.estimates-body` as a safety net —
+if a narrow window still can't fit every column, only that inner area
+scrolls, never the whole page.
 
 ---
 
@@ -212,17 +253,19 @@ the normal assignee-based branches in calc.js. `SubtaskRow.jsx` hides the
 assignees block and Type dropdown for this type (neither makes sense for a
 flat expense).
 
-**Module 1 vs second state — included flag behavior (July 2026):**
+**Module 1 vs second state — included flag behavior (updated 2026-07-07):**
 - `initCat()` sets `included: true` unconditionally for ALL module 1 tasks,
   regardless of the `included` flag in `DEFAULT_TASKS` — **except** tasks with
-  `forceUnchecked: true` (added July 2026, used only by WellSaid), which stay
-  unchecked in module 1 too. This is a narrow, explicit opt-out — every other
-  task's module-1-always-checked behavior is unchanged.
+  `forceUnchecked: true`, which stay unchecked in module 1 too. Originally
+  (July 2026) this was used only by WellSaid; as of 2026-07-07 it's also
+  applied to the optional bottom-of-list tasks (Logo Stinger, VEO3/Vyond,
+  custom images/software sims, Sales meetings/SOW) per Laurie's feedback that
+  these should be unchecked by default everywhere, not just the second state.
 - `makeSecondState()` uses `included: t.included !== false` — so tasks marked
   `included: false` in config start unchecked in modules 2–N; everything else
-  starts checked. This means the `included: false` flags in DEFAULT_TASKS exist
-  solely to control second-state defaults, not module 1 defaults (WellSaid is
-  the one exception, via `forceUnchecked`, not `included`).
+  starts checked. The `included: false` flag alone only controls the
+  second-state default; `forceUnchecked: true` is what additionally forces a
+  task unchecked in module 1 too.
 
 ---
 
@@ -238,10 +281,12 @@ flat expense).
 - **ADA toggle** per applicable category: flat +10% on category cost (not hours).
   Same 10% for Rise 360 and Storyline 360. Microvideo has no ADA option.
 - **Unchecking a row** greys it out and excludes it from totals — nothing is deleted.
-- **Unchecked-by-default tasks** (`included: false` in DEFAULT_TASKS — affects
-  second state only, not module 1):
+- **Unchecked-by-default tasks** (`included: false` + `forceUnchecked: true`
+  in DEFAULT_TASKS — unchecked in module 1 AND the second state as of
+  2026-07-07; previously module 1 always started these checked):
   - All categories: Sales meetings / SOW
   - Microvideo: Logo stinger, Up to 5 min VEO3/Vyond, Up to 5 custom AI images
+  - Rise 360: Up to 5 min VEO3/Vyond, Up to 5 custom AI images
   - Storyline 360: Logo Stinger, Up to 5 min VEO3/Vyond, Up to 5 min software
     simulations, Up to 5 custom images
 
@@ -323,6 +368,12 @@ until signed in. RLS is fully tightened: the anon key has zero access to the
 `estimates` table (verified live, not just assumed — see RLS section below).
 A companion user-facing reference doc lives at `DATABASE_PHASE2_GUIDE.md` —
 point Laurie there for "how do I..." questions instead of re-explaining.
+A one-off Word version covering this same material plus the July 2026
+features (Client Name, WellSaid, Won/Lost, the consolidated Questions panel,
+the two View Estimates buttons) was generated for Laurie and saved to
+`C:\Users\14044\OneDrive\Desktop\CCEstimator - Database & New Features Guide (July 2026).docx`
+— **not** in the repo (it's a delivered document, not source); regenerate
+rather than hunt for it if it's ever missing.
 
 ### Supabase project
 - URL: `https://nterokbwaflejbsrwjqr.supabase.co`
@@ -386,9 +437,11 @@ a different estimate), not on tab close/refresh.
 
 - `savedSnapshotRef` (a `useRef`, not state) holds a JSON-serialized snapshot
   of `{ catStates, selected, companyName, clientName, courseName, marginPct,
-  liveHours, hasPptsWebinars, elearningLiked }` (Client Name + the two
-  discovery questions added July 2026) taken at the moment an estimate is
-  loaded or successfully saved.
+  liveHours, hasPptsWebinars, elearningLiked, liveCourseAnswer,
+  existingToolAnswer }` (Client Name + all five Questions-panel answers added
+  July 2026) taken at the moment an estimate is loaded or successfully saved.
+  `buildSnapshot()` takes a single state object now (was positional args) —
+  changed once the field count made positional args error-prone.
   `hasUnsavedChanges()`: if `currentEstimateId === null`, dirty iff a category
   is selected (the only way to even reach these buttons); otherwise dirty iff
   `JSON.stringify(current state)` differs from the ref. This is a cheap
@@ -466,7 +519,7 @@ into the thousands).
 3. setSelected(state.selected ?? selected)
 4. companyName/clientName/courseName ← row.company_name / row.client_name / row.course_name  ⚠ NOT state_json
 5. marginPct ← state.marginPct, liveHours ← state.liveHours
-6. hasPptsWebinars/elearningLiked ← state.hasPptsWebinars / state.elearningLiked
+6. hasPptsWebinars/elearningLiked/liveCourseAnswer/existingToolAnswer ← same-named state_json fields
 7. loadedCreatedAt ← row.created_at (used by export's Date line)
 8. setCurrentEstimateId(row.id); setScreen('estimator')
 ```
@@ -485,7 +538,7 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | id | uuid PK | NO | `gen_random_uuid()` | never shown in UI |
 | user_id | uuid FK → auth.users | NO | none | nullable pre-auth, restored to NOT NULL once auth shipped; populated from `session.user.id` on every insert |
 | company_name | text | NO | `''` | app always resolves blank → `'Unnamed'` before insert |
-| client_name | text | NO | `''` | added July 2026; the person, not the business — blank stays `''`, NOT resolved to `'Unnamed'` (that's a company/course-only convention) |
+| client_name | text | NO | `''` | added July 2026; the person, not the business. Goes through `resolveName()` same as company/course — blank saves as `'Unnamed'` (see note below the table) |
 | course_name | text | NO | `''` | same |
 | categories | text[] | NO | `'{}'` | e.g. `['rise360','microvideo']` |
 | internal_cost | numeric | NO | `0` | snapshot |
@@ -497,7 +550,7 @@ self-heals the next time that estimate is Saved/Overwritten, since
 | additional_videos | jsonb | NO | `'[]'` | **must send `[]` not `null`** for non-Microvideo saves |
 | is_closed | boolean | NO | `false` | |
 | is_won | boolean | NO | `false` | added July 2026; independent of `is_closed` — two separate axes, not a sub-state |
-| state_json | jsonb | NO | `'{}'` | full App state snapshot for reload — also carries `clientName`, `hasPptsWebinars`, `elearningLiked` (July 2026; not their own columns, see below) |
+| state_json | jsonb | NO | `'{}'` | full App state snapshot for reload — also carries `clientName` and all five Questions-panel answers (`hasPptsWebinars`, `elearningLiked`, `liveCourseAnswer`, `existingToolAnswer`, plus pre-existing `liveHours`) — July 2026; none of these have their own columns, see below |
 | created_at | timestamptz | NO | `now()` | |
 | updated_at | timestamptz | NO | `now()` | bumped by DB trigger on UPDATE |
 
@@ -508,12 +561,12 @@ alter table public.estimates
   add column if not exists is_won boolean not null default false;
 ```
 No RLS changes needed — the existing `owner: insert`/`owner: update` policies
-already cover new columns. The two new discovery-question fields
-(`hasPptsWebinars`, `elearningLiked`) deliberately did **not** get their own
-columns — they're internal qualifying notes (like the existing static
-"Questions to ask customer" panel), not client-facing or filterable, so they
-just ride along inside `state_json`. Revisit if Laurie ever wants to
-search/sort by them.
+already cover new columns. The Questions-panel answer fields
+(`hasPptsWebinars`, `elearningLiked`, `liveCourseAnswer`, `existingToolAnswer`)
+deliberately did **not** get their own columns — they're internal discovery
+notes (see the consolidated Questions panel above), not client-facing or
+filterable, so they just ride along inside `state_json`. Revisit if Laurie
+ever wants to search/sort by them.
 
 `client_name` goes through `resolveName()` in `buildEstimateRow()` exactly
 like `company_name`/`course_name` — blank resolves to `"Unnamed"` on save, so
@@ -523,6 +576,19 @@ request so all three name fields behave identically.) `EstimatesModal.jsx`
 shows a **Client Name** column right after Company (own inline-rename cell,
 same double-click-to-edit pattern as Company/Course) — `handleEstimateRenamed`
 in App.jsx syncs it back to live state the same way it does for Company/Course.
+
+**Legacy rows (added 2026-07-07):** estimates saved *before* the `client_name`
+column existed have it at the column's raw default (`''`), not `"Unnamed"`,
+since the migration that added the column couldn't retroactively run
+`resolveName()` over old rows — Company/Course never had this gap because
+they've been resolved since day one. `EstimatesModal.jsx`'s Client Name cell
+renders `row.client_name || 'Unnamed'` (display-level fallback, doesn't touch
+the DB) so old rows read consistently with Company/Course immediately,
+without waiting on a backfill. For the underlying data to actually say
+`"Unnamed"` (e.g. if client_name is ever made searchable/sortable), Laurie
+would need to run a one-time backfill in the Supabase SQL editor:
+`update public.estimates set client_name = 'Unnamed' where client_name = '';`
+— not something to run via the anon key, per the RLS working agreement below.
 
 ### RLS — final tightened state (shipped 2026-07-03, verified live)
 The 4 temporary `"anon {select,insert,update,delete} (temp, pre-auth)"`
