@@ -670,18 +670,21 @@ body { background: var(--page-bg); }
   flex-shrink: 0;
 }
 
-/* Name input */
+/* Name box — auto-growing textarea so long task descriptions are never clipped */
 .subtask-name-input {
   border: 1px solid transparent;
   border-radius: 5px;
   padding: 4px 7px;
   font-size: 14px;
+  line-height: 1.4;
   color: var(--text);
   background: transparent;
   width: 100%;
   font-family: inherit;
   outline: none;
   min-width: 0;
+  resize: none;
+  overflow: hidden;
 }
 .subtask-name-input:hover { border-color: var(--border); background: #f9fafc; }
 .subtask-name-input:focus {
@@ -766,13 +769,44 @@ body { background: var(--page-bg); }
   white-space: nowrap;
 }
 
-/* Flat "Expense" tasks (e.g. WellSaid) — no assignees/type dropdown */
-.subtask-expense-note,
+/* Flat "Expense" tasks (e.g. WellSaid) — no assignees dropdown, a months input instead */
 .subtask-type-flat {
   font-size: 12px;
   color: var(--text-muted);
   font-style: italic;
   align-self: center;
+}
+
+.subtask-expense-months {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+}
+.expense-months-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.expense-months-input {
+  width: 48px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+}
+.expense-months-input:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
+}
+.expense-months-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
 }
 
 /* ===================================================
@@ -2145,6 +2179,7 @@ body { background: var(--page-bg); }
   .subtask-cost       { grid-column: 3; grid-row: 1; align-self: start; font-size: 13px; margin-top: 6px; }
   /* Row 2: assignees block spans full remaining width */
   .subtask-assignees  { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-expense-months { grid-column: 2 / 4; grid-row: 2; }
   .subtask-type-select { display: none; }
 
   /* Add/remove */

@@ -25,7 +25,7 @@ export function computeHours(task, catKey, addedMin) {
 
 // Total cost across all assignees for a task
 export function lineCost(task, catKey, addedMin) {
-  if (task.type === 'Expense') return task.flatCost ?? 0
+  if (task.type === 'Expense') return (task.flatCost ?? 0) * (task.months ?? 1)
   const assignees = task.assignees ?? []
   if (assignees.length === 0) {
     return computeHours(task, catKey, addedMin) * (RATES[task.responsible] ?? 0)
@@ -36,14 +36,32 @@ export function lineCost(task, catKey, addedMin) {
   }, 0)
 }
 
-// Flat "Expense" task cost for a category (e.g. WellSaid) — counted once
-// per category regardless of module/video count, whether checked in the
-// primary task list or the second-state template (or both).
-export function expenseCostForCategory(cat) {
+// Whichever Expense task instance (primary or second-state) is actually
+// checked — the single source of truth for that category's flat expense,
+// since it's counted once per category regardless of module/video count.
+function activeExpenseTask(cat) {
   const primary = cat.tasks?.find(t => t.type === 'Expense')
   const second  = cat.secondState?.tasks?.find(t => t.type === 'Expense')
-  if (!primary?.included && !second?.included) return 0
-  return primary?.flatCost ?? second?.flatCost ?? 0
+  if (primary?.included) return primary
+  if (second?.included) return second
+  return null
+}
+
+// Flat "Expense" task cost for a category (e.g. WellSaid) — counted once
+// per category regardless of module/video count, whether checked in the
+// primary task list or the second-state template (or both). Months is a
+// flat multiplier (subscription-style — it does NOT scale with module or
+// additional-video count, unlike Fixed/Dynamic hours).
+export function expenseCostForCategory(cat) {
+  const active = activeExpenseTask(cat)
+  if (!active) return 0
+  return (active.flatCost ?? 0) * (active.months ?? 1)
+}
+
+// Months value of the active Expense task, for export/label display (e.g.
+// "+ WellSaid add-on (3 months)"). Defaults to 1 when not checked/unset.
+export function expenseMonthsForCategory(cat) {
+  return activeExpenseTask(cat)?.months ?? 1
 }
 
 export function fmt(n) {
@@ -57,7 +75,7 @@ export function categorySubtotal(catKey, cat) {
     if (!task.included) continue
     // Flat expenses (e.g. WellSaid) are a pass-through — excluded from the
     // ADA-multiplied hours subtotal, added back in afterward untouched.
-    if (task.type === 'Expense') { flatSum += task.flatCost ?? 0; continue }
+    if (task.type === 'Expense') { flatSum += (task.flatCost ?? 0) * (task.months ?? 1); continue }
     sum += lineCost(task, catKey, cat.additionalMinutes)
   }
   if (cat.adaEnabled && ADA_RATES[catKey] > 0) {

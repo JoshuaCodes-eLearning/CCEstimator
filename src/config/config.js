@@ -38,8 +38,9 @@ export const DEFAULT_MINUTES = {
 // included defaults true — set false to start unchecked.
 // indent: true — visually nested under the row above it (used for Internal meetings under PM).
 // type: 'Fixed' | 'Dynamic' | 'Expense'
-// 'Expense' — a flat-dollar line item with no hours/assignees (flatCost field
-// instead). forceUnchecked: true — overrides initCat()'s normal "module 1
+// 'Expense' — a flat-dollar line item with no hours/assignees (flatCost +
+// months fields instead — cost = flatCost × months, months defaults to 1).
+// forceUnchecked: true — overrides initCat()'s normal "module 1
 // always starts checked" rule (see App.jsx initCat) so this starts unchecked
 // everywhere, module 1 included. Used for WellSaid and the optional
 // bottom-of-list tasks (Logo Stinger, VEO3/Vyond, custom images/software
@@ -57,7 +58,7 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 1 }],
     },
     {
-      id: 'mv-hldd', name: 'HLDD', type: 'Fixed',
+      id: 'mv-hldd', name: 'High-Level Design Document', type: 'Dynamic',
       assignees: [{ person: 'Michelle', hours: 1 }],
     },
     {
@@ -68,7 +69,7 @@ export const DEFAULT_TASKS = {
       ],
     },
     {
-      id: 'mv-ip', name: 'Image procurement', type: 'Fixed',
+      id: 'mv-ip', name: 'Image procurement', type: 'Dynamic',
       assignees: [{ person: 'Megan', hours: 4 }],
     },
     {
@@ -132,7 +133,7 @@ export const DEFAULT_TASKS = {
     },
     {
       id: 'mv-wellsaid', name: 'WellSaid', type: 'Expense',
-      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
+      included: false, forceUnchecked: true, flatCost: 100, months: 1, assignees: [],
     },
   ],
 
@@ -143,7 +144,7 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 2 }],
     },
     {
-      id: 'r-5', name: 'HLDD', type: 'Fixed',
+      id: 'r-5', name: 'High-Level Design Document', type: 'Dynamic',
       assignees: [{ person: 'Michelle', hours: 2 }],
     },
     {
@@ -153,7 +154,7 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 10 }],
     },
     {
-      id: 'r-10', name: 'Image procurement', type: 'Fixed',
+      id: 'r-10', name: 'Image procurement', type: 'Dynamic',
       assignees: [{ person: 'Megan', hours: 4 }],
     },
     {
@@ -218,7 +219,7 @@ export const DEFAULT_TASKS = {
     },
     {
       id: 'r-wellsaid', name: 'WellSaid', type: 'Expense',
-      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
+      included: false, forceUnchecked: true, flatCost: 100, months: 1, assignees: [],
     },
   ],
 
@@ -229,18 +230,20 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 2 }],
     },
     {
-      id: 's-5', name: 'HLDD', type: 'Fixed',
+      id: 's-5', name: 'High-Level Design Document', type: 'Dynamic',
       assignees: [{ person: 'Michelle', hours: 4 }],
     },
     {
-      id: 's-6', name: 'Storyboard', type: 'Dynamic',
+      id: 's-6',
+      name: 'Storyboard – 1 per Module. Includes Welcome, objectives, and Summary. Average of 1 KC and 4 interactions per lesson. One 10 question quiz per Module',
+      type: 'Dynamic',
       assignees: [
         { person: 'Michelle', hours: 9 },
         { person: 'Megan',    hours: 3 },
       ],
     },
     {
-      id: 's-10', name: 'Image procurement', type: 'Fixed',
+      id: 's-10', name: 'Image procurement', type: 'Dynamic',
       assignees: [{ person: 'Megan', hours: 5 }],
     },
     {
@@ -321,7 +324,7 @@ export const DEFAULT_TASKS = {
     },
     {
       id: 's-wellsaid', name: 'WellSaid', type: 'Expense',
-      included: false, forceUnchecked: true, flatCost: 50, assignees: [],
+      included: false, forceUnchecked: true, flatCost: 100, months: 1, assignees: [],
     },
   ],
 }

@@ -1,8 +1,64 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { computeAssigneeHoursForTask, lineCost, fmt } from '../utils/calc'
 import { DEFAULT_MINUTES, RATES } from '../config/config'
 
 const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource', 'J.K.']
+
+// Task name box — grows to fit its content so long descriptions
+// (Storyboard, Development, etc.) are never clipped to one line.
+function NameTextarea({ value, onChange }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+
+  return (
+    <textarea
+      ref={ref}
+      className="subtask-name-input"
+      value={value}
+      onChange={e => onChange?.(e.target.value)}
+      placeholder="Task name"
+      rows={1}
+    />
+  )
+}
+
+// Months input for a flat monthly Expense task (e.g. WellSaid) — same
+// local-state focus/blur pattern as the hours inputs above.
+function MonthsInput({ months, onChange }) {
+  const [local,   setLocal]   = useState(String(months))
+  const [focused, setFocused] = useState(false)
+  const display = focused ? local : String(months)
+
+  function handleFocus() { setLocal(String(months)); setFocused(true) }
+  function handleChange(raw) {
+    setLocal(raw)
+    const v = parseInt(raw)
+    if (!isNaN(v) && v >= 1) onChange(v)
+  }
+  function handleBlur() {
+    setFocused(false)
+    if (isNaN(parseInt(local)) || parseInt(local) < 1) onChange(1)
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      className="expense-months-input"
+      value={display}
+      onFocus={handleFocus}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  )
+}
 
 // One person + hours line within a subtask
 function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChange, onHoursChange, onRemove }) {
@@ -68,6 +124,7 @@ export default function SubtaskRow({
   onNameChange,
   onUpdateAssignees,
   onTypeChange,
+  onMonthsChange,
 }) {
   const isExpense = task.type === 'Expense'
   const excluded  = task.included === false
@@ -100,16 +157,14 @@ export default function SubtaskRow({
         onChange={() => onToggle?.()}
       />
 
-      <input
-        type="text"
-        className="subtask-name-input"
-        value={task.name}
-        onChange={e => onNameChange?.(e.target.value)}
-        placeholder="Task name"
-      />
+      <NameTextarea value={task.name} onChange={onNameChange} />
 
       {isExpense ? (
-        <span className="subtask-expense-note">Flat expense — no hours/resource</span>
+        <div className="subtask-expense-months">
+          <span className="expense-months-label">Months</span>
+          <MonthsInput months={task.months ?? 1} onChange={onMonthsChange} />
+          <span className="expense-months-hint">× {fmt(task.flatCost ?? 0)}/mo</span>
+        </div>
       ) : (
         <div className="subtask-assignees">
           {(task.assignees ?? []).map((assignee, idx) => (

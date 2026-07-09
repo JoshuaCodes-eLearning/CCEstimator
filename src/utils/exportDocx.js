@@ -4,7 +4,7 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeAssigneeHoursForTask, expenseCostForCategory } from './calc'
+import { computeAssigneeHoursForTask, expenseCostForCategory, expenseMonthsForCategory } from './calc'
 import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES } from '../config/config'
 
 const NAVY       = '1E2D3D'
@@ -194,7 +194,9 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         mod1BaseSum += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
       })
     })
-    const wellsaidCost = expenseCostForCategory(cat)
+    const wellsaidCost   = expenseCostForCategory(cat)
+    const wellsaidMonths = expenseMonthsForCategory(cat)
+    const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
     const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
 
@@ -227,7 +229,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
 
       if (!hasAdditional) {
         children.push(subtotalPara('Microvideo subtotal', mod1BaseSum + wellsaidCost, {
-          adaNote: wellsaidCost > 0 ? `+ WellSaid add-on (${fmtNum(wellsaidCost)})` : null,
+          adaNote: wellsaidCost > 0 ? `+ ${wellsaidNote} (${fmtNum(wellsaidCost)})` : null,
           afterSpacing: 240,
         }))
       } else {
@@ -249,7 +251,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         children.push(subtotalPara(
           `Microvideo total — ${additionalVideos.length + 1} videos`,
           totalCost,
-          { adaNote: wellsaidCost > 0 ? `+ WellSaid add-on (${fmtNum(wellsaidCost)})` : null, afterSpacing: 240 }
+          { adaNote: wellsaidCost > 0 ? `+ ${wellsaidNote} (${fmtNum(wellsaidCost)})` : null, afterSpacing: 240 }
         ))
       }
     } else {
@@ -280,7 +282,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       if (moduleCount === 1) {
         const notes = []
         if (hasAda) notes.push(`base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})`)
-        if (wellsaidCost > 0) notes.push(`+ WellSaid add-on (${fmtNum(wellsaidCost)})`)
+        if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} subtotal`,
           mod1BaseSum * (1 + adaRate) + wellsaidCost,
@@ -305,7 +307,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
 
         const notes = []
         if (hasAda) notes.push(`base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})`)
-        if (wellsaidCost > 0) notes.push(`+ WellSaid add-on (${fmtNum(wellsaidCost)})`)
+        if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
           overallTotal,

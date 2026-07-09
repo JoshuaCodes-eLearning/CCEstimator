@@ -1,5 +1,5 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeAssigneeHoursForTask, fmt, expenseCostForCategory } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt, expenseCostForCategory, expenseMonthsForCategory } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
 import AppHeader from './AppHeader'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -101,7 +101,9 @@ export default function ExportPreview({
 
             const mod1Tasks = cat.tasks.filter(t => t.included && t.type !== 'Expense')
             const mod1BaseSum = mod1Tasks.reduce((s, t) => s + taskCost(t, catKey, addedMin), 0)
-            const wellsaidCost = expenseCostForCategory(cat)
+            const wellsaidCost   = expenseCostForCategory(cat)
+            const wellsaidMonths = expenseMonthsForCategory(cat)
+            const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
             const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
 
@@ -159,7 +161,7 @@ export default function ExportPreview({
                   <div className="doc-subtotal-row">
                     {!hasAdditional && wellsaidCost > 0 && (
                       <span className="doc-subtotal-ada">
-                        + WellSaid add-on ({fmt(wellsaidCost)})
+                        + {wellsaidNote} ({fmt(wellsaidCost)})
                       </span>
                     )}
                     <span className="doc-subtotal-label">
@@ -192,7 +194,7 @@ export default function ExportPreview({
                       <div className="doc-subtotal-row doc-subtotal-row--overall">
                         {wellsaidCost > 0 && (
                           <span className="doc-subtotal-ada">
-                            + WellSaid add-on ({fmt(wellsaidCost)})
+                            + {wellsaidNote} ({fmt(wellsaidCost)})
                           </span>
                         )}
                         <span className="doc-subtotal-label">
@@ -241,7 +243,7 @@ export default function ExportPreview({
                   )}
                   {moduleCount === 1 && wellsaidCost > 0 && (
                     <span className="doc-subtotal-ada">
-                      + WellSaid add-on ({fmt(wellsaidCost)})
+                      + {wellsaidNote} ({fmt(wellsaidCost)})
                     </span>
                   )}
                   <span className="doc-subtotal-label">
@@ -285,7 +287,7 @@ export default function ExportPreview({
                       )}
                       {wellsaidCost > 0 && (
                         <span className="doc-subtotal-ada">
-                          + WellSaid add-on ({fmt(wellsaidCost)})
+                          + {wellsaidNote} ({fmt(wellsaidCost)})
                         </span>
                       )}
                       <span className="doc-subtotal-label">

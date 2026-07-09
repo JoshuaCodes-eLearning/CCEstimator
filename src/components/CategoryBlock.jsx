@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeAssigneeHoursForTask, fmt, expenseCostForCategory } from '../utils/calc'
+import { computeAssigneeHoursForTask, fmt, expenseCostForCategory, expenseMonthsForCategory } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const COLLAPSED_ROWS = 2
@@ -90,6 +90,8 @@ export default function CategoryBlock({
   // ── WellSaid flat expense (once per category, unaffected by ADA) ──
   const wellsaidCost    = expenseCostForCategory(cat)
   const wellsaidChecked = wellsaidCost > 0
+  const wellsaidMonths  = expenseMonthsForCategory(cat)
+  const wellsaidLabel   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
   const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked
 
@@ -230,6 +232,7 @@ export default function CategoryBlock({
             onNameChange={v               => onUpdateTask(task.id, { name: v })}
             onUpdateAssignees={assignees  => onUpdateTask(task.id, { assignees })}
             onTypeChange={v               => onUpdateTask(task.id, { type: v })}
+            onMonthsChange={v             => onUpdateTask(task.id, { months: v })}
           />
         ))}
 
@@ -276,7 +279,7 @@ export default function CategoryBlock({
               )}
               {!hasMultiple && wellsaidChecked && (
                 <div className="subtotal-ada-line">
-                  <span>WellSaid add-on</span>
+                  <span>{wellsaidLabel}</span>
                   <span>+ {fmt(wellsaidCost)}</span>
                 </div>
               )}
@@ -367,6 +370,7 @@ export default function CategoryBlock({
                 onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
                 onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
                 onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
+                onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
               />
             ))}
 
@@ -429,6 +433,7 @@ export default function CategoryBlock({
                 onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
                 onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
                 onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
+                onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
               />
             ))}
 
@@ -501,7 +506,7 @@ export default function CategoryBlock({
                 ))}
                 {wellsaidChecked && (
                   <div className="subtotal-ada-line">
-                    <span>WellSaid add-on</span>
+                    <span>{wellsaidLabel}</span>
                     <span>+ {fmt(wellsaidCost)}</span>
                   </div>
                 )}
@@ -520,7 +525,7 @@ export default function CategoryBlock({
                 )}
                 {wellsaidChecked && (
                   <div className="subtotal-ada-line">
-                    <span>WellSaid add-on</span>
+                    <span>{wellsaidLabel}</span>
                     <span>+ {fmt(wellsaidCost)}</span>
                   </div>
                 )}
