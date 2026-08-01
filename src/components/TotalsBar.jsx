@@ -30,7 +30,7 @@ export default function TotalsBar({
           <div className="totals-members">
             {Object.entries(memberHours).map(([member, hours]) => (
               <span key={member} className="totals-member">
-                {member} <strong>{parseFloat(hours.toFixed(1))}h</strong>
+                {member} <strong>{parseFloat(hours.toFixed(2))}h</strong>
               </span>
             ))}
             {/* Flat per-1000-words validator fee — no hours, so it's shown as
@@ -49,7 +49,7 @@ export default function TotalsBar({
               {PHASE_ORDER.map(phase => (
                 <div key={phase} className="totals-phase-line">
                   <span className="totals-phase-name">
-                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(1))}h):
+                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(2))}h):
                   </span>
                   <span className="totals-phase-cost">{fmt(phaseTotals[phase].cost)}</span>
                 </div>

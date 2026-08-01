@@ -371,7 +371,7 @@ export default function CategoryBlock({
               {Object.entries(memberMap).map(([member, { hours, cost }]) => (
                 <div key={member} className="subtotal-member-line">
                   <span className="subtotal-member-desc">
-                    {member}: {parseFloat(hours.toFixed(1))}h × ${RATES[member]}/hr
+                    {member}: {parseFloat(hours.toFixed(2))}h × ${RATES[member]}/hr
                   </span>
                   <span className="subtotal-member-cost">= {fmt(cost)}</span>
                 </div>
@@ -593,7 +593,7 @@ export default function CategoryBlock({
                   {Object.entries(secondMemberMap).map(([member, { hours, cost }]) => (
                     <div key={member} className="subtotal-member-line">
                       <span className="subtotal-member-desc">
-                        {member}: {parseFloat(hours.toFixed(1))}h × ${RATES[member]}/hr
+                        {member}: {parseFloat(hours.toFixed(2))}h × ${RATES[member]}/hr
                       </span>
                       <span className="subtotal-member-cost">= {fmt(cost)}</span>
                     </div>

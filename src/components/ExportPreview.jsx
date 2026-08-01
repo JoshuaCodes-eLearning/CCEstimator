@@ -139,7 +139,7 @@ export default function ExportPreview({
                     <tr key={`${task.id}-a${idx}`}>
                       <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
                       <td>{a.person}</td>
-                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(2))}</td>
                       <td>{fmt(cost)}</td>
                     </tr>
                   )
@@ -165,7 +165,7 @@ export default function ExportPreview({
                     <tr key={task.id}>
                       <td>{task.name}</td>
                       <td>{person} — {qty} {task.unitLabel ?? 'unit'}{qty === 1 ? '' : 's'}</td>
-                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(2))}</td>
                       <td>{fmt(cost)}</td>
                     </tr>
                   )
@@ -189,7 +189,7 @@ export default function ExportPreview({
                     <tr key={`${task.id}-a${idx}`}>
                       <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
                       <td>{a.person}</td>
-                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(2))}</td>
                       <td>{fmt(cost)}</td>
                     </tr>
                   )
@@ -428,7 +428,7 @@ export default function ExportPreview({
             <div className="doc-hours-grid">
               {Object.entries(memberHours).map(([name, hrs]) => (
                 <span key={name} className="doc-hours-item">
-                  {name} <strong>{parseFloat(hrs.toFixed(1))}h</strong>
+                  {name} <strong>{parseFloat(hrs.toFixed(2))}h</strong>
                   <span className="doc-hours-rate"> × ${RATES[name]}/hr</span>
                 </span>
               ))}
@@ -448,7 +448,7 @@ export default function ExportPreview({
               {PHASE_ORDER.map(phase => (
                 <div key={phase} className="doc-phase-line">
                   <span className="doc-phase-name">
-                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(1))}h):
+                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(2))}h):
                   </span>
                   <span className="doc-phase-cost">{fmt(phaseTotals[phase].cost)}</span>
                 </div>

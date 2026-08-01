@@ -88,22 +88,17 @@ export const PHASE_COLORS = {
 // alone only controls the second-state default; forceUnchecked extends
 // that to module 1 too.
 //
-// 2026-07 restructure — Project Management / Project Monitoring hours are
-// PLACEHOLDERS pending Laurie's final sign-off (source meeting left these
-// explicitly TBD). Storyline's placeholders are built from the two facts the
-// source doc treats as settled — existing PM = Laurie 6 (unchanged) plus
-// Megan's Project Coordination 15h (confirmed transferred into PM) — and the
-// doc's own quoted approximate Monitoring figures (~2h Laurie, ~2h Megan),
-// NOT the doc's disowned "interim consolidation" numbers (Laurie 11/Megan 22,
-// Laurie 11/Megan 7). Rise 360 and Microvideo were never discussed in that
-// meeting at all — their PM/Monitoring placeholders mechanically carry
-// forward each category's own prior Internal Meetings / Project Coordination
-// / Lessons Learned hours into the new structure (Coordination → PM,
-// Internal Meetings + 1h/participant Lessons Learned → Monitoring), with
-// Michelle's hours dropped entirely (not redistributed) per the "remove
-// Michelle from the PM/Monitoring structure" rule. Flag with Laurie before
-// treating any of these as final — same "confirm before final" caveat as the
-// existing Rise 360 Lessons Learned assumption below.
+// 2026-07 restructure — Project Management / Project Monitoring hours were
+// originally PLACEHOLDERS pending final sign-off. Rise 360 and Storyline 360
+// were CONFIRMED 2026-08: Project Management = Laurie 2 / Megan 2 / Michelle 1,
+// Project Monitoring = Megan 4 / Michelle 1, Communications = Michelle 2 (all
+// three, both categories). Microvideo was never part of that confirmation —
+// its PM/Monitoring hours below are still the original placeholder, mechanically
+// carried forward from its prior Internal Meetings / Project Coordination /
+// Lessons Learned hours (Coordination → PM, Internal Meetings + 1h/participant
+// Lessons Learned → Monitoring), Michelle dropped entirely per the "remove
+// Michelle from the PM/Monitoring structure" rule that predated the 2026-08
+// confirmation. Flag with Laurie before treating Microvideo's numbers as final.
 // ============================================================
 
 export const DEFAULT_TASKS = {
@@ -245,27 +240,20 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // PLACEHOLDER — existing 1.5h + 3h transferred from retired Project
-      // Coordination (r-13), plus Laurie's 5h moved here from Project
-      // Monitoring below (Laurie is the Project Manager — her hours belong
-      // under Project Management, not the Monitoring sub-task). Michelle's
-      // former 1h dropped per the Michelle-removal rule. Confirm with Laurie.
+      // CONFIRMED 2026-08 (no longer a placeholder).
       id: 'r-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie', hours: 8.5 },
-        { person: 'Megan',  hours: 4.5 },
+        { person: 'Laurie',   hours: 2 },
+        { person: 'Megan',    hours: 2 },
+        { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // PLACEHOLDER — existing Internal Meetings (Megan 2) plus 1h from
-      // retired Lessons Learned (r-9). Laurie removed — her hours moved to
-      // Project Management above (she's the PM; Monitoring/communications
-      // are Megan's work). Michelle's former 2h + 1.25h dropped entirely.
-      // Replaces r-3 (Internal meetings), r-9 (Lessons Learned), r-13
-      // (Project coordination — hours moved to Project Management above).
+      // CONFIRMED 2026-08 (no longer a placeholder).
       id: 'r-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
-        { person: 'Megan', hours: 3 },
+        { person: 'Megan',    hours: 4 },
+        { person: 'Michelle', hours: 1 },
       ],
     },
     {
@@ -348,30 +336,20 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // PLACEHOLDER — existing Laurie 6 (unchanged) + Megan 15 transferred
-      // from retired Project Coordination (s-13, confirmed transfer per the
-      // source meeting), plus Laurie's 2h moved here from Project Monitoring
-      // below (Laurie is the Project Manager — her hours belong under
-      // Project Management, not the Monitoring sub-task). Confirm final
-      // total with Laurie.
+      // CONFIRMED 2026-08 (no longer a placeholder).
       id: 's-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie', hours: 8  },
-        { person: 'Megan',  hours: 15 },
+        { person: 'Laurie',   hours: 2 },
+        { person: 'Megan',    hours: 2 },
+        { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // PLACEHOLDER — sourced from the meeting's own quoted approximate
-      // figure ("Megan ~2h for kickoff + lessons learned"), NOT the disowned
-      // Laurie 11/Megan 7 interim-consolidation numbers. Laurie removed —
-      // her hours moved to Project Management above (she's the PM;
-      // Monitoring/communications are Megan's work). Replaces s-3 (Internal
-      // meetings), s-9 (Lessons Learned), s-13 (Project coordination — hours
-      // moved to Project Management above). Michelle removed from the
-      // default participant list per the meeting.
+      // CONFIRMED 2026-08 (no longer a placeholder).
       id: 's-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
-        { person: 'Megan', hours: 2 },
+        { person: 'Megan',    hours: 4 },
+        { person: 'Michelle', hours: 1 },
       ],
     },
     {
@@ -428,24 +406,25 @@ function makeSecondState(tasks, { removedIds = [], modifyHours = {} } = {}) {
 
 // Second-state templates (Modules 2–N for Rise/Storyline; Additional Video Template for Microvideo).
 // Rise & Storyline: remove Modify Templates (rise only); Discovery → 1 h;
-// Project Monitoring's Megan hours reduced (same -0.5h delta pattern the old
-// Internal Meetings row used) since its one-time Lessons Learned component
-// shouldn't repeat per additional module — PLACEHOLDER, same caveat as above.
-// Laurie carries no Monitoring hours (moved to Project Management — see the
-// task definitions above), so there's nothing of hers to reduce here.
+// Project Monitoring's Megan hours reduced by the same -0.5h delta (4h → 3.5h)
+// since its one-time Lessons Learned component shouldn't repeat per additional
+// module. Michelle's 1h on Project Monitoring is unrelated to that one-time
+// component, so it carries over unreduced. Laurie carries no Monitoring hours
+// (moved to Project Management — see the task definitions above), so there's
+// nothing of hers to reduce here.
 export const DEFAULT_SECOND_STATE_TASKS = {
   microvideo: makeSecondState(DEFAULT_TASKS.microvideo),
   rise360: makeSecondState(DEFAULT_TASKS.rise360, {
     removedIds: ['r-7'],
     modifyHours: {
       'r-2':          { Michelle: 1 },
-      'r-monitoring': { Megan: 2.5 },
+      'r-monitoring': { Megan: 3.5 },
     },
   }),
   storyline360: makeSecondState(DEFAULT_TASKS.storyline360, {
     modifyHours: {
       's-2':          { Michelle: 1 },
-      's-monitoring': { Megan: 1.5 },
+      's-monitoring': { Megan: 3.5 },
     },
   }),
 }
@@ -523,7 +502,7 @@ export const LOCALIZATION_TASKS = {
       // other Validate/Validation tasks' team-oversight portion), not stated
       // in the source doc. Confirm with Laurie.
       id: 'r-loc-validate', name: 'Validate – Validator reviews, flat rate per 1000 words (Fiverr)', type: 'Fixed', phase: 'qa',
-      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 0,
+      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 1000,
     },
     {
       id: 'r-loc-5', name: 'Update course per validator', type: 'Fixed', phase: 'development',
@@ -550,11 +529,11 @@ export const LOCALIZATION_TASKS = {
       // Validation #2's team-oversight portion below), not stated in the
       // source doc. Confirm with Laurie.
       id: 's-loc-validate1', name: 'Validation #1 – Validator reviews, flat rate per 1000 words, then import validated text changes', type: 'Fixed', phase: 'qa',
-      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 0,
+      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 1000,
     },
     {
       id: 's-loc-3', name: 'Clone the course – Copy text from one Storyline to its clone, making text adjustments, 15 minutes per slide', type: 'PerUnit', phase: 'development',
-      unitMinutes: 15, unitLabel: 'slide', quantity: 0,
+      unitMinutes: 15, unitLabel: 'slide', quantity: 6,
       assignees: [{ person: 'Megan' }],
     },
     {

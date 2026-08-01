@@ -134,7 +134,7 @@ function WordsInput({ words, onChange }) {
 function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange, validatorLanguage }) {
   const [localHours, setLocalHours] = useState('')
   const [hFocused,   setHFocused]   = useState(false)
-  const hoursDisplay = hFocused ? localHours : String(parseFloat((hours ?? 0).toFixed(1)))
+  const hoursDisplay = hFocused ? localHours : String(parseFloat((hours ?? 0).toFixed(2)))
 
   function commitHours(raw) {
     const v = parseFloat(raw)
@@ -157,7 +157,7 @@ function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange,
             inputMode="decimal"
             className="subtask-hours-input"
             value={hoursDisplay}
-            onFocus={() => { setLocalHours(String(parseFloat((hours ?? 0).toFixed(1)))); setHFocused(true) }}
+            onFocus={() => { setLocalHours(String(parseFloat((hours ?? 0).toFixed(2)))); setHFocused(true) }}
             onChange={e => { setLocalHours(e.target.value); commitHours(e.target.value) }}
             onBlur={() => setHFocused(false)}
           />
@@ -176,7 +176,7 @@ function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChan
   const [localHours, setLocalHours] = useState('')
   const [hFocused,   setHFocused]   = useState(false)
 
-  const displayVal = hFocused ? localHours : String(parseFloat(effHours.toFixed(1)))
+  const displayVal = hFocused ? localHours : String(parseFloat(effHours.toFixed(2)))
 
   function commitHours(raw) {
     const v = parseFloat(raw)
@@ -205,7 +205,7 @@ function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChan
         className="subtask-hours-input"
         value={displayVal}
         onFocus={() => {
-          setLocalHours(String(parseFloat(effHours.toFixed(1))))
+          setLocalHours(String(parseFloat(effHours.toFixed(2))))
           setHFocused(true)
         }}
         onChange={e => {

@@ -351,7 +351,9 @@ not just on an explicit Existing/New Course click.
   existing `Fixed`/`Dynamic`/`Expense`:
   - **`type: 'PerUnit'`** — quantity × `unitMinutes` (e.g. Rise's "2 min per
     item" translate step, Storyline's "15 min per slide" clone step).
-    `quantity` is Laurie-entered, starts at 0. Rendered as a prominent
+    `quantity` is Laurie-editable; defaults to 0 (Rise's translate step) except
+    Storyline's "Clone the course" step, which defaults to **6 slides**
+    (confirmed 2026-08). Rendered as a prominent
     bordered/filled pill (`.loc-quantity-chip`) in the same visual slot
     "+ add person" occupies elsewhere — deliberately more prominent than a
     plain number box since it's the one thing Laurie has to fill in. Sized up
@@ -361,9 +363,11 @@ not just on an explicit Existing/New Course click.
     the flat-fee validator tasks stays at its original smaller size.
   - **`validatorWords: true`** — a dollar-only flat per-1000-words fee
     (Rise's Validate, Storyline's Validation #1), no hours. Cost = `(words/1000)
-    × VALIDATOR_WORD_RATES[validatorLanguage]`. Both of these tasks also
-    carry a real Michelle assignee (0.5h, PLACEHOLDER — not stated in the
-    source doc) for team-side oversight/import work, alongside the flat fee.
+    × VALIDATOR_WORD_RATES[validatorLanguage]`. `words` is Laurie-editable;
+    defaults to **1,000** (confirmed 2026-08) for both tasks. Both of these
+    tasks also carry a real Michelle assignee (0.5h, PLACEHOLDER — not stated
+    in the source doc) for team-side oversight/import work, alongside the
+    flat fee.
   - **`validatorAssigneeIndex: <n>`** — marks which entry in a `Fixed`
     task's own `assignees` array is the validator "seat" (Storyline's
     Validation #2, Microvideo's Validate — both team member + validator,
@@ -1016,11 +1020,14 @@ as part of the meeting-recording task restructure. See that section above.
    in calc.js.
 2. **HLD §6.7 worked example discrepancy** — numbers predate current task list.
    Not a blocker; Laurie to verify totals with real usage.
-3. **Project Management / Project Monitoring final hours** (all three
-   categories) — currently placeholders built from the most-defensible facts
-   the meeting recording confirmed, not final numbers. Flagged in
-   `DEFAULT_TASKS` comments in config.js. See the 2026-08 task restructure
-   section above.
+3. **Project Management / Project Monitoring final hours** — CONFIRMED
+   2026-08 for Rise 360 and Storyline 360 (Project Management: Laurie 2 /
+   Megan 2 / Michelle 1; Project Monitoring: Megan 4 / Michelle 1;
+   Communications: Michelle 2 — both categories). **Microvideo remains an
+   open placeholder** — it wasn't part of that confirmation and still
+   mechanically carries forward its prior Internal Meetings / Project
+   Coordination / Lessons Learned hours. Flagged in `DEFAULT_TASKS` comments
+   in config.js. See the 2026-08 task restructure section above.
 4. **Microvideo localization tasks #1–3 assignee** and **Microvideo
    Validate's validator hours** — both assumed/placeholder (source doc left
    these unstated). Flagged in `LOCALIZATION_TASKS` comments in config.js.
