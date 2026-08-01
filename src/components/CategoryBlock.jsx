@@ -240,12 +240,12 @@ export default function CategoryBlock({
                 <div className="loc-mode-buttons">
                   <button type="button"
                     className={`loc-mode-btn${localizationMode === 'existing' ? ' loc-mode-btn--selected' : ''}`}
-                    onClick={() => onUpdate({ localizationMode: 'existing' })}>
+                    onClick={() => onUpdate({ localizationMode: 'existing', collapsed: false })}>
                     Existing Course
                   </button>
                   <button type="button"
                     className={`loc-mode-btn${localizationMode === 'new' ? ' loc-mode-btn--selected' : ''}`}
-                    onClick={() => onUpdate({ localizationMode: 'new' })}>
+                    onClick={() => onUpdate({ localizationMode: 'new', collapsed: false })}>
                     New Course
                   </button>
                 </div>
