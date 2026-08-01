@@ -19,9 +19,17 @@ reference for that phase, not an HLD.)
 
 ---
 
-## Current implementation status (as of 2026-07-07)
+## Current implementation status (as of 2026-08)
 
 **FULLY BUILT AND DEPLOYED** at https://cc-estimator.vercel.app/
+
+Latest major additions (2026-08 — see the dedicated section below for full
+detail): **Phase Buckets** (Design/Development/QA/Project Management tags +
+Phase Totals), a full **task restructure** per Laurie's meeting recording
+(Branding, Asset Procurement, Project Monitoring, Communications, Quality
+Assurance Round 1/2), and a brand-new **Localization add-on** (Existing/New
+Course modes, per-item/per-slide quantity billing, flat per-1000-words
+validator fees, QA Spanish/QA French as real rated team members).
 
 Everything below is live and working:
 - Category selector chips (Microvideo, Rise 360, Storyline 360) — multi-select
@@ -140,6 +148,160 @@ scrolls, never the whole page.
 
 ---
 
+## Phase Buckets (live, added 2026-08)
+
+Every task carries a `phase: 'design' | 'development' | 'qa' | 'pm'` in
+config.js. A color-coded pill badge renders next to each task's name
+(centered above the name textarea) — `PHASE_LABELS`/`PHASE_COLORS` in
+config.js. A new **Phase Totals** section sits below "Hours per team member"
+in TotalsBar (and mirrored in the Word export/preview): one line per phase
+(`{Phase} ({hours}h): {cost}`, colon right after the label, dollar amounts
+stacked in their own aligned column via CSS grid — not just inline text) plus
+a bold "Reconciled total" line that must equal `internalCost`.
+
+- `computePhaseTotals(selectedKeys, catStates)` in calc.js is the single
+  source of truth — sums every checked task's cost/hours per phase, using
+  the exact same `lineCost`/`computeAssigneeHoursForTask` primitives as
+  `internalCost`, so the two numbers always reconcile.
+- Tasks missing a `phase` (old saved estimates, or a user's own "+ Add
+  subtask" row) fall back to `'development'` — matches the meeting's own
+  stated rule ("everything else is development, except Sales Meetings, which
+  is project management" — Sales/SOW tasks already carry an explicit
+  `phase: 'pm'` so the fallback never touches them).
+- ADA's 10% still only applies within a category's own multiplier — phase
+  bucketing doesn't change *what* gets ADA'd, just re-buckets the same costs.
+
+---
+
+## 2026-08 task restructure (per Laurie's meeting recording)
+
+Applied to all three categories (Microvideo, Rise 360, Storyline 360), not
+just the category the meeting specifically discussed — see reasoning below.
+
+- **Renamed**: Prototype → **Branding** ("Prototype, VO selection, music
+  selection" — Storyline only; Rise's analogous task, "Modify existing
+  templates/prototypes," was deliberately **not** renamed since its scope
+  doesn't include VO/music — flag if Laurie wants it renamed for consistency
+  anyway). Image Procurement → **Asset Procurement** ("Images, videos,
+  etc.") in all three categories, indented under Storyboard.
+- **Reordered**: Branding moved above Storyboard (Storyline). Narration
+  indented under Development (all three). Both use the existing `indent: 1`
+  mechanism (see task data model below).
+- **QA renamed**: "QA 1"/"QA 2" → **"Quality Assurance Round 1"**/**"Quality
+  Assurance Round 2"** (all three categories, kept as separate rows).
+- **New "Project Monitoring" task** (indented under Project Management)
+  replaces Project Coordination + Internal Meetings + Lessons Learned in all
+  three categories. Lessons Learned's old hours were reduced to 1h/person
+  when folded in. **Laurie's hours live under Project Management, not
+  Monitoring** — she's the PM; Monitoring/Communications are Megan's (or
+  Michelle's, for Communications) work. Megan's old Project Coordination
+  hours transferred into Project Management, not Monitoring.
+- **New "Communications" task** (indented two levels — under Project
+  Monitoring, which is under Project Management), Michelle 2h — a deliberate
+  exception to the "no Michelle on PM/Monitoring" rule, confirmed
+  intentional (Communications is specifically her responsibility).
+- **WellSaid rate bumped** $100/mo → **$1,000/mo** (the `months × flatCost`
+  mechanism itself was already built, this was purely a config rate change).
+- **PLACEHOLDER hours** — Project Management and Project Monitoring's final
+  hour totals in every category are provisional (flagged in code comments in
+  `DEFAULT_TASKS`), built from the most-defensible facts the meeting
+  recording actually confirmed (existing PM hours + the confirmed Megan
+  Coordination-hours transfer), **not** the recording's own disowned
+  "interim consolidation" numbers. Confirm final totals with Laurie before
+  treating as settled.
+- `indent` is now **numeric** (`1` or `2`, not a boolean) so Communications
+  can nest two levels deep (PM > Monitoring > Communications) — see
+  `.subtask-row--indented`/`.subtask-row--indented-2` in index.css.
+
+---
+
+## Localization add-on (live, added 2026-08)
+
+A per-category toggle, positioned like ADA (stacked directly under it in
+`cat-header-right`, ADA + Expand/Collapse side by side on one row above it,
+Localization spanning the full width beneath). Turning it on and picking a
+mode is the only thing that changes anything — **nothing** happens to the
+task list just from the toggle alone; `visibleNormalTasks()` in calc.js only
+merges localization tasks in (and, for Existing Course, filters the normal
+list down) once `localizationMode` is actually set. Picking a mode also
+auto-expands the category (`collapsed: false`), since localization tasks
+land at the *end* of the merged list, past the 2-row collapse cutoff.
+
+- **Two modes**: *Existing Course* — normal task list narrows to just
+  `projectManagementCore: true` tasks (Project Management, Project
+  Monitoring, Communications; explicitly **not** Sales/SOW even though it's
+  also `phase: 'pm'`, or WellSaid) plus the localization tasks. *New
+  Course* — full normal task list, unaffected, localization tasks appended.
+- **Merged into the same list, not a separate section** — `visibleNormalTasks(cat)`
+  concatenates `cat.localization.tasks` (tagged `isLocalization: true`)
+  directly into the array everything else (CategoryBlock's rendering,
+  App.jsx's totals loop, exportDocx/ExportPreview's `mod1Tasks`, `computePhaseTotals`)
+  already iterates. Same rows, same collapse/expand, same per-member
+  subtotal breakdown — no separate "Localization Tasks" block. A small
+  outlined "Localization" tag renders next to the phase badge on these rows
+  so they're still visually distinguishable.
+- **One validator-language picker per category** (`cat.validatorLanguage`,
+  defaults to `'spanish'` — not gated on being picked, unlike the mode) —
+  drives every validator-priced task in that category consistently.
+- **New task shapes** in `LOCALIZATION_TASKS` (config.js), beyond the
+  existing `Fixed`/`Dynamic`/`Expense`:
+  - **`type: 'PerUnit'`** — quantity × `unitMinutes` (e.g. Rise's "2 min per
+    item" translate step, Storyline's "15 min per slide" clone step).
+    `quantity` is Laurie-entered, starts at 0. Rendered as a prominent
+    bordered/filled pill (`.loc-quantity-chip`) in the same visual slot
+    "+ add person" occupies elsewhere — deliberately more prominent than a
+    plain number box since it's the one thing Laurie has to fill in.
+  - **`validatorWords: true`** — a dollar-only flat per-1000-words fee
+    (Rise's Validate, Storyline's Validation #1), no hours. Cost = `(words/1000)
+    × VALIDATOR_WORD_RATES[validatorLanguage]`. Both of these tasks also
+    carry a real Michelle assignee (0.5h, PLACEHOLDER — not stated in the
+    source doc) for team-side oversight/import work, alongside the flat fee.
+  - **`validatorAssigneeIndex: <n>`** — marks which entry in a `Fixed`
+    task's own `assignees` array is the validator "seat" (Storyline's
+    Validation #2, Microvideo's Validate — both team member + validator,
+    0.5h each). The category's language picker keeps that assignee's
+    `person` in sync (`'QA Spanish'` / `'QA French'`) whenever it changes —
+    a plain `updateLocalizationTask` call in App.jsx, no special calc.js
+    logic needed since it's computed through the exact same per-assignee
+    path as everyone else.
+- **QA Spanish ($8/hr) and QA French ($55/hr)** are real entries in `RATES`
+  — not a computed side-channel — so their hours show up in "Hours per team
+  member" and their cost flows into `internalCost` like anyone else's. (Not
+  named after real individuals on purpose, per explicit direction — generic
+  role names, not people.) `VALIDATOR_WORD_RATES` (`{ spanish: 10, french: 55 }`)
+  is a separate small table just for the flat per-1000-words fee, since
+  that's priced per word, not per hour, even though the same two roles are
+  also real hourly people in `RATES`. **French's hourly rate was
+  inconsistent across the three source category docs ($55 vs $50) — resolved
+  to $55/hr everywhere**, confirmed explicitly, not a guess.
+- **Validator seat UI**: renders as a locked-looking name pill
+  (`.validator-seat-name`) — not an editable person dropdown — since the
+  validator isn't manually picked like a normal assignee, it's decided by
+  the category's language toggle. Positioned inside the same assignees list,
+  directly below "+ add person" (uses the `.assignee-row` class too, so its
+  hours input matches the normal per-person width exactly — it was
+  rendering full-width before that fix). Hourly seats show an editable hours
+  field; flat-fee tasks show a words field instead.
+- **Never scaled by module/video count, exempt from ADA** — same treatment
+  as WellSaid. Enforced via the `isLocalization` tag: App.jsx's totals loop
+  and `computePhaseTotals`'s `addHourTask` both check it and use `adaRate: 0`
+  for anything tagged, regardless of whether that category's ADA toggle is
+  on. Since localization tasks only ever get merged into the *primary* task
+  list (never `visibleSecondStateTasks`), they're naturally summed once
+  per category regardless of module/video count without any extra logic.
+- **PLACEHOLDER data**: Microvideo's localization tasks #1–3 have no stated
+  assignee in the source doc (defaulted to Megan); Microvideo's Validate
+  validator-hours are assumed (mirrored Storyline Validation #2's 0.5h
+  symmetry). Flagged in code comments; confirm with Laurie.
+- **Database**: no schema changes — `state_json` already embeds the whole
+  `catStates` object, so `localizationEnabled`/`localizationMode`/
+  `validatorLanguage`/`localization.tasks` all ride along automatically on
+  every save/load. `backfillLocalization()` in App.jsx (same narrow,
+  per-category pattern as `backfillWellsaid()`) fills in a disabled default
+  for estimates saved before this feature existed, so they still open fine.
+
+---
+
 ## Stack & architecture
 
 - **React** single-page app — UI, all calculations, and .docx export run entirely
@@ -162,20 +324,29 @@ src/
   App.css               — (legacy placeholder; real styles in index.css)
   index.css             — full design system (CSS custom properties, all classes)
   config/
-    config.js           — RATES, ADA_RATES, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT,
-                          DEFAULT_MINUTES, CAT_LABELS, DEFAULT_TASKS,
-                          DEFAULT_SECOND_STATE_TASKS
+    config.js           — RATES (incl. QA Spanish/QA French, added 2026-08),
+                          VALIDATOR_WORD_RATES, ADA_RATES, MARGIN_OPTIONS,
+                          DEFAULT_MARGIN_PCT, DEFAULT_MINUTES, CAT_LABELS,
+                          PHASE_LABELS, PHASE_COLORS (added 2026-08),
+                          DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS,
+                          LOCALIZATION_TASKS (added 2026-08)
   lib/
     supabase.js         — initialized Supabase client (reads VITE_SUPABASE_URL
                           and VITE_SUPABASE_ANON_KEY from env)
   utils/
     calc.js             — computeAssigneeHoursForTask(), computeHours(),
                           lineCost(), categorySubtotal(), fmt(),
-                          expenseCostForCategory() (WellSaid, added July 2026)
+                          expenseCostForCategory() (WellSaid), computePhaseTotals()
+                          (added 2026-07), visibleNormalTasks()/
+                          visibleSecondStateTasks() (Existing-Course filter +
+                          localization merge), validatorWordsCost(),
+                          localizationCostForCategory() (added 2026-08)
     exportDocx.js       — generateAndSaveDocx() — builds the Word document
   components/
     CategoryBlock.jsx   — one card per selected category; props-driven
-    SubtaskRow.jsx      — one row; inner AssigneeRow component per person
+    SubtaskRow.jsx      — one row; inner AssigneeRow component per person;
+                          also QuantityInput/WordsInput/ValidatorSeat
+                          (localization task types, added 2026-08)
     TotalsBar.jsx       — bottom bar; member hours + costs; ALSO renders the
                           3 action buttons (Save Estimate / View Estimates /
                           Export to Word) inline via `.totals-actions` — see
@@ -219,8 +390,14 @@ src/
 | Laurie      | Project management         | $75  |
 | QA Resource | Quality assurance (hire)   | $50  |
 | J.K.        | (additional resource)      | $30  |
+| QA Spanish  | Localization validator (added 2026-08) | $8  |
+| QA French   | Localization validator (added 2026-08) | $55 |
 
 Rates live in `RATES` in config.js only. There is no UI to edit them.
+QA Spanish/QA French are generic role names, not named individuals, by
+explicit direction — see the Localization section above. Their per-1000-words
+flat fee (used by validatorWords tasks, not the hourly rate above) lives in
+the separate `VALIDATOR_WORD_RATES` table.
 
 ---
 
@@ -231,14 +408,15 @@ each with their own hours.
 
 ```js
 {
-  id:        'mv-4',
-  name:      'Internal meetings, client kickoff and status meetings',
-  type:      'Fixed',          // 'Fixed' | 'Dynamic' | 'Expense'
+  id:        's-monitoring',
+  name:      'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)',
+  type:      'Fixed',          // 'Fixed' | 'Dynamic' | 'Expense' | 'PerUnit' (added 2026-08)
+  phase:     'pm',             // 'design' | 'development' | 'qa' | 'pm' (added 2026-07)
+  indent:    1,                // numeric depth (1 or 2), not boolean — added 2026-08 for
+                                // Communications nesting two levels under Project Management
   included:  true,             // false = starts unchecked in second state only
   assignees: [
-    { person: 'Laurie',   hours: 2.5 },
-    { person: 'Michelle', hours: 2   },
-    { person: 'Megan',    hours: 3.5 },
+    { person: 'Megan', hours: 2 },
   ],
 }
 ```
@@ -252,6 +430,26 @@ returns 0 and `lineCost()` returns `flatCost` for these — short-circuited befo
 the normal assignee-based branches in calc.js. `SubtaskRow.jsx` hides the
 assignees block and Type dropdown for this type (neither makes sense for a
 flat expense).
+
+**`type: 'PerUnit'` (added 2026-08, Localization only):** quantity ×
+`unitMinutes` hours (e.g. "2 min per item"). `quantity` is Laurie-entered,
+starts at 0; single assignee, no fixed `hours` field. See Localization
+section above.
+
+**`validatorWords: true` (added 2026-08, Localization only):** an optional
+flag (not a whole type) marking a `Fixed` task's cost as also including a
+flat per-1000-words validator fee, independent of any assignee's hours.
+
+**`validatorAssigneeIndex: <n>` (added 2026-08, Localization only):** an
+optional flag marking which entry in a `Fixed` task's `assignees` array is
+the auto-managed validator seat (QA Spanish/QA French), kept in sync with
+the category's `validatorLanguage` rather than manually picked.
+
+**`isLocalization: true`** is never set in config — it's added at render time
+by `visibleNormalTasks()` in calc.js when merging `cat.localization.tasks`
+into the main list, so App.jsx/CategoryBlock/exportDocx can exempt those
+tasks from ADA and tag them with the "Localization" UI badge without needing
+a second parallel data structure.
 
 **Module 1 vs second state — included flag behavior (updated 2026-07-07):**
 - `initCat()` sets `included: true` unconditionally for ALL module 1 tasks,
@@ -307,18 +505,28 @@ if WellSaid checked (module 1 OR second state, once only): category_internal += 
 member_hours       = Σ each person's hours across ALL checked categories
 internal_cost      = Σ category_internal
 client_price       = internal_cost / (1 − marginPct/100)   default 50%
+
+phase_totals       = internal_cost re-bucketed by each task's `phase`         (2026-07)
+                     (reconciled_total across all 4 buckets === internal_cost)
+localization_cost  = Σ localization tasks' cost, once per category,          (2026-08)
+                     NEVER multiplied by ADA, NEVER scaled by module/video count
+                     (same pass-through treatment as WellSaid)
 ```
 
 ---
 
-## Default subtask counts (June 2026; +1 WellSaid per category as of July 2026)
+## Default subtask counts (restructured 2026-08 — see task restructure section above)
 
-- Microvideo: 17 tasks (mv-1 through mv-img + mv-wellsaid; Sales SOW then WellSaid at bottom)
-- Rise 360: 16 tasks (r-1 through r-15 + r-wellsaid; Sales SOW then WellSaid at bottom)
-- Storyline 360: 19 tasks (s-1 through s-16 + s-logo + s-narr + s-wellsaid; Sales SOW then WellSaid at bottom)
+Task lists changed substantially in the 2026-08 restructure (renames,
+Project Coordination/Internal Meetings/Lessons Learned replaced by Project
+Monitoring + Communications, QA rows renamed) — don't trust old counts from
+before that date. Check `DEFAULT_TASKS` in config.js directly for the current
+per-category list rather than relying on a stale count here.
 
 All stored in `DEFAULT_TASKS` in config.js. `DEFAULT_SECOND_STATE_TASKS` is
-auto-generated from DEFAULT_TASKS via `makeSecondState()`.
+auto-generated from DEFAULT_TASKS via `makeSecondState()`. `LOCALIZATION_TASKS`
+(added 2026-08) is a separate per-category list for the Localization add-on —
+see that section above; not part of `DEFAULT_TASKS`/`DEFAULT_SECOND_STATE_TASKS`.
 
 ---
 
@@ -667,10 +875,10 @@ Change Password, replaces 3x-duplicated inline header markup).
 
 ## Known assumption to verify
 
-Rise 360 "Lessons Learned" in the June 18 Updates document reads
-`"Laurie 3.25, Megan 1.25, Laurie 1.25"` — third person coded as **Michelle 1.25**
-(assumed typo; all other split tasks include all three people). Comment in config.js
-flags this. Confirm with Laurie before treating as final.
+~~Rise 360 "Lessons Learned" third-person typo~~ — **moot as of 2026-08**:
+Lessons Learned no longer exists as a standalone task in any category; it
+was folded into the new Project Monitoring task (reduced to 1h/participant)
+as part of the meeting-recording task restructure. See that section above.
 
 ---
 
@@ -681,7 +889,20 @@ flags this. Confirm with Laurie before treating as final.
    in calc.js.
 2. **HLD §6.7 worked example discrepancy** — numbers predate current task list.
    Not a blocker; Laurie to verify totals with real usage.
-3. **Rise 360 Lessons Learned third person** — see "Known assumption" above.
+3. **Project Management / Project Monitoring final hours** (all three
+   categories) — currently placeholders built from the most-defensible facts
+   the meeting recording confirmed, not final numbers. Flagged in
+   `DEFAULT_TASKS` comments in config.js. See the 2026-08 task restructure
+   section above.
+4. **Microvideo localization tasks #1–3 assignee** and **Microvideo
+   Validate's validator hours** — both assumed/placeholder (source doc left
+   these unstated). Flagged in `LOCALIZATION_TASKS` comments in config.js.
+5. **Rise's Validate / Storyline's Validation #1 Michelle hours** (0.5h) —
+   assumed for consistency with Validation #2's team-oversight portion, not
+   stated in the source doc. Flagged in `LOCALIZATION_TASKS` comments.
+6. **Rise 360 `r-7` not renamed to Branding** — deliberate call (its scope
+   doesn't include VO/music selection unlike Storyline's Branding); flag if
+   Laurie wants it renamed anyway for naming consistency.
 
 ---
 
