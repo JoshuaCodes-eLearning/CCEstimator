@@ -142,7 +142,7 @@ function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange,
   }
 
   return (
-    <div className="validator-seat">
+    <div className="validator-seat assignee-row">
       <span className="validator-seat-name">{name}</span>
       {mode === 'words' ? (
         <>
@@ -307,9 +307,9 @@ export default function SubtaskRow({
       ) : (
         <div className="subtask-mixed-content">
           {/* Real team members (e.g. Michelle overseeing/importing validated
-              text) — the validator seat is excluded here and rendered
-              separately below as a ValidatorSeat, since its name isn't
-              manually picked like a normal assignee. */}
+              text), the "+ add person" link, then the validator seat right
+              below it — same list, same per-person row styling — since its
+              name isn't manually picked like a normal assignee. */}
           {(task.assignees ?? []).length > 0 && (
             <div className="subtask-assignees">
               {task.assignees.map((assignee, idx) => (
@@ -332,24 +332,24 @@ export default function SubtaskRow({
                   + add person
                 </button>
               )}
+              {hasValidatorSeat && (
+                <ValidatorSeat
+                  name={validatorName}
+                  mode="hours"
+                  hours={task.assignees[task.validatorAssigneeIndex]?.baseHours ?? task.assignees[task.validatorAssigneeIndex]?.hours ?? 0}
+                  onHoursChange={h => handleHoursChange(task.validatorAssigneeIndex, h)}
+                />
+              )}
+              {isValidatorWords && (
+                <ValidatorSeat
+                  name={validatorName}
+                  mode="words"
+                  words={task.words ?? 0}
+                  onWordsChange={onWordsChange}
+                  validatorLanguage={validatorLanguage}
+                />
+              )}
             </div>
-          )}
-          {hasValidatorSeat && (
-            <ValidatorSeat
-              name={validatorName}
-              mode="hours"
-              hours={task.assignees[task.validatorAssigneeIndex]?.baseHours ?? task.assignees[task.validatorAssigneeIndex]?.hours ?? 0}
-              onHoursChange={h => handleHoursChange(task.validatorAssigneeIndex, h)}
-            />
-          )}
-          {isValidatorWords && (
-            <ValidatorSeat
-              name={validatorName}
-              mode="words"
-              words={task.words ?? 0}
-              onWordsChange={onWordsChange}
-              validatorLanguage={validatorLanguage}
-            />
           )}
         </div>
       )}
