@@ -87,9 +87,13 @@ export default function CategoryBlock({
   // adaEligibleSum excludes isLocalization tasks — the only base ADA's %
   // multiplies (see the ADA calc below); validatorWordsSum is the flat
   // per-1000-words fee, which has no assignee so it can't live in memberMap.
+  // hasValidatorWordsTask tracks whether one is checked at all, so the
+  // "Validator fee" line always shows (even at $0 before words are typed in)
+  // instead of only appearing once a nonzero fee exists.
   const memberMap = {}
-  let adaEligibleSum    = 0
-  let validatorWordsSum = 0
+  let adaEligibleSum       = 0
+  let validatorWordsSum    = 0
+  let hasValidatorWordsTask = false
   for (const task of tasks) {
     if (!task.included) continue
     if (task.type === 'PerUnit') {
@@ -110,7 +114,10 @@ export default function CategoryBlock({
       memberMap[a.person].cost  += c
       if (!task.isLocalization) adaEligibleSum += c
     }
-    if (task.validatorWords) validatorWordsSum += validatorWordsCost(task, cat)
+    if (task.validatorWords) {
+      hasValidatorWordsTask = true
+      validatorWordsSum += validatorWordsCost(task, cat)
+    }
   }
   const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0) + validatorWordsSum
 
@@ -120,7 +127,7 @@ export default function CategoryBlock({
   const wellsaidMonths  = expenseMonthsForCategory(cat)
   const wellsaidLabel   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
-  const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked || validatorWordsSum > 0
+  const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked || hasValidatorWordsTask
 
   // ── Second state tasks ────────────────────────────────────
   const secondTasks        = visibleSecondStateTasks(cat)
@@ -351,7 +358,7 @@ export default function CategoryBlock({
                   <span className="subtotal-member-cost">= {fmt(cost)}</span>
                 </div>
               ))}
-              {validatorWordsSum > 0 && (
+              {hasValidatorWordsTask && (
                 <div className="subtotal-member-line">
                   <span className="subtotal-member-desc">
                     Validator fee ({VALIDATOR_LANG_LABELS[validatorLanguage] ?? 'validator'})

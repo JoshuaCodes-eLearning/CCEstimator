@@ -979,19 +979,22 @@ body { background: var(--page-bg); }
   align-items: center;
   gap: 8px;
   align-self: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
-/* Quantity chip — deliberately prominent (bold, colored border/fill) since
-   it's the one thing Laurie actually needs to fill in on this row, taking
-   the same visual weight/position a "+ add person" link would have */
+/* Constrain the person picker so the quantity + unit label always stays on
+   the same line right beside it, instead of wrapping onto its own row */
+.subtask-perunit .subtask-resp-select {
+  flex: 0 1 96px;
+  min-width: 0;
+  width: auto;
+}
+/* Quantity + unit label — sits directly next to the person picker on one
+   line; bold/colored for prominence without a boxed pill look */
 .loc-quantity-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 14px;
-  border: 1.5px solid var(--blue-border);
-  background: var(--blue-light);
+  gap: 4px;
+  flex-shrink: 0;
 }
 .loc-quantity-chip-label {
   font-size: 13px;
