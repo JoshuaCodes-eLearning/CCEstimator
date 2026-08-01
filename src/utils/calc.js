@@ -1,4 +1,4 @@
-import { RATES, ADA_RATES, DEFAULT_MINUTES, VALIDATOR_WORD_RATES } from '../config/config'
+import { RATES, ADA_RATES, DEFAULT_MINUTES, VALIDATOR_WORD_RATES, PHASE_LABELS } from '../config/config'
 
 // Hours for one assignee within a task (respects Fixed vs Dynamic scaling)
 export function computeAssigneeHoursForTask(assignee, task, catKey, addedMin) {
@@ -166,14 +166,60 @@ export function categorySubtotal(catKey, cat) {
 // source restructure's own stated rule ("everything else is development,
 // except Sales Meetings, which is project management" — Sales/SOW tasks
 // already carry an explicit phase: 'pm', so this fallback never touches them).
-const PHASE_KEYS = ['design', 'development', 'qa', 'pm']
+export const PHASE_KEYS = ['design', 'development', 'qa', 'pm']
+
+// The single source of truth for "which phase bucket does this task belong
+// to" — shared by computePhaseTotals (cost bucketing) and orderTasksByPhase/
+// sectionizeTasks below (visual grouping), so the two can never drift apart.
+export function effectivePhase(task) {
+  return PHASE_KEYS.includes(task.phase) ? task.phase : 'development'
+}
+
+// ── Visual phase grouping (added 2026-08) ───────────────────────────────
+// Replaces the old per-task phase pill: instead of a small badge on every
+// row, the task list itself is reordered into one Design block, then
+// Development, then QA, then Project Management (stable sort — relative
+// order within a phase is unchanged, so existing indent/nesting pairs like
+// "Storyboard" → "Asset Procurement" or "Project Management" → "Project
+// Monitoring" → "Communications" stay adjacent). Localization tasks (tagged
+// isLocalization by visibleNormalTasks()) are always pulled out into their
+// own trailing group after Project Management, regardless of the individual
+// phase their underlying task carries (some are 'development', some 'qa') —
+// per Laurie's explicit call that Localization reads as one block under PM,
+// not scattered across the phase sections it technically touches.
+export function orderTasksByPhase(tasks) {
+  const normal = tasks.filter(t => !t.isLocalization)
+  const loc    = tasks.filter(t => t.isLocalization)
+  const ordered = PHASE_KEYS.flatMap(phase => normal.filter(t => effectivePhase(t) === phase))
+  return [...ordered, ...loc]
+}
+
+// Splits an already phase-ordered task list (or any contiguous slice of
+// one — e.g. a collapsed preview) into labeled sections, one per contiguous
+// run of the same phase/localization key, for rendering a header above each
+// group's first row.
+export function sectionizeTasks(orderedTasks) {
+  const sections = []
+  let current = null
+  for (const task of orderedTasks) {
+    const key = task.isLocalization ? 'localization' : effectivePhase(task)
+    if (!current || current.key !== key) {
+      current = { key, tasks: [] }
+      sections.push(current)
+    }
+    current.tasks.push(task)
+  }
+  return sections
+}
+
+export const SECTION_LABELS = { ...PHASE_LABELS, localization: 'Localization' }
 
 export function computePhaseTotals(selectedKeys, catStates) {
   const totals = {}
   for (const p of PHASE_KEYS) totals[p] = { hours: 0, cost: 0 }
 
   function bucketFor(task) {
-    return totals[task.phase] ? task.phase : 'development'
+    return effectivePhase(task)
   }
 
   function addHourTask(task, catKey, addedMin, multiplier, adaRate, cat) {

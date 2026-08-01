@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { computeAssigneeHoursForTask, lineCost, validatorWordsCost, fmt } from '../utils/calc'
-import { DEFAULT_MINUTES, PHASE_LABELS } from '../config/config'
+import { DEFAULT_MINUTES } from '../config/config'
 
 const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource', 'J.K.', 'QA Spanish', 'QA French']
 
@@ -275,12 +275,6 @@ export default function SubtaskRow({
       />
 
       <div className="subtask-name-cell">
-        <div className="subtask-badges">
-          <span className={`phase-badge phase-badge--${task.phase ?? 'development'}`}>
-            {PHASE_LABELS[task.phase ?? 'development']}
-          </span>
-          {task.isLocalization && <span className="loc-tag">Localization</span>}
-        </div>
         <NameTextarea value={task.name} onChange={onNameChange} />
       </div>
 

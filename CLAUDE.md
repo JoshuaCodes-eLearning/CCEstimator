@@ -151,9 +151,31 @@ scrolls, never the whole page.
 ## Phase Buckets (live, added 2026-08)
 
 Every task carries a `phase: 'design' | 'development' | 'qa' | 'pm'` in
-config.js. A color-coded pill badge renders next to each task's name
-(centered above the name textarea) — `PHASE_LABELS`/`PHASE_COLORS` in
-config.js. A new **Phase Totals** section sits below "Hours per team member"
+config.js. **Visual grouping, not a per-task badge (reworked 2026-08):**
+Laurie's feedback was that a color-coded pill on every single row was too
+cluttered. The per-task badge is gone — instead the task list itself is
+reordered into one Design block, then Development, then QA, then Project
+Management, each with a single big color-coded section-header label
+(`.phase-section-header` in index.css, still keyed off `PHASE_LABELS` in
+config.js) spanning the full row width above that group's first task. Ordering
+is a **stable sort** — relative order within a phase is unchanged, so existing
+indent/nesting pairs (Storyboard → Asset Procurement, Project Management →
+Project Monitoring → Communications) stay adjacent and correctly nested.
+Localization tasks (`isLocalization: true`) are always pulled into their own
+trailing "Localization" section after Project Management, regardless of the
+individual phase their underlying task carries (translate/update steps are
+`'development'`, Validate/Validation steps are `'qa'`) — per Laurie's explicit
+call that Localization should read as one block under PM, not scattered across
+the phase sections it technically touches. `orderTasksByPhase()` (reorders)
+and `sectionizeTasks()` (splits an already-ordered list into `{key, tasks}`
+groups for header rendering, key-shared with `effectivePhase()` so this can
+never drift from `computePhaseTotals`'s own bucketing) in calc.js are the
+implementation — used by `CategoryBlock.jsx` for both the module-1/video task
+list and the second-state template list. This is purely a screen/rendering
+change — the Word export/preview never showed per-task phase badges to begin
+with (it already renders Localization as its own separate section), so
+exportDocx.js/ExportPreview.jsx were untouched. A new **Phase Totals** section
+sits below "Hours per team member"
 in TotalsBar (and mirrored in the Word export/preview): one line per phase
 (`{Phase} ({hours}h): {cost}`, colon right after the label, dollar amounts
 stacked in their own aligned column via CSS grid — not just inline text) plus
@@ -221,10 +243,12 @@ just the category the meeting specifically discussed — see reasoning below.
   Monitoring** — she's the PM; Monitoring/Communications are Megan's (or
   Michelle's, for Communications) work. Megan's old Project Coordination
   hours transferred into Project Management, not Monitoring.
-- **New "Communications" task** (indented two levels — under Project
-  Monitoring, which is under Project Management), Michelle 2h — a deliberate
-  exception to the "no Michelle on PM/Monitoring" rule, confirmed
-  intentional (Communications is specifically her responsibility).
+- **New "Communications" task** (indented one level, a sibling of Project
+  Monitoring — both directly under Project Management; reduced 2026-08 from a
+  two-level indent nested under Monitoring itself, per Laurie's feedback that
+  it read as a child of Monitoring rather than its own PM-level task), Michelle
+  2h — a deliberate exception to the "no Michelle on PM/Monitoring" rule,
+  confirmed intentional (Communications is specifically her responsibility).
 - **WellSaid rate bumped** $100/mo → **$1,000/mo** (the `months × flatCost`
   mechanism itself was already built, this was purely a config rate change).
 - **PLACEHOLDER hours** — Project Management and Project Monitoring's final
@@ -234,9 +258,12 @@ just the category the meeting specifically discussed — see reasoning below.
   Coordination-hours transfer), **not** the recording's own disowned
   "interim consolidation" numbers. Confirm final totals with Laurie before
   treating as settled.
-- `indent` is now **numeric** (`1` or `2`, not a boolean) so Communications
-  can nest two levels deep (PM > Monitoring > Communications) — see
+- `indent` is now **numeric** (`1` or `2`, not a boolean) — see
   `.subtask-row--indented`/`.subtask-row--indented-2` in index.css.
+  Communications is `indent: 1` (reduced from `2` in the same 2026-08 pass
+  that reworked phase display, see the Phase Buckets section above), so it's
+  no longer nested two levels deep; the `indent: 2` mechanism itself is still
+  live in case a future task needs it.
 
 ---
 
@@ -275,7 +302,11 @@ land at the *end* of the merged list, past the 2-row collapse cutoff.
     `quantity` is Laurie-entered, starts at 0. Rendered as a prominent
     bordered/filled pill (`.loc-quantity-chip`) in the same visual slot
     "+ add person" occupies elsewhere — deliberately more prominent than a
-    plain number box since it's the one thing Laurie has to fill in.
+    plain number box since it's the one thing Laurie has to fill in. Sized up
+    further (2026-08: 56px→68px wide, 13px→16px text, thicker border) via a
+    dedicated `.loc-quantity-input` rule split out from the shared
+    `.loc-quantity-input, .loc-words-input` base — the plain words input on
+    the flat-fee validator tasks stays at its original smaller size.
   - **`validatorWords: true`** — a dollar-only flat per-1000-words fee
     (Rise's Validate, Storyline's Validation #1), no hours. Cost = `(words/1000)
     × VALIDATOR_WORD_RATES[validatorLanguage]`. Both of these tasks also
@@ -379,7 +410,10 @@ src/
                           (added 2026-07), visibleNormalTasks()/
                           visibleSecondStateTasks() (Existing-Course filter +
                           localization merge), validatorWordsCost(),
-                          localizationCostForCategory() (added 2026-08)
+                          localizationCostForCategory() (added 2026-08),
+                          orderTasksByPhase()/sectionizeTasks()/effectivePhase()
+                          (visual phase grouping, added 2026-08 — see Phase
+                          Buckets section)
     exportDocx.js       — generateAndSaveDocx() — builds the Word document
   components/
     CategoryBlock.jsx   — one card per selected category; props-driven
@@ -451,8 +485,10 @@ each with their own hours.
   name:      'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)',
   type:      'Fixed',          // 'Fixed' | 'Dynamic' | 'Expense' | 'PerUnit' (added 2026-08)
   phase:     'pm',             // 'design' | 'development' | 'qa' | 'pm' (added 2026-07)
-  indent:    1,                // numeric depth (1 or 2), not boolean — added 2026-08 for
-                                // Communications nesting two levels under Project Management
+  indent:    1,                // numeric depth (1 or 2), not boolean — added 2026-08.
+                                // Communications is also indent: 1 (a sibling of
+                                // Project Monitoring under Project Management, not
+                                // nested inside it) as of the same 2026-08 pass
   included:  true,             // false = starts unchecked in second state only
   assignees: [
     { person: 'Megan', hours: 2 },

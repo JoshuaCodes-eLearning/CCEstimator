@@ -74,8 +74,9 @@ export const PHASE_COLORS = {
 // indent: 1|2 — visually nested under the row(s) above it, one level per
 // step of numeric depth (Asset Procurement under Storyboard, Narration
 // under Development, Project Monitoring under Project Management — all
-// indent: 1 — and Communications under Project Monitoring, indent: 2, so it
-// reads as PM > Monitoring > Communications).
+// indent: 1). Communications is indent: 1 too (2026-08: reduced from 2) —
+// it's a sibling of Project Monitoring under Project Management, not nested
+// a level further inside it.
 // type: 'Fixed' | 'Dynamic' | 'Expense'
 // 'Expense' — a flat-dollar line item with no hours/assignees (flatCost +
 // months fields instead — cost = flatCost × months, months defaults to 1).
@@ -174,7 +175,7 @@ export const DEFAULT_TASKS = {
     {
       // Michelle, 2h — confirmed intentional exception, same as Storyline's
       // Communications row (see that comment for reasoning).
-      id: 'mv-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 2,
+      id: 'mv-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],
@@ -270,7 +271,7 @@ export const DEFAULT_TASKS = {
     {
       // Michelle, 2h — confirmed intentional exception, same as Storyline's
       // Communications row (see that comment for reasoning).
-      id: 'r-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 2,
+      id: 'r-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],
@@ -377,7 +378,7 @@ export const DEFAULT_TASKS = {
       // Michelle, 2h — a deliberate exception to the "remove Michelle from
       // PM/Monitoring" rule; confirmed intentional (Communications is her
       // responsibility specifically, unlike the meeting-heavy Monitoring work).
-      id: 's-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 2,
+      id: 's-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],

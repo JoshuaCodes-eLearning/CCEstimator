@@ -767,25 +767,19 @@ body { background: var(--page-bg); }
   margin-top: 5px;
 }
 
-/* Checkbox — aligned with the task NAME text itself, not the phase badge
-   sitting above it (badge height + name-cell gap ≈ 25px of extra offset) */
+/* Checkbox — aligned with the task NAME text itself */
 .subtask-check {
   width: 19px;
   height: 19px;
-  margin-top: 30px;
+  margin-top: 5px;
   accent-color: var(--blue);
   cursor: pointer;
   flex-shrink: 0;
 }
 
-/* Wraps the phase badge + name textarea together so both fit in the
-   name column without disturbing the row's 5-column grid. Badge is
-   centered above the name; the textarea below stays full width. */
 .subtask-name-cell {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
   min-width: 0;
   width: 100%;
 }
@@ -793,45 +787,32 @@ body { background: var(--page-bg); }
   align-self: stretch;
 }
 
-/* Row of badges above the task name — phase sticker + (for localization
-   tasks folded into the main list) a small "Localization" tag */
-.subtask-badges {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+/* ── Phase section headers (replaces the old per-task phase pill,
+   2026-08) — one big label per Design/Development/QA/Project Management
+   group instead of a badge on every row; Localization renders as its own
+   trailing group when applied. Color-coded to match the phases' former
+   badge colors. */
+.phase-section:not(:first-child) {
+  margin-top: 4px;
 }
-
-/* Phase sticker (Design/Development/QA/PM) — color-coded, added 2026-07 */
-.phase-badge {
-  display: inline-block;
+.phase-section-header {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 10px;
-  border-radius: 999px;
+  letter-spacing: 0.06em;
   color: #fff;
-  line-height: 1.5;
+  padding: 5px 24px;
 }
-.phase-badge--design      { background: #3B82F6; }
-.phase-badge--development { background: #8B5CF6; }
-.phase-badge--qa          { background: #F59E0B; }
-.phase-badge--pm          { background: #10B981; }
-
-/* Localization tag — outlined (not filled) so it reads as a secondary
-   marker next to the phase badge, not a competing phase */
-.loc-tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 1px 8px;
-  border-radius: 999px;
-  border: 1.5px solid var(--blue);
-  color: var(--blue);
+.phase-section-header--design      { background: #3B82F6; }
+.phase-section-header--development { background: #8B5CF6; }
+.phase-section-header--qa          { background: #F59E0B; }
+.phase-section-header--pm          { background: #10B981; }
+.phase-section-header--localization {
   background: transparent;
-  line-height: 1.4;
+  color: var(--blue);
+  border: 1.5px solid var(--blue);
+  border-left: none;
+  border-right: none;
 }
 
 /* Name box — auto-growing textarea so long task descriptions are never clipped */
@@ -2498,6 +2479,8 @@ body { background: var(--page-bg); }
   /* Hide desktop column header row */
   .subtask-cols { display: none; }
 
+  .phase-section-header { padding: 5px 14px; }
+
   /* Subtask rows: 2-row card layout */
   .subtask-row {
     grid-template-columns: 28px 1fr auto;
@@ -2507,7 +2490,7 @@ body { background: var(--page-bg); }
     min-height: unset;
   }
   /* Row 1: checkbox | name | cost */
-  .subtask-check      { grid-column: 1; grid-row: 1; align-self: start; margin-top: 30px; }
+  .subtask-check      { grid-column: 1; grid-row: 1; align-self: start; margin-top: 5px; }
   .subtask-name-cell  { grid-column: 2; grid-row: 1; margin-top: 0; }
   .subtask-name-input { font-size: 13px; }
   .subtask-cost       { grid-column: 3; grid-row: 1; align-self: start; font-size: 13px; margin-top: 6px; }

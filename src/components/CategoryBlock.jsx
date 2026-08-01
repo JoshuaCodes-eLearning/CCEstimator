@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks } from '../utils/calc'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, orderTasksByPhase, sectionizeTasks, SECTION_LABELS } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
@@ -50,7 +50,7 @@ export default function CategoryBlock({
   // Localization is on, its tasks are folded directly into this same list
   // (tagged isLocalization) so they render alongside everything else instead
   // of a separate section.
-  const tasks = visibleNormalTasks(cat)
+  const tasks = orderTasksByPhase(visibleNormalTasks(cat))
   const defMin       = DEFAULT_MINUTES[catKey]
   const totalMin     = defMin + additionalMinutes
   const extraModules = isMicrovideo ? 0 : (moduleCount - 1)
@@ -58,6 +58,7 @@ export default function CategoryBlock({
   const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
   const hiddenCount  = tasks.length - COLLAPSED_ROWS
   const visibleTasks = collapsed ? tasks.slice(0, COLLAPSED_ROWS) : tasks
+  const taskSections  = sectionizeTasks(visibleTasks)
 
   // ── Local input: additionalMinutes ────────────────────────
   const [localMin,   setLocalMin]   = useState(String(additionalMinutes))
@@ -130,10 +131,11 @@ export default function CategoryBlock({
   const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked || hasValidatorWordsTask
 
   // ── Second state tasks ────────────────────────────────────
-  const secondTasks        = visibleSecondStateTasks(cat)
+  const secondTasks        = orderTasksByPhase(visibleSecondStateTasks(cat))
   const secondCollapsed    = secondState?.collapsed ?? true
   const secondHiddenCount  = secondTasks.length - COLLAPSED_ROWS
   const visibleSecondTasks = secondCollapsed ? secondTasks.slice(0, COLLAPSED_ROWS) : secondTasks
+  const secondTaskSections = sectionizeTasks(visibleSecondTasks)
 
   // ── Per-video costs (microvideo only) ─────────────────────
   const additionalVideosCosts = isMicrovideo
@@ -307,21 +309,28 @@ export default function CategoryBlock({
         {/* Task rows — localization tasks are folded in here too (tagged
             isLocalization), routed to the localization update handler
             instead of the normal one */}
-        {visibleTasks.map(task => {
-          const update = task.isLocalization ? onUpdateLocalizationTask : onUpdateTask
-          return (
-            <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
-              validatorLanguage={validatorLanguage}
-              onToggle={()                  => update(task.id, { included: !task.included })}
-              onNameChange={v               => update(task.id, { name: v })}
-              onUpdateAssignees={assignees  => update(task.id, { assignees })}
-              onTypeChange={v               => update(task.id, { type: v })}
-              onMonthsChange={v             => update(task.id, { months: v })}
-              onQuantityChange={v           => update(task.id, { quantity: v })}
-              onWordsChange={v              => update(task.id, { words: v })}
-            />
-          )
-        })}
+        {taskSections.map(section => (
+          <div key={section.key} className="phase-section">
+            <div className={`phase-section-header phase-section-header--${section.key}`}>
+              {SECTION_LABELS[section.key]}
+            </div>
+            {section.tasks.map(task => {
+              const update = task.isLocalization ? onUpdateLocalizationTask : onUpdateTask
+              return (
+                <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
+                  validatorLanguage={validatorLanguage}
+                  onToggle={()                  => update(task.id, { included: !task.included })}
+                  onNameChange={v               => update(task.id, { name: v })}
+                  onUpdateAssignees={assignees  => update(task.id, { assignees })}
+                  onTypeChange={v               => update(task.id, { type: v })}
+                  onMonthsChange={v             => update(task.id, { months: v })}
+                  onQuantityChange={v           => update(task.id, { quantity: v })}
+                  onWordsChange={v              => update(task.id, { words: v })}
+                />
+              )
+            })}
+          </div>
+        ))}
 
         {/* Collapsed hint */}
         {collapsed && hiddenCount > 0 && (
@@ -459,14 +468,21 @@ export default function CategoryBlock({
               </div>
             )}
 
-            {visibleSecondTasks.map(task => (
-              <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={0}
-                onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
-                onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
-                onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
-                onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
-                onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
-              />
+            {secondTaskSections.map(section => (
+              <div key={section.key} className="phase-section">
+                <div className={`phase-section-header phase-section-header--${section.key}`}>
+                  {SECTION_LABELS[section.key]}
+                </div>
+                {section.tasks.map(task => (
+                  <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={0}
+                    onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
+                    onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
+                    onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
+                    onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
+                    onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
+                  />
+                ))}
+              </div>
             ))}
 
             {secondCollapsed && secondHiddenCount > 0 && (
@@ -522,14 +538,21 @@ export default function CategoryBlock({
               </div>
             )}
 
-            {visibleSecondTasks.map(task => (
-              <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={additionalMinutes}
-                onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
-                onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
-                onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
-                onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
-                onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
-              />
+            {secondTaskSections.map(section => (
+              <div key={section.key} className="phase-section">
+                <div className={`phase-section-header phase-section-header--${section.key}`}>
+                  {SECTION_LABELS[section.key]}
+                </div>
+                {section.tasks.map(task => (
+                  <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={additionalMinutes}
+                    onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
+                    onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
+                    onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
+                    onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
+                    onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
+                  />
+                ))}
+              </div>
             ))}
 
             {secondCollapsed && secondHiddenCount > 0 && (
