@@ -788,20 +788,27 @@ body { background: var(--page-bg); }
 }
 
 /* ── Phase section headers (replaces the old per-task phase pill,
-   2026-08) — one big label per Design/Development/QA/Project Management
-   group instead of a badge on every row; Localization renders as its own
-   trailing group when applied. Color-coded to match the phases' former
-   badge colors. */
+   2026-08) — one label per Design/Development/QA/Project Management group
+   instead of a badge on every row; Localization renders as its own trailing
+   group when applied. Sized to its own text (a "tag"), not a full-width bar
+   — it sits top-left of the group it labels, spanning only that group's
+   tasks, not the whole row width. Color-coded to match the phases' former
+   badge colors, sized up for prominence now that it's a section label
+   rather than a per-row marker. */
 .phase-section:not(:first-child) {
-  margin-top: 4px;
+  margin-top: 12px;
 }
 .phase-section-header {
-  font-size: 11px;
-  font-weight: 700;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: #fff;
-  padding: 5px 24px;
+  padding: 6px 18px;
+  margin: 0 0 6px 24px;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
 }
 .phase-section-header--design      { background: #3B82F6; }
 .phase-section-header--development { background: #8B5CF6; }
@@ -810,9 +817,8 @@ body { background: var(--page-bg); }
 .phase-section-header--localization {
   background: transparent;
   color: var(--blue);
-  border: 1.5px solid var(--blue);
-  border-left: none;
-  border-right: none;
+  border: 2px solid var(--blue);
+  box-shadow: none;
 }
 
 /* Name box — auto-growing textarea so long task descriptions are never clipped */
@@ -2479,7 +2485,7 @@ body { background: var(--page-bg); }
   /* Hide desktop column header row */
   .subtask-cols { display: none; }
 
-  .phase-section-header { padding: 5px 14px; }
+  .phase-section-header { margin-left: 14px; }
 
   /* Subtask rows: 2-row card layout */
   .subtask-row {
