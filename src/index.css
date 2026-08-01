@@ -973,14 +973,31 @@ body { background: var(--page-bg); }
   white-space: nowrap;
 }
 
-/* Localization "per item/slide" and flat-fee-validator task rows */
-.subtask-perunit,
-.subtask-validator-words {
+/* Localization "per item/slide" task row */
+.subtask-perunit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  flex-wrap: wrap;
+}
+/* Quantity chip — deliberately prominent (bold, colored border/fill) since
+   it's the one thing Laurie actually needs to fill in on this row, taking
+   the same visual weight/position a "+ add person" link would have */
+.loc-quantity-chip {
   display: flex;
   align-items: center;
   gap: 6px;
-  align-self: center;
-  flex-wrap: wrap;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1.5px solid var(--blue-border);
+  background: var(--blue-light);
+}
+.loc-quantity-chip-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue);
+  white-space: nowrap;
 }
 .loc-quantity-input,
 .loc-words-input {
@@ -989,6 +1006,7 @@ body { background: var(--page-bg); }
   border-radius: 5px;
   padding: 3px 6px;
   font-size: 13px;
+  font-weight: 600;
   font-family: inherit;
   color: var(--text);
   text-align: center;
@@ -1000,13 +1018,33 @@ body { background: var(--page-bg); }
   box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
 }
 .loc-unit-hint {
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--text-muted);
-  font-style: italic;
   white-space: nowrap;
 }
 .loc-unit-hint--warn {
   color: #D97706;
+}
+
+/* Validator seat — QA Spanish/QA French, auto-determined by the category's
+   language picker rather than manually chosen like a normal assignee. A
+   locked-looking pill (name isn't editable) with an hours/words field
+   beside it, visually distinct from the plain-text AssigneeRow above it. */
+.validator-seat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.validator-seat-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--blue);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
 }
 
 /* ===================================================
@@ -2451,10 +2489,10 @@ body { background: var(--page-bg); }
   .subtask-name-input { font-size: 13px; }
   .subtask-cost       { grid-column: 3; grid-row: 1; align-self: start; font-size: 13px; margin-top: 6px; }
   /* Row 2: assignees block spans full remaining width */
-  .subtask-assignees  { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-assignees      { grid-column: 2 / 4; grid-row: 2; }
   .subtask-expense-months { grid-column: 2 / 4; grid-row: 2; }
-  .subtask-perunit         { grid-column: 2 / 4; grid-row: 2; }
-  .subtask-validator-words { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-perunit        { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-mixed-content  { grid-column: 2 / 4; grid-row: 2; }
   .subtask-type-select { display: none; }
 
   /* Add/remove */

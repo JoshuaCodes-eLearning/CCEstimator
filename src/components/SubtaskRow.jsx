@@ -125,6 +125,49 @@ function WordsInput({ words, onChange }) {
   )
 }
 
+// The validator "seat" on a task — QA Spanish/QA French, auto-determined by
+// the category's single validatorLanguage picker rather than manually
+// chosen like a normal assignee (no person dropdown, no remove button).
+// mode: 'hours' (Storyline's Validation #2, Microvideo's Validate) shows an
+// editable hours field next to the name; mode: 'words' (the flat
+// per-1000-words fee tasks) shows a words field instead.
+function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange, validatorLanguage }) {
+  const [localHours, setLocalHours] = useState('')
+  const [hFocused,   setHFocused]   = useState(false)
+  const hoursDisplay = hFocused ? localHours : String(parseFloat((hours ?? 0).toFixed(1)))
+
+  function commitHours(raw) {
+    const v = parseFloat(raw)
+    if (!isNaN(v) && v >= 0) onHoursChange(v)
+  }
+
+  return (
+    <div className="validator-seat">
+      <span className="validator-seat-name">{name}</span>
+      {mode === 'words' ? (
+        <>
+          <WordsInput words={words ?? 0} onChange={onWordsChange} />
+          <span className="loc-unit-hint">words</span>
+          {!validatorLanguage && <span className="loc-unit-hint loc-unit-hint--warn">pick a validator language above</span>}
+        </>
+      ) : (
+        <>
+          <input
+            type="text"
+            inputMode="decimal"
+            className="subtask-hours-input"
+            value={hoursDisplay}
+            onFocus={() => { setLocalHours(String(parseFloat((hours ?? 0).toFixed(1)))); setHFocused(true) }}
+            onChange={e => { setLocalHours(e.target.value); commitHours(e.target.value) }}
+            onBlur={() => setHFocused(false)}
+          />
+          <span className="loc-unit-hint">hrs</span>
+        </>
+      )}
+    </div>
+  )
+}
+
 // One person + hours line within a subtask
 function AssigneeRow({ assignee, task, catKey, addedMin, canRemove, onPersonChange, onHoursChange, onRemove }) {
   const defMin   = DEFAULT_MINUTES[catKey] ?? 1
@@ -197,6 +240,8 @@ export default function SubtaskRow({
   const isExpense        = task.type === 'Expense'
   const isPerUnit        = task.type === 'PerUnit'
   const isValidatorWords = task.validatorWords === true
+  const hasValidatorSeat = task.validatorAssigneeIndex !== undefined
+  const validatorName    = validatorLanguage === 'french' ? 'QA French' : 'QA Spanish'
   const excluded  = task.included === false
   const cost      = !excluded
     ? lineCost(task, catKey, addedMin) + validatorWordsCost(task, { validatorLanguage })
@@ -254,28 +299,33 @@ export default function SubtaskRow({
           >
             {PEOPLE.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
-          <QuantityInput quantity={task.quantity ?? 0} onChange={onQuantityChange} />
-          <span className="loc-unit-hint">{task.unitLabel ?? 'unit'}{task.quantity === 1 ? '' : 's'}</span>
+          <div className="loc-quantity-chip">
+            <QuantityInput quantity={task.quantity ?? 0} onChange={onQuantityChange} />
+            <span className="loc-quantity-chip-label">{task.unitLabel ?? 'unit'}{task.quantity === 1 ? '' : 's'}</span>
+          </div>
         </div>
       ) : (
         <div className="subtask-mixed-content">
-          {/* Team member(s) — e.g. Michelle overseeing/importing validated
-              text — shown alongside the flat validator fee below when a
-              validatorWords task also carries a real assignee. */}
+          {/* Real team members (e.g. Michelle overseeing/importing validated
+              text) — the validator seat is excluded here and rendered
+              separately below as a ValidatorSeat, since its name isn't
+              manually picked like a normal assignee. */}
           {(task.assignees ?? []).length > 0 && (
             <div className="subtask-assignees">
               {task.assignees.map((assignee, idx) => (
-                <AssigneeRow
-                  key={idx}
-                  assignee={assignee}
-                  task={task}
-                  catKey={catKey}
-                  addedMin={addedMin}
-                  canRemove={task.assignees.length > 1}
-                  onPersonChange={person    => handlePersonChange(idx, person)}
-                  onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
-                  onRemove={() => removeAssignee(idx)}
-                />
+                idx === task.validatorAssigneeIndex ? null : (
+                  <AssigneeRow
+                    key={idx}
+                    assignee={assignee}
+                    task={task}
+                    catKey={catKey}
+                    addedMin={addedMin}
+                    canRemove={task.assignees.length > 1}
+                    onPersonChange={person    => handlePersonChange(idx, person)}
+                    onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
+                    onRemove={() => removeAssignee(idx)}
+                  />
+                )
               ))}
               {task.assignees.length < 4 && (
                 <button type="button" className="btn-add-assignee" onClick={addAssignee}>
@@ -284,12 +334,22 @@ export default function SubtaskRow({
               )}
             </div>
           )}
+          {hasValidatorSeat && (
+            <ValidatorSeat
+              name={validatorName}
+              mode="hours"
+              hours={task.assignees[task.validatorAssigneeIndex]?.baseHours ?? task.assignees[task.validatorAssigneeIndex]?.hours ?? 0}
+              onHoursChange={h => handleHoursChange(task.validatorAssigneeIndex, h)}
+            />
+          )}
           {isValidatorWords && (
-            <div className="subtask-validator-words">
-              <WordsInput words={task.words ?? 0} onChange={onWordsChange} />
-              <span className="loc-unit-hint">words</span>
-              {!validatorLanguage && <span className="loc-unit-hint loc-unit-hint--warn">pick a validator language above</span>}
-            </div>
+            <ValidatorSeat
+              name={validatorName}
+              mode="words"
+              words={task.words ?? 0}
+              onWordsChange={onWordsChange}
+              validatorLanguage={validatorLanguage}
+            />
           )}
         </div>
       )}
@@ -298,8 +358,6 @@ export default function SubtaskRow({
         <span className="subtask-type-flat">Expense</span>
       ) : isPerUnit ? (
         <span className="subtask-type-flat">Per {task.unitLabel ?? 'unit'}</span>
-      ) : isValidatorWords ? (
-        <span className="subtask-type-flat">Validator</span>
       ) : (
         <select
           className={`subtask-type-select subtask-type-select--${(task.type || 'fixed').toLowerCase()}`}
