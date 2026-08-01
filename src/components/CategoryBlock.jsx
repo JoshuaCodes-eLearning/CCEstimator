@@ -258,13 +258,15 @@ export default function CategoryBlock({
                     New Course
                   </button>
                 </div>
-                <select className="loc-language-select"
-                  value={validatorLanguage ?? ''}
-                  onChange={e => onLocalizationLanguageChange(e.target.value || null)}>
-                  <option value="">Validator language…</option>
-                  <option value="spanish">Spanish</option>
-                  <option value="french">French</option>
-                </select>
+                <div className="loc-language-group">
+                  <span className="loc-language-label">Validator:</span>
+                  <select className="loc-language-select"
+                    value={validatorLanguage ?? 'spanish'}
+                    onChange={e => onLocalizationLanguageChange(e.target.value)}>
+                    <option value="spanish">Spanish</option>
+                    <option value="french">French</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>

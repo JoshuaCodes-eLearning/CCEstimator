@@ -289,12 +289,20 @@ land at the *end* of the merged list, past the 2-row collapse cutoff.
   directly into the array everything else (CategoryBlock's rendering,
   App.jsx's totals loop, exportDocx/ExportPreview's `mod1Tasks`, `computePhaseTotals`)
   already iterates. Same rows, same collapse/expand, same per-member
-  subtotal breakdown — no separate "Localization Tasks" block. A small
-  outlined "Localization" tag renders next to the phase badge on these rows
-  so they're still visually distinguishable.
+  subtotal breakdown — no separate "Localization Tasks" block. Visually
+  distinguished via the phase-section grouping (2026-08 rework, see Phase
+  Buckets above) — localization tasks always land in their own trailing
+  "Localization" section header, regardless of their individual
+  development/qa phase; the old small per-row outlined "Localization" tag
+  next to the phase badge was removed once that per-row badge went away.
 - **One validator-language picker per category** (`cat.validatorLanguage`,
-  defaults to `'spanish'` — not gated on being picked, unlike the mode) —
-  drives every validator-priced task in that category consistently.
+  always `'spanish'` or `'french'` — defaults to `'spanish'`). The dropdown
+  (2026-08) no longer offers a blank "not selected" option — Laurie's
+  feedback was that a category always has *some* validator language once
+  Localization is on, so there's no reason to let it sit unset; a small
+  "Validator:" label (`.loc-language-label` in index.css) sits next to the
+  select for clarity now that the option list is just the two real choices.
+  Drives every validator-priced task in that category consistently.
 - **New task shapes** in `LOCALIZATION_TASKS` (config.js), beyond the
   existing `Fixed`/`Dynamic`/`Expense`:
   - **`type: 'PerUnit'`** — quantity × `unitMinutes` (e.g. Rise's "2 min per

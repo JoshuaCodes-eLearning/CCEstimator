@@ -684,6 +684,23 @@ body { background: var(--page-bg); }
 .loc-language-select:focus { border-color: rgba(255,255,255,0.6); outline: none; }
 .loc-language-select option { background: var(--navy); color: #ffffff; }
 
+/* Label next to the language select (added 2026-08) — the dropdown itself
+   now only ever offers Spanish/French (no blank "not selected" option,
+   since validatorLanguage always defaults to Spanish), so this label just
+   clarifies what the select controls rather than standing in for a
+   placeholder option. */
+.loc-language-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.loc-language-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #b9c6d4;
+  white-space: nowrap;
+}
+
 /* Collapse / Expand button */
 .collapse-btn {
   background: rgba(255,255,255,0.1);
