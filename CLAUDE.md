@@ -161,7 +161,9 @@ config.js) sized to its own text and left-aligned above that group's first
 task — not a full-width bar, and (2026-08, per Laurie's feedback that
 separate per-phase colors read as noisy) not color-coded per phase either;
 every section header (including the trailing Localization one) shares the
-same dark navy now. Ordering
+same darkish blue (`#1e3a8a`) now — tried plain navy first, but Laurie
+wanted it to read more "blue" like the original per-phase Design color, just
+uniform across all groups instead of one color per phase. Ordering
 is a **stable sort** — relative order within a phase is unchanged, so existing
 indent/nesting pairs (Storyboard → Asset Procurement, Project Management →
 Project Monitoring → Communications) stay adjacent and correctly nested.

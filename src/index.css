@@ -695,9 +695,9 @@ body { background: var(--page-bg); }
   gap: 6px;
 }
 .loc-language-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #b9c6d4;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
   white-space: nowrap;
 }
 
@@ -809,11 +809,13 @@ body { background: var(--page-bg); }
    instead of a badge on every row; Localization renders as its own trailing
    group when applied. Sized to its own text (a "tag"), not a full-width bar
    — it sits top-left of the group it labels, spanning only that group's
-   tasks, not the whole row width. All phases share the same dark navy —
-   Laurie's feedback was that separate per-phase colors (blue/purple/amber/
-   green) read as noisy; the phase-section-header--{key} modifier classes
-   are still applied per group (design/development/qa/pm/localization) for
-   any future styling hook, they just no longer vary color. */
+   tasks, not the whole row width. All phases share the same darkish blue
+   (2026-08: tried plain navy first, but Laurie wanted it to read more
+   "blue" like the original per-phase Design color, just dark and uniform
+   across all of them instead of separate colors per phase) — the
+   phase-section-header--{key} modifier classes are still applied per group
+   (design/development/qa/pm/localization) for any future styling hook, they
+   just no longer vary color. */
 .phase-section:not(:first-child) {
   margin-top: 12px;
 }
@@ -824,7 +826,7 @@ body { background: var(--page-bg); }
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: #fff;
-  background: var(--navy);
+  background: #1e3a8a;
   padding: 6px 18px;
   margin: 0 0 6px 24px;
   border-radius: 999px;
