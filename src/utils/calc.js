@@ -62,7 +62,13 @@ export function validatorWordsCost(task, cat) {
 // catKey/addedMin are irrelevant here since localization tasks are always
 // Fixed or PerUnit (never Dynamic), so passing null/0 is safe.
 export function localizationCostForCategory(cat) {
-  if (!cat?.localizationEnabled) return { hours: 0, cost: 0 }
+  // Requires a mode too, not just the toggle — matches visibleNormalTasks()'s
+  // own gating rule below, so the export can never count a cost the live
+  // screen never showed. In practice localizationMode is always set the
+  // instant localizationEnabled is (CategoryBlock's toggle defaults it to
+  // 'existing'); this guards legacy saved estimates from before that pairing
+  // existed, where enabled: true, mode: null could be stored together.
+  if (!cat?.localizationEnabled || !cat.localizationMode) return { hours: 0, cost: 0 }
   let hours = 0
   let cost  = 0
   for (const task of cat.localization?.tasks ?? []) {
@@ -75,11 +81,15 @@ export function localizationCostForCategory(cat) {
 
 // The task list actually shown/counted for a category — non-destructive:
 // never mutates stored state, just changes what render/calc code iterates.
-// Nothing changes just from turning Localization on — it's a two-step pick
-// (toggle, then Existing/New Course), and the task list stays exactly as-is
-// until a mode is actually chosen. Once "Existing Course" is picked, it
-// narrows to the project-management-side tasks (Project Management, Project
-// Monitoring, Communications); everything else hides. Either mode then folds
+// Turning Localization on auto-defaults the mode to 'existing' (same
+// "Existing Course" narrowing described below) rather than leaving it unset
+// — see CategoryBlock's toggle — so there's no longer a limbo state where
+// localizationEnabled is true but localizationMode is null; the `!cat.
+// localizationMode` check here is just the (still-correct) guard for legacy
+// saved estimates from before that pairing existed. Once "Existing Course" is
+// picked, it narrows to the project-management-side tasks (Project
+// Management, Project Monitoring, Communications); everything else hides.
+// Either mode then folds
 // the localization tasks directly into this same list (tagged
 // isLocalization: true) so they render in the normal task list — same rows,
 // same per-member subtotal — rather than a separate section. They're still

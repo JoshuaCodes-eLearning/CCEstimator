@@ -118,6 +118,26 @@ function backfillLocalization(nextCatStates) {
   return result
 }
 
+// Self-heals a legacy limbo state from before the Localization toggle
+// auto-defaulted its mode (see CategoryBlock.jsx's toggle onClick) — an
+// estimate saved between when Localization shipped and that fix could have
+// localizationEnabled: true with localizationMode still null, which used to
+// mean localization silently counted in the exported Word doc/preview
+// (gated only on the toggle) while the live screen correctly showed nothing
+// (gated on toggle + mode) — a real cost discrepancy between the two. Now
+// that both are gated on toggle + mode, resolving the missing mode here
+// keeps a reopened estimate showing/costing exactly what re-toggling it on
+// today would.
+function backfillLocalizationMode(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of CAT_KEYS) {
+    const cat = result[key]
+    if (!cat || !cat.localizationEnabled || cat.localizationMode) continue
+    result[key] = { ...cat, localizationMode: 'existing' }
+  }
+  return result
+}
+
 // Old saved estimates predate the `phase` field (added 2026-07) entirely —
 // without it, computePhaseTotals() dumps 100% of that estimate's cost into
 // "Development" (its documented fallback for untagged tasks), even though
@@ -751,7 +771,7 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = backfillPhase(backfillLocalization(backfillWellsaid(state.catStates ?? catStates)))
+    const nextCatStates = backfillPhase(backfillLocalizationMode(backfillLocalization(backfillWellsaid(state.catStates ?? catStates))))
     const nextSelected  = state.selected ?? selected
     // Company/Course/Client come from the top-level columns, not state_json —
     // inline rename in View Estimates only ever updates those columns, so

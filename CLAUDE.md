@@ -271,13 +271,51 @@ just the category the meeting specifically discussed — see reasoning below.
 
 A per-category toggle, positioned like ADA (stacked directly under it in
 `cat-header-right`, ADA + Expand/Collapse side by side on one row above it,
-Localization spanning the full width beneath). Turning it on and picking a
-mode is the only thing that changes anything — **nothing** happens to the
-task list just from the toggle alone; `visibleNormalTasks()` in calc.js only
-merges localization tasks in (and, for Existing Course, filters the normal
-list down) once `localizationMode` is actually set. Picking a mode also
-auto-expands the category (`collapsed: false`), since localization tasks
-land at the *end* of the merged list, past the 2-row collapse cutoff.
+Localization spanning the full width beneath).
+
+**Mode always defaults to Existing Course the instant the toggle turns on
+(reworked 2026-08)** — same "no unset limbo state" fix as `validatorLanguage`
+defaulting to Spanish. Previously the toggle alone did nothing (`localizationMode`
+stayed `null` until Existing/New Course was explicitly clicked), and that
+in-between state was silently inconsistent: the live screen correctly showed
+no localization cost (`visibleNormalTasks()` requires both `localizationEnabled`
+*and* `localizationMode`), but the exported Word doc/preview computed
+`localizationCostForCategory()` gated on the toggle alone — so a category left
+in that limbo state would show a stray nonzero "Localization subtotal" line in
+the export that didn't reconcile with anything else in the document. Now:
+- `CategoryBlock.jsx`'s toggle `onClick` sets `localizationMode: localizationMode ?? 'existing'`
+  (preserving a prior pick if re-enabling after toggling off) plus `collapsed: false`
+  the instant it's switched on — matching what picking a mode manually already did.
+- `localizationCostForCategory()` in calc.js, `ExportPreview.jsx`'s
+  `renderLocalizationSection()`, and `exportDocx.js`'s Localization block all
+  require **both** `localizationEnabled` *and* `localizationMode` now, not just
+  the toggle — so nothing can ever render/cost without a concrete mode.
+- `backfillLocalizationMode()` in App.jsx self-heals any *already-saved*
+  estimate stuck in that old limbo state (`localizationEnabled: true`,
+  `localizationMode: null`) on load, resolving it to `'existing'` — same
+  narrow, single-purpose backfill pattern as `backfillWellsaid()`/
+  `backfillPhase()`. Chained into `handleLoadEstimate()`.
+- **Word export/preview per-category subtotal accuracy fix (2026-08):** separately
+  from the mode-default work, the per-category subtotal/total lines in both
+  `ExportPreview.jsx` and `exportDocx.js` never actually included the
+  Localization cost — they folded in WellSaid's flat cost (`+ WellSaid add-on
+  (...)`) but not Localization's, even though both are the same "pass-through,
+  once per category" cost. The real grand total at the bottom of the document
+  (`internalCost`/`clientPrice`, computed correctly in App.jsx) was always
+  right, but every category's own subtotal/total line printed *above* that
+  understated its true cost by the Localization amount, while a separate
+  "Localization subtotal" line appeared further down with no visible
+  connection to the number above it. Both files now add `locCost` into every
+  final per-category total (mirroring the existing `wellsaidCost` handling)
+  with a matching `+ Localization add-on (...)` note.
+
+Once on, picking a mode (or leaving it at its Existing Course default) is what
+actually changes the task list; `visibleNormalTasks()` in calc.js merges
+localization tasks in (and, for Existing Course, filters the normal list down).
+Picking a mode also auto-expands the category (`collapsed: false`), since
+localization tasks land at the *end* of the merged list, past the 2-row
+collapse cutoff — now guaranteed to happen the moment the toggle switches on,
+not just on an explicit Existing/New Course click.
 
 - **Two modes**: *Existing Course* — normal task list narrows to just
   `projectManagementCore: true` tasks (Project Management, Project

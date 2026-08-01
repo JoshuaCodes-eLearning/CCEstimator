@@ -271,6 +271,11 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     const wellsaidCost   = expenseCostForCategory(cat)
     const wellsaidMonths = expenseMonthsForCategory(cat)
     const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
+    // Localization is a pass-through cost, same treatment as WellSaid above —
+    // folded into the category subtotal/total figures below (mirrors
+    // ExportPreview.jsx), not just shown in its own section further down.
+    const locCost = localizationCostForCategory(cat).cost
+    const locNote = 'Localization add-on'
 
     const secondTasks = visibleSecondStateTasks(cat).filter(t => t.included && t.type !== 'Expense')
 
@@ -288,7 +293,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         return { video, cost }
       })
       const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
-      const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost
+      const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost + locCost
 
       let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
       if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -302,8 +307,11 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       children.push(taskTable(mod1Tasks, catKey, addedMin))
 
       if (!hasAdditional) {
-        children.push(subtotalPara('Microvideo subtotal', mod1BaseSum + wellsaidCost, {
-          adaNote: wellsaidCost > 0 ? `+ ${wellsaidNote} (${fmtNum(wellsaidCost)})` : null,
+        const notes = []
+        if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
+        if (locCost > 0) notes.push(`+ ${locNote} (${fmtNum(locCost)})`)
+        children.push(subtotalPara('Microvideo subtotal', mod1BaseSum + wellsaidCost + locCost, {
+          adaNote: notes.join('   ') || null,
           afterSpacing: 240,
         }))
       } else {
@@ -322,11 +330,16 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
           children.push(subtotalPara(`Video ${idx + 2} (${video.minutes} min)`, cost, { afterSpacing: 60 }))
         })
 
-        children.push(subtotalPara(
-          `Microvideo total — ${additionalVideos.length + 1} videos`,
-          totalCost,
-          { adaNote: wellsaidCost > 0 ? `+ ${wellsaidNote} (${fmtNum(wellsaidCost)})` : null, afterSpacing: 240 }
-        ))
+        {
+          const notes = []
+          if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
+          if (locCost > 0) notes.push(`+ ${locNote} (${fmtNum(locCost)})`)
+          children.push(subtotalPara(
+            `Microvideo total — ${additionalVideos.length + 1} videos`,
+            totalCost,
+            { adaNote: notes.join('   ') || null, afterSpacing: 240 }
+          ))
+        }
       }
     } else {
       // ── Rise / Storyline section ────────────────────────────
@@ -339,7 +352,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       const secondTotalCost = secondPerModule * extraModules
       const combinedBase = mod1BaseSum + secondTotalCost
       const adaAmount    = combinedBase * adaRate
-      const overallTotal = combinedBase + adaAmount + wellsaidCost
+      const overallTotal = combinedBase + adaAmount + wellsaidCost + locCost
 
       let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
       if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -357,9 +370,10 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         const notes = []
         if (hasAda) notes.push(`base ${fmtNum(mod1BaseSum)} + ADA 10% (${fmtNum(mod1BaseSum * adaRate)})`)
         if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
+        if (locCost > 0) notes.push(`+ ${locNote} (${fmtNum(locCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} subtotal`,
-          mod1BaseSum * (1 + adaRate) + wellsaidCost,
+          mod1BaseSum * (1 + adaRate) + wellsaidCost + locCost,
           { adaNote: notes.join('   ') || null, afterSpacing: 240 }
         ))
       } else {
@@ -382,6 +396,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         const notes = []
         if (hasAda) notes.push(`base ${fmtNum(combinedBase)} + ADA 10% (${fmtNum(adaAmount)})`)
         if (wellsaidCost > 0) notes.push(`+ ${wellsaidNote} (${fmtNum(wellsaidCost)})`)
+        if (locCost > 0) notes.push(`+ ${locNote} (${fmtNum(locCost)})`)
         children.push(subtotalPara(
           `${CAT_LABELS[catKey]} total — ${moduleCount} ${unit}s`,
           overallTotal,
@@ -390,8 +405,11 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       }
     }
 
-    // ── Localization add-on (only when enabled for this category) ──
-    if (cat.localizationEnabled) {
+    // ── Localization add-on (only when enabled AND a mode is picked —
+    // matches localizationCostForCategory()'s own gating in calc.js, so a
+    // legacy estimate stuck in the enabled-but-no-mode limbo state never
+    // silently adds a cost the live screen never showed) ──
+    if (cat.localizationEnabled && cat.localizationMode) {
       const locTasks   = (cat.localization?.tasks ?? []).filter(t => t.included)
       const locResult  = localizationCostForCategory(cat)
       const modeLabel  = cat.localizationMode === 'existing' ? 'Existing Course'

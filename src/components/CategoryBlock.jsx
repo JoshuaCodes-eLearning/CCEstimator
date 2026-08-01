@@ -241,7 +241,14 @@ export default function CategoryBlock({
           <div className="loc-toggle-group">
             <button type="button"
               className={`loc-toggle${localizationEnabled ? ' loc-toggle--on' : ''}`}
-              onClick={() => onUpdate({ localizationEnabled: !localizationEnabled })}>
+              onClick={() => onUpdate(
+                localizationEnabled
+                  ? { localizationEnabled: false }
+                  // Defaults to Existing Course, same as validatorLanguage defaulting
+                  // to Spanish — no unset "pick a mode" limbo state. Preserves
+                  // whatever mode was already picked if re-enabling after a toggle-off.
+                  : { localizationEnabled: true, localizationMode: localizationMode ?? 'existing', collapsed: false }
+              )}>
               {localizationEnabled ? '✓ Localization' : 'Localization — off'}
             </button>
             {localizationEnabled && (

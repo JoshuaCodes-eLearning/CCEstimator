@@ -116,6 +116,13 @@ export default function ExportPreview({
             const wellsaidCost   = expenseCostForCategory(cat)
             const wellsaidMonths = expenseMonthsForCategory(cat)
             const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
+            // Localization is a pass-through cost, same treatment as WellSaid
+            // above — it must be folded into the category's own subtotal/total
+            // figures below, not just shown in its own separate section further
+            // down, or the category total printed here would understate the
+            // real cost by exactly this amount.
+            const locCost = localizationCostForCategory(cat).cost
+            const locNote = 'Localization add-on'
 
             const secondTasks = visibleSecondStateTasks(cat).filter(t => t.included && t.type !== 'Expense')
 
@@ -191,7 +198,11 @@ export default function ExportPreview({
             }
 
             function renderLocalizationSection() {
-              if (!cat.localizationEnabled) return null
+              // Requires a mode too, not just the toggle — matches
+              // localizationCostForCategory()'s own gating (calc.js), so this
+              // section (and its cost) never renders/counts for a legacy
+              // saved estimate stuck in the enabled-but-no-mode limbo state.
+              if (!cat.localizationEnabled || !cat.localizationMode) return null
               const modeLabel = cat.localizationMode === 'existing' ? 'Existing Course'
                 : cat.localizationMode === 'new' ? 'New Course' : 'mode not selected'
               const langLabel = cat.validatorLanguage ? VALIDATOR_LANG_LABELS[cat.validatorLanguage] : 'not selected'
@@ -225,7 +236,7 @@ export default function ExportPreview({
                 return { video, cost }
               })
               const additionalVideosTotalCost = additionalVideosCosts.reduce((s, { cost }) => s + cost, 0)
-              const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost
+              const totalCost = mod1BaseSum + additionalVideosTotalCost + wellsaidCost + locCost
 
               let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
               if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -252,10 +263,15 @@ export default function ExportPreview({
                         + {wellsaidNote} ({fmt(wellsaidCost)})
                       </span>
                     )}
+                    {!hasAdditional && locCost > 0 && (
+                      <span className="doc-subtotal-ada">
+                        + {locNote} ({fmt(locCost)})
+                      </span>
+                    )}
                     <span className="doc-subtotal-label">
                       {hasAdditional ? 'Video 1 subtotal' : 'Microvideo subtotal'}
                     </span>
-                    <span className="doc-subtotal-value">{fmt(hasAdditional ? mod1BaseSum : mod1BaseSum + wellsaidCost)}</span>
+                    <span className="doc-subtotal-value">{fmt(hasAdditional ? mod1BaseSum : mod1BaseSum + wellsaidCost + locCost)}</span>
                   </div>
 
                   {hasAdditional && (
@@ -285,6 +301,11 @@ export default function ExportPreview({
                             + {wellsaidNote} ({fmt(wellsaidCost)})
                           </span>
                         )}
+                        {locCost > 0 && (
+                          <span className="doc-subtotal-ada">
+                            + {locNote} ({fmt(locCost)})
+                          </span>
+                        )}
                         <span className="doc-subtotal-label">
                           Microvideo total — {additionalVideos.length + 1} videos
                         </span>
@@ -302,7 +323,7 @@ export default function ExportPreview({
             const secondTotalCost  = secondPerModule * extraModules
             const combinedBase     = mod1BaseSum + secondTotalCost
             const adaAmount        = combinedBase * adaRate
-            const overallTotal     = combinedBase + adaAmount + wellsaidCost
+            const overallTotal     = combinedBase + adaAmount + wellsaidCost + locCost
 
             let headerText = `${CAT_LABELS[catKey]} — total length ${totalMin} min`
             if (addedMin > 0) headerText += ` (${defMin} default + ${addedMin} additional)`
@@ -335,11 +356,16 @@ export default function ExportPreview({
                       + {wellsaidNote} ({fmt(wellsaidCost)})
                     </span>
                   )}
+                  {moduleCount === 1 && locCost > 0 && (
+                    <span className="doc-subtotal-ada">
+                      + {locNote} ({fmt(locCost)})
+                    </span>
+                  )}
                   <span className="doc-subtotal-label">
                     {moduleCount > 1 ? `${Unit} 1 subtotal` : `${CAT_LABELS[catKey]} subtotal${hasAda ? ' (incl. ADA)' : ''}`}
                   </span>
                   <span className="doc-subtotal-value">
-                    {fmt(moduleCount > 1 ? mod1BaseSum : mod1BaseSum * (1 + adaRate) + wellsaidCost)}
+                    {fmt(moduleCount > 1 ? mod1BaseSum : mod1BaseSum * (1 + adaRate) + wellsaidCost + locCost)}
                   </span>
                 </div>
 
@@ -377,6 +403,11 @@ export default function ExportPreview({
                       {wellsaidCost > 0 && (
                         <span className="doc-subtotal-ada">
                           + {wellsaidNote} ({fmt(wellsaidCost)})
+                        </span>
+                      )}
+                      {locCost > 0 && (
+                        <span className="doc-subtotal-ada">
+                          + {locNote} ({fmt(locCost)})
                         </span>
                       )}
                       <span className="doc-subtotal-label">
