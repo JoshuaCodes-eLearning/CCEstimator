@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeAssigneeHoursForTask, fmt, expenseCostForCategory, expenseMonthsForCategory } from '../utils/calc'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
+
+const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
 
 const COLLAPSED_ROWS = 2
 
@@ -38,9 +40,17 @@ export default function CategoryBlock({
   onUpdateSecondState, onUpdateSecondStateTask, onAddSecondStateTask,
   onRemoveSecondStateTask, onUndoSecondStateRemove, canUndoSecond,
   onAddVideo, onRemoveVideo, onUpdateVideoMinutes,
+  onUpdateLocalizationTask, onLocalizationLanguageChange,
 }) {
   const isMicrovideo = catKey === 'microvideo'
-  const { collapsed, additionalMinutes, adaEnabled, tasks, moduleCount = 1, secondState, additionalVideos = [] } = cat
+  const { collapsed, additionalMinutes, adaEnabled, moduleCount = 1, secondState, additionalVideos = [],
+          localizationEnabled, localizationMode, validatorLanguage } = cat
+  // Non-destructive filter — "Localize Existing Course" hides all non-PM
+  // tasks from view/totals without deleting their stored state. When
+  // Localization is on, its tasks are folded directly into this same list
+  // (tagged isLocalization) so they render alongside everything else instead
+  // of a separate section.
+  const tasks = visibleNormalTasks(cat)
   const defMin       = DEFAULT_MINUTES[catKey]
   const totalMin     = defMin + additionalMinutes
   const extraModules = isMicrovideo ? 0 : (moduleCount - 1)
@@ -74,18 +84,35 @@ export default function CategoryBlock({
   function handleModBlur() { setModFocused(false) }
 
   // ── Video 1 / Module 1 cost breakdown ─────────────────────
+  // adaEligibleSum excludes isLocalization tasks — the only base ADA's %
+  // multiplies (see the ADA calc below); validatorWordsSum is the flat
+  // per-1000-words fee, which has no assignee so it can't live in memberMap.
   const memberMap = {}
+  let adaEligibleSum    = 0
+  let validatorWordsSum = 0
   for (const task of tasks) {
     if (!task.included) continue
+    if (task.type === 'PerUnit') {
+      const h = computeHours(task, catKey, additionalMinutes)
+      const person = task.assignees?.[0]?.person
+      const c = h * (RATES[person] ?? 0)
+      if (!memberMap[person]) memberMap[person] = { hours: 0, cost: 0 }
+      memberMap[person].hours += h
+      memberMap[person].cost  += c
+      if (!task.isLocalization) adaEligibleSum += c
+      continue
+    }
     for (const a of task.assignees ?? []) {
       const h = computeAssigneeHoursForTask(a, task, catKey, additionalMinutes)
       const c = h * (RATES[a.person] ?? 0)
       if (!memberMap[a.person]) memberMap[a.person] = { hours: 0, cost: 0 }
       memberMap[a.person].hours += h
       memberMap[a.person].cost  += c
+      if (!task.isLocalization) adaEligibleSum += c
     }
+    if (task.validatorWords) validatorWordsSum += validatorWordsCost(task, cat)
   }
-  const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0)
+  const mod1BaseSum = Object.values(memberMap).reduce((s, m) => s + m.cost, 0) + validatorWordsSum
 
   // ── WellSaid flat expense (once per category, unaffected by ADA) ──
   const wellsaidCost    = expenseCostForCategory(cat)
@@ -93,10 +120,10 @@ export default function CategoryBlock({
   const wellsaidMonths  = expenseMonthsForCategory(cat)
   const wellsaidLabel   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
-  const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked
+  const hasIncluded = Object.keys(memberMap).length > 0 || wellsaidChecked || validatorWordsSum > 0
 
   // ── Second state tasks ────────────────────────────────────
-  const secondTasks        = secondState?.tasks ?? []
+  const secondTasks        = visibleSecondStateTasks(cat)
   const secondCollapsed    = secondState?.collapsed ?? true
   const secondHiddenCount  = secondTasks.length - COLLAPSED_ROWS
   const visibleSecondTasks = secondCollapsed ? secondTasks.slice(0, COLLAPSED_ROWS) : secondTasks
@@ -137,13 +164,22 @@ export default function CategoryBlock({
   const hasSecondIncluded = Object.keys(secondMemberMap).length > 0
 
   // ── Overall totals ────────────────────────────────────────
+  // combinedBase/mod1BaseSum are the FULL displayed totals (incl.
+  // localization); adaEligible* excludes localization tasks — ADA's % only
+  // ever multiplies that smaller base, matching the pass-through exemption
+  // in calc.js. Neither the additional-video template nor the second-state
+  // module template ever contain localization tasks, so they're ADA-eligible
+  // in full already.
   const adaRate      = (adaEnabled && hasAda) ? ADA_RATES[catKey] : 0
   const combinedBase = isMicrovideo
     ? (mod1BaseSum + additionalVideosTotalCost)
     : (mod1BaseSum + secondTotalCost)
-  const adaAmount    = combinedBase * adaRate
+  const adaEligibleCombined = isMicrovideo
+    ? (adaEligibleSum + additionalVideosTotalCost)
+    : (adaEligibleSum + secondTotalCost)
+  const adaAmount    = adaEligibleCombined * adaRate
   const overallTotal = combinedBase + adaAmount + wellsaidCost
-  const singleAdaAmt = mod1BaseSum * adaRate
+  const singleAdaAmt = adaEligibleSum * adaRate
   const singleTotal  = mod1BaseSum + singleAdaAmt + wellsaidCost
 
   const hasMultiple = isMicrovideo ? additionalVideos.length > 0 : moduleCount > 1
@@ -176,17 +212,53 @@ export default function CategoryBlock({
         </div>
 
         <div className="cat-header-right">
-          {hasAda && (
-            <button type="button"
-              className={`ada-toggle${adaEnabled ? ' ada-toggle--on' : ''}`}
-              onClick={() => onUpdate({ adaEnabled: !adaEnabled })}>
-              {adaEnabled ? '✓ ADA compliant +10%' : 'ADA — off'}
+          {/* Row 1: ADA + Expand/Collapse, side by side */}
+          <div className="cat-header-top-row">
+            {hasAda && (
+              <button type="button"
+                className={`ada-toggle${adaEnabled ? ' ada-toggle--on' : ''}`}
+                onClick={() => onUpdate({ adaEnabled: !adaEnabled })}>
+                {adaEnabled ? '✓ ADA compliant +10%' : 'ADA — off'}
+              </button>
+            )}
+            <button type="button" className="collapse-btn"
+              onClick={() => onUpdate({ collapsed: !collapsed })}>
+              {collapsed ? 'Expand ▸' : 'Collapse ▾'}
             </button>
-          )}
-          <button type="button" className="collapse-btn"
-            onClick={() => onUpdate({ collapsed: !collapsed })}>
-            {collapsed ? 'Expand ▸' : 'Collapse ▾'}
-          </button>
+          </div>
+
+          {/* Row 2: Localization, spanning/centered under row 1 — expands
+              downward only (mode buttons side by side, language below) */}
+          <div className="loc-toggle-group">
+            <button type="button"
+              className={`loc-toggle${localizationEnabled ? ' loc-toggle--on' : ''}`}
+              onClick={() => onUpdate({ localizationEnabled: !localizationEnabled })}>
+              {localizationEnabled ? '✓ Localization' : 'Localization — off'}
+            </button>
+            {localizationEnabled && (
+              <div className="loc-options">
+                <div className="loc-mode-buttons">
+                  <button type="button"
+                    className={`loc-mode-btn${localizationMode === 'existing' ? ' loc-mode-btn--selected' : ''}`}
+                    onClick={() => onUpdate({ localizationMode: 'existing' })}>
+                    Existing Course
+                  </button>
+                  <button type="button"
+                    className={`loc-mode-btn${localizationMode === 'new' ? ' loc-mode-btn--selected' : ''}`}
+                    onClick={() => onUpdate({ localizationMode: 'new' })}>
+                    New Course
+                  </button>
+                </div>
+                <select className="loc-language-select"
+                  value={validatorLanguage ?? ''}
+                  onChange={e => onLocalizationLanguageChange(e.target.value || null)}>
+                  <option value="">Validator language…</option>
+                  <option value="spanish">Spanish</option>
+                  <option value="french">French</option>
+                </select>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -225,16 +297,24 @@ export default function CategoryBlock({
           </div>
         )}
 
-        {/* Task rows */}
-        {visibleTasks.map(task => (
-          <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
-            onToggle={()                  => onUpdateTask(task.id, { included: !task.included })}
-            onNameChange={v               => onUpdateTask(task.id, { name: v })}
-            onUpdateAssignees={assignees  => onUpdateTask(task.id, { assignees })}
-            onTypeChange={v               => onUpdateTask(task.id, { type: v })}
-            onMonthsChange={v             => onUpdateTask(task.id, { months: v })}
-          />
-        ))}
+        {/* Task rows — localization tasks are folded in here too (tagged
+            isLocalization), routed to the localization update handler
+            instead of the normal one */}
+        {visibleTasks.map(task => {
+          const update = task.isLocalization ? onUpdateLocalizationTask : onUpdateTask
+          return (
+            <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
+              validatorLanguage={validatorLanguage}
+              onToggle={()                  => update(task.id, { included: !task.included })}
+              onNameChange={v               => update(task.id, { name: v })}
+              onUpdateAssignees={assignees  => update(task.id, { assignees })}
+              onTypeChange={v               => update(task.id, { type: v })}
+              onMonthsChange={v             => update(task.id, { months: v })}
+              onQuantityChange={v           => update(task.id, { quantity: v })}
+              onWordsChange={v              => update(task.id, { words: v })}
+            />
+          )
+        })}
 
         {/* Collapsed hint */}
         {collapsed && hiddenCount > 0 && (
@@ -271,9 +351,17 @@ export default function CategoryBlock({
                   <span className="subtotal-member-cost">= {fmt(cost)}</span>
                 </div>
               ))}
+              {validatorWordsSum > 0 && (
+                <div className="subtotal-member-line">
+                  <span className="subtotal-member-desc">
+                    Validator fee ({VALIDATOR_LANG_LABELS[validatorLanguage] ?? 'validator'})
+                  </span>
+                  <span className="subtotal-member-cost">= {fmt(validatorWordsSum)}</span>
+                </div>
+              )}
               {!isMicrovideo && moduleCount === 1 && singleAdaAmt > 0 && (
                 <div className="subtotal-ada-line">
-                  <span>ADA +10% on {fmt(mod1BaseSum)}</span>
+                  <span>ADA +10% on {fmt(adaEligibleSum)}</span>
                   <span>+ {fmt(singleAdaAmt)}</span>
                 </div>
               )}
@@ -519,7 +607,7 @@ export default function CategoryBlock({
               <>
                 {adaAmount > 0 && (
                   <div className="subtotal-ada-line">
-                    <span>ADA +10% on {fmt(combinedBase)}</span>
+                    <span>ADA +10% on {fmt(adaEligibleCombined)}</span>
                     <span>+ {fmt(adaAmount)}</span>
                   </div>
                 )}

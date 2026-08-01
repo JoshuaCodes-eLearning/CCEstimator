@@ -1,9 +1,12 @@
-import { CAT_LABELS } from '../config/config'
+import { CAT_LABELS, PHASE_LABELS } from '../config/config'
 import { fmt } from '../utils/calc'
+
+const PHASE_ORDER = ['design', 'development', 'qa', 'pm']
 
 export default function TotalsBar({
   memberHours,
   categoryCosts,
+  phaseTotals,
   selectedKeys,
   internalCost,
   clientPrice,
@@ -30,6 +33,27 @@ export default function TotalsBar({
               </span>
             ))}
           </div>
+
+          {/* ── Phase totals (Design / Development / QA / PM) ──────── */}
+          {phaseTotals && (
+            <div className="totals-phase-breakdown">
+              <p className="totals-member-label">Phase totals</p>
+              {PHASE_ORDER.map(phase => (
+                <div key={phase} className="totals-phase-line">
+                  <span className="totals-phase-name">
+                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(1))}h):
+                  </span>
+                  <span className="totals-phase-cost">{fmt(phaseTotals[phase].cost)}</span>
+                </div>
+              ))}
+              <div className="totals-phase-line totals-phase-reconciled">
+                <span className="totals-phase-name">Reconciled total:</span>
+                <span className="totals-phase-cost">
+                  {fmt(PHASE_ORDER.reduce((s, p) => s + phaseTotals[p].cost, 0))}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* ── Category cost breakdown ──────────────── */}
           {selectedKeys.length > 1 && (

@@ -4,8 +4,12 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeAssigneeHoursForTask, expenseCostForCategory, expenseMonthsForCategory } from './calc'
-import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES } from '../config/config'
+import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, validatorWordsCost } from './calc'
+import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES, PHASE_LABELS } from '../config/config'
+
+const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
+
+const PHASE_ORDER = ['design', 'development', 'qa', 'pm']
 
 const NAVY       = '1E2D3D'
 const WHITE      = 'FFFFFF'
@@ -105,6 +109,72 @@ function taskTable(tasks, catKey, addedMin) {
   })
 }
 
+// Localization task table — mostly the same shape as taskTable(), but with
+// per-row branches for PerUnit (quantity × unit) and validatorWords
+// (word-count flat-fee) tasks, which don't compute cost the normal
+// hours-times-rate way.
+function localizationTaskTable(tasks, catKey, validatorLanguage) {
+  const COL_W = [52, 18, 10, 20]
+  const headerRow = new TableRow({
+    children: ['TASK', 'DETAIL', 'HRS', 'LINE COST'].map((h, i) => headerCell(h, COL_W[i])),
+    tableHeader: true,
+  })
+  let taskIdx = 0
+  const dataRows = tasks.flatMap(task => {
+    const shade = (taskIdx++ % 2) !== 0
+      ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
+      : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
+
+    if (task.type === 'PerUnit') {
+      const hrs    = computeHours(task, catKey, 0)
+      const person = task.assignees?.[0]?.person
+      const cost   = hrs * (RATES[person] ?? 0)
+      const qty    = task.quantity ?? 0
+      return [new TableRow({
+        children: [
+          dataCell(task.name, { width: COL_W[0], shading: shade, textProps: { bold: true } }),
+          dataCell(`${person} — ${qty} ${task.unitLabel ?? 'unit'}${qty === 1 ? '' : 's'}`, { width: COL_W[1], shading: shade }),
+          dataCell(Math.round(hrs * 10) / 10, { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
+          dataCell(fmtNum(cost), { align: AlignmentType.RIGHT, width: COL_W[3], shading: shade }),
+        ],
+      })]
+    }
+
+    if (task.validatorWords) {
+      const cost     = validatorWordsCost(task, { validatorLanguage })
+      const langNote = validatorLanguage ? VALIDATOR_LANG_LABELS[validatorLanguage] : 'no language picked'
+      return [new TableRow({
+        children: [
+          dataCell(task.name, { width: COL_W[0], shading: shade, textProps: { bold: true } }),
+          dataCell(`${task.words ?? 0} words (${langNote})`, { width: COL_W[1], shading: shade }),
+          dataCell('—', { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
+          dataCell(fmtNum(cost), { align: AlignmentType.RIGHT, width: COL_W[3], shading: shade }),
+        ],
+      })]
+    }
+
+    // Plain Fixed task (including the QA Spanish/QA French validator-assignee
+    // rows) — same per-assignee rendering as the normal taskTable().
+    return (task.assignees ?? []).map((a, idx) => {
+      const hrs  = computeAssigneeHoursForTask(a, task, catKey, 0)
+      const cost = hrs * (RATES[a.person] ?? 0)
+      return new TableRow({
+        children: [
+          dataCell(idx === 0 ? task.name : '', { width: COL_W[0], shading: shade, textProps: idx === 0 ? { bold: true } : {} }),
+          dataCell(a.person,                   { width: COL_W[1], shading: shade }),
+          dataCell(Math.round(hrs * 10) / 10,  { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
+          dataCell(fmtNum(cost),               { align: AlignmentType.RIGHT,  width: COL_W[3], shading: shade }),
+        ],
+      })
+    })
+  })
+  return new Table({
+    rows: [headerRow, ...dataRows],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
+  })
+}
+
 function subtotalPara(label, amount, opts = {}) {
   const parts = []
   if (opts.adaNote) {
@@ -120,7 +190,7 @@ function subtotalPara(label, amount, opts = {}) {
   })
 }
 
-export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, internalCost, clientPrice, marginPct = 50 }) {
+export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, phaseTotals, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
   const dateObj = estimateDate ?? new Date()
   const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
@@ -187,7 +257,11 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
     const additionalVideos = cat.additionalVideos ?? []
 
-    const mod1Tasks = cat.tasks.filter(t => t.included && t.type !== 'Expense')
+    // Localization tasks are excluded here (rendered in their own section
+    // below via localizationTaskTable, which understands their PerUnit/
+    // validatorWords shapes) even though visibleNormalTasks() now folds them
+    // into the same list for the live app's on-screen rendering.
+    const mod1Tasks = visibleNormalTasks(cat).filter(t => t.included && t.type !== 'Expense' && !t.isLocalization)
     let mod1BaseSum = 0
     mod1Tasks.forEach(t => {
       ;(t.assignees ?? []).forEach(a => {
@@ -198,7 +272,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     const wellsaidMonths = expenseMonthsForCategory(cat)
     const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
-    const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
+    const secondTasks = visibleSecondStateTasks(cat).filter(t => t.included && t.type !== 'Expense')
 
     if (isMicrovideo) {
       // ── Microvideo section ──────────────────────────────────
@@ -315,6 +389,19 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         ))
       }
     }
+
+    // ── Localization add-on (only when enabled for this category) ──
+    if (cat.localizationEnabled) {
+      const locTasks   = (cat.localization?.tasks ?? []).filter(t => t.included)
+      const locResult  = localizationCostForCategory(cat)
+      const modeLabel  = cat.localizationMode === 'existing' ? 'Existing Course'
+        : cat.localizationMode === 'new' ? 'New Course' : 'mode not selected'
+      const langLabel  = cat.validatorLanguage ? VALIDATOR_LANG_LABELS[cat.validatorLanguage] : 'not selected'
+
+      children.push(sectionLabelPara(`Localization — ${modeLabel} · Validator: ${langLabel}`))
+      children.push(localizationTaskTable(locTasks, catKey, cat.validatorLanguage))
+      children.push(subtotalPara('Localization subtotal', locResult.cost, { afterSpacing: 240 }))
+    }
   }
 
   // ── Combined hours table ───────────────────────────────────
@@ -356,6 +443,53 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
     })
   )
+
+  // ── Phase totals (Design / Development / QA / Project Management) ──
+  if (phaseTotals) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Phase totals', bold: true, size: 22, color: NAVY })],
+        shading: { type: ShadingType.CLEAR, fill: BLUE_BG, color: 'auto' },
+        spacing: { before: 200, after: 0 },
+      }),
+    )
+
+    const PHASE_COL_W = [40, 20, 40]
+    const reconciledTotal = PHASE_ORDER.reduce((s, p) => s + phaseTotals[p].cost, 0)
+    const phaseRows = [
+      new TableRow({
+        children: ['PHASE', 'HOURS', 'COST'].map((h, i) => headerCell(h, PHASE_COL_W[i])),
+        tableHeader: true,
+      }),
+      ...PHASE_ORDER.map((phase, rowIdx) => {
+        const shade = rowIdx % 2 !== 0
+          ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
+          : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
+        return new TableRow({
+          children: [
+            dataCell(PHASE_LABELS[phase],                                              { width: PHASE_COL_W[0], shading: shade }),
+            dataCell(`${Math.round(phaseTotals[phase].hours * 10) / 10}h`, { align: AlignmentType.CENTER, width: PHASE_COL_W[1], shading: shade }),
+            dataCell(fmtNum(phaseTotals[phase].cost),                      { align: AlignmentType.RIGHT,  width: PHASE_COL_W[2], shading: shade }),
+          ],
+        })
+      }),
+      new TableRow({
+        children: [
+          dataCell('Reconciled total', { width: PHASE_COL_W[0], textProps: { bold: true } }),
+          dataCell('',                 { width: PHASE_COL_W[1] }),
+          dataCell(fmtNum(reconciledTotal), { align: AlignmentType.RIGHT, width: PHASE_COL_W[2], textProps: { bold: true } }),
+        ],
+      }),
+    ]
+
+    children.push(
+      new Table({
+        rows: phaseRows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideH: thinBorder, insideV: noBorder },
+      })
+    )
+  }
 
   // ── Final totals ───────────────────────────────────────────
   children.push(

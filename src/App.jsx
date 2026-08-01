@@ -9,8 +9,8 @@ import LoginScreen         from './components/LoginScreen'
 import ResetPasswordScreen from './components/ResetPasswordScreen'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import AppHeader           from './components/AppHeader'
-import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
-import { computeAssigneeHoursForTask, expenseCostForCategory } from './utils/calc'
+import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, LOCALIZATION_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
+import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, computePhaseTotals } from './utils/calc'
 import { supabase } from './lib/supabase'
 import { buildEstimateRow, estimateDisplayName } from './utils/estimatePayload'
 
@@ -43,6 +43,22 @@ function initCat(key) {
       })),
       removedStack: [],
     },
+    // Localization add-on (added 2026-08) — off by default; mode stays null
+    // until Laurie picks Existing/New Course. validatorLanguage defaults to
+    // Spanish (matches the hardcoded default validator seat in
+    // LOCALIZATION_TASKS) rather than requiring an explicit first pick.
+    // Applies once per category regardless of module/video count, same as
+    // ADA/WellSaid.
+    localizationEnabled: false,
+    localizationMode:    null, // null | 'existing' | 'new'
+    validatorLanguage:   'spanish', // 'spanish' | 'french'
+    localization: {
+      tasks: LOCALIZATION_TASKS[key].map(t => ({
+        ...t,
+        included:  true,
+        assignees: initAssignees(t.assignees),
+      })),
+    },
   }
 }
 
@@ -71,6 +87,31 @@ function backfillWellsaid(nextCatStates) {
         tasks: secondHasWellsaid
           ? cat.secondState.tasks
           : [...(cat.secondState?.tasks ?? []), { ...defaultSecondWellsaid, assignees: initAssignees(defaultSecondWellsaid.assignees) }],
+      },
+    }
+  }
+  return result
+}
+
+// Old saved estimates predate the Localization add-on entirely — add it back
+// in (disabled, empty task list) so the category still renders correctly
+// after reopening. Same narrow, per-category pattern as backfillWellsaid().
+function backfillLocalization(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of CAT_KEYS) {
+    const cat = result[key]
+    if (!cat || cat.localization) continue
+    result[key] = {
+      ...cat,
+      localizationEnabled: cat.localizationEnabled ?? false,
+      localizationMode:    cat.localizationMode ?? null,
+      validatorLanguage:   cat.validatorLanguage ?? 'spanish',
+      localization: {
+        tasks: LOCALIZATION_TASKS[key].map(t => ({
+          ...t,
+          included:  true,
+          assignees: initAssignees(t.assignees),
+        })),
       },
     }
   }
@@ -337,28 +378,82 @@ export default function App() {
     }))
   }
 
+  // ── Localization mutations ────────────────────────────────
+  function updateLocalizationTask(catKey, taskId, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        localization: {
+          ...prev[catKey].localization,
+          tasks: prev[catKey].localization.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+        },
+      },
+    }))
+  }
+
+  function setLocalizationLanguage(catKey, language) {
+    setCatStates(prev => {
+      const cat = prev[catKey]
+      const validatorName = language === 'spanish' ? 'QA Spanish' : language === 'french' ? 'QA French' : null
+      return {
+        ...prev,
+        [catKey]: {
+          ...cat,
+          validatorLanguage: language,
+          localization: {
+            ...cat.localization,
+            // Keep every validator seat in sync with the category's single
+            // language choice — the validator is always a plain assignee
+            // under the hood, so nothing else needs to know this happened.
+            tasks: cat.localization.tasks.map(t =>
+              t.validatorAssigneeIndex === undefined || !validatorName
+                ? t
+                : {
+                    ...t,
+                    assignees: t.assignees.map((a, i) =>
+                      i === t.validatorAssigneeIndex ? { ...a, person: validatorName } : a
+                    ),
+                  }
+            ),
+          },
+        },
+      }
+    })
+  }
+
   // ── Compute totals ───────────────────────────────────────
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
-  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0 }
+  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0, 'QA Spanish': 0, 'QA French': 0 }
   const categoryCosts = {}
 
   for (const catKey of selectedKeys) {
     const cat = catStates[catKey]
+    const normalTasks = visibleNormalTasks(cat)
+    const secondTasks = visibleSecondStateTasks(cat)
 
     if (catKey === 'microvideo') {
       let totalCost = 0
-      for (const task of cat.tasks) {
+      for (const task of normalTasks) {
         if (!task.included) continue
+        if (task.type === 'PerUnit') {
+          const h = computeHours(task, catKey, cat.additionalMinutes)
+          const person = task.assignees?.[0]?.person
+          if (memberHours[person] !== undefined) memberHours[person] += h
+          totalCost += h * (RATES[person] ?? 0)
+          continue
+        }
         for (const a of task.assignees ?? []) {
           const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
           if (memberHours[a.person] !== undefined) memberHours[a.person] += h
           totalCost += h * (RATES[a.person] ?? 0)
         }
+        if (task.validatorWords) totalCost += validatorWordsCost(task, cat)
       }
       for (const video of (cat.additionalVideos ?? [])) {
         const addedMin = video.minutes - DEFAULT_MINUTES[catKey]
-        for (const task of (cat.secondState?.tasks ?? [])) {
+        for (const task of secondTasks) {
           if (!task.included) continue
           for (const a of task.assignees ?? []) {
             const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
@@ -370,18 +465,35 @@ export default function App() {
       categoryCosts[catKey] = totalCost + expenseCostForCategory(cat)
     } else {
       const extraModules = (cat.moduleCount ?? 1) - 1
-      let mod1BaseSum = 0
-      for (const task of cat.tasks) {
+      // mod1BaseSum: every checked task's cost (incl. localization) — the
+      // number shown as the category's subtotal. adaEligibleSum: the same,
+      // minus anything tagged isLocalization — the only base ADA's % ever
+      // multiplies, so the localization add-on stays exempt from it.
+      let mod1BaseSum   = 0
+      let adaEligibleSum = 0
+      for (const task of normalTasks) {
         if (!task.included) continue
+        if (task.type === 'PerUnit') {
+          const h = computeHours(task, catKey, cat.additionalMinutes)
+          const person = task.assignees?.[0]?.person
+          if (memberHours[person] !== undefined) memberHours[person] += h
+          const c = h * (RATES[person] ?? 0)
+          mod1BaseSum += c
+          if (!task.isLocalization) adaEligibleSum += c
+          continue
+        }
         for (const a of task.assignees ?? []) {
           const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
           if (memberHours[a.person] !== undefined) memberHours[a.person] += h
-          mod1BaseSum += h * (RATES[a.person] ?? 0)
+          const c = h * (RATES[a.person] ?? 0)
+          mod1BaseSum += c
+          if (!task.isLocalization) adaEligibleSum += c
         }
+        if (task.validatorWords) mod1BaseSum += validatorWordsCost(task, cat)
       }
       let mod2PerModule = 0
       if (extraModules > 0 && cat.secondState) {
-        for (const task of cat.secondState.tasks) {
+        for (const task of secondTasks) {
           if (!task.included) continue
           for (const a of task.assignees ?? []) {
             const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
@@ -390,15 +502,17 @@ export default function App() {
           }
         }
       }
-      const combinedBase = mod1BaseSum + mod2PerModule * extraModules
+      const combinedBase        = mod1BaseSum + mod2PerModule * extraModules
+      const adaEligibleCombined = adaEligibleSum + mod2PerModule * extraModules
       const adaRate = (cat.adaEnabled && ADA_RATES[catKey] > 0) ? ADA_RATES[catKey] : 0
-      categoryCosts[catKey] = combinedBase * (1 + adaRate) + expenseCostForCategory(cat)
+      categoryCosts[catKey] = combinedBase + adaEligibleCombined * adaRate + expenseCostForCategory(cat)
     }
   }
 
   const internalCost     = selectedKeys.reduce((s, k) => s + (categoryCosts[k] ?? 0), 0)
   const marginMultiplier = 1 / (1 - marginPct / 100)
   const clientPrice      = internalCost * marginMultiplier
+  const phaseTotals       = computePhaseTotals(selectedKeys, catStates)
 
   const activeMembers = Object.fromEntries(
     Object.entries(memberHours).filter(([, h]) => h > 0)
@@ -564,7 +678,7 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = backfillWellsaid(state.catStates ?? catStates)
+    const nextCatStates = backfillLocalization(backfillWellsaid(state.catStates ?? catStates))
     const nextSelected  = state.selected ?? selected
     // Company/Course/Client come from the top-level columns, not state_json —
     // inline rename in View Estimates only ever updates those columns, so
@@ -829,6 +943,8 @@ export default function App() {
                 onAddVideo={()                              => addVideo(key)}
                 onRemoveVideo={videoId                      => removeVideo(key, videoId)}
                 onUpdateVideoMinutes={(videoId, mins)       => updateVideoMinutes(key, videoId, mins)}
+                onUpdateLocalizationTask={(id, patch)        => updateLocalizationTask(key, id, patch)}
+                onLocalizationLanguageChange={lang          => setLocalizationLanguage(key, lang)}
               />
             ) : null
           )}
@@ -838,6 +954,7 @@ export default function App() {
           <TotalsBar
             memberHours={activeMembers}
             categoryCosts={categoryCosts}
+            phaseTotals={phaseTotals}
             selectedKeys={selectedKeys}
             internalCost={internalCost}
             clientPrice={clientPrice}

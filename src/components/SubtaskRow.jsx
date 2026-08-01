@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { computeAssigneeHoursForTask, lineCost, fmt } from '../utils/calc'
-import { DEFAULT_MINUTES, RATES } from '../config/config'
+import { computeAssigneeHoursForTask, lineCost, validatorWordsCost, fmt } from '../utils/calc'
+import { DEFAULT_MINUTES, PHASE_LABELS } from '../config/config'
 
-const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource', 'J.K.']
+const PEOPLE = ['Laurie', 'Megan', 'Michelle', 'QA Resource', 'J.K.', 'QA Spanish', 'QA French']
 
 // Task name box — grows to fit its content so long descriptions
 // (Storyboard, Development, etc.) are never clipped to one line.
@@ -52,6 +52,71 @@ function MonthsInput({ months, onChange }) {
       inputMode="numeric"
       min={1}
       className="expense-months-input"
+      value={display}
+      onFocus={handleFocus}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  )
+}
+
+// Quantity input for a localization "per item/slide" PerUnit task — same
+// local-state focus/blur pattern as MonthsInput, but floors at 0 (Laurie
+// hasn't counted yet) rather than 1.
+function QuantityInput({ quantity, onChange }) {
+  const [local,   setLocal]   = useState(String(quantity))
+  const [focused, setFocused] = useState(false)
+  const display = focused ? local : String(quantity)
+
+  function handleFocus() { setLocal(String(quantity)); setFocused(true) }
+  function handleChange(raw) {
+    setLocal(raw)
+    const v = parseInt(raw)
+    if (!isNaN(v) && v >= 0) onChange(v)
+  }
+  function handleBlur() {
+    setFocused(false)
+    if (isNaN(parseInt(local)) || parseInt(local) < 0) onChange(0)
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={0}
+      className="loc-quantity-input"
+      value={display}
+      onFocus={handleFocus}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  )
+}
+
+// Word-count input for a localization flat-fee validator task — same
+// pattern as QuantityInput, floors at 0.
+function WordsInput({ words, onChange }) {
+  const [local,   setLocal]   = useState(String(words))
+  const [focused, setFocused] = useState(false)
+  const display = focused ? local : String(words)
+
+  function handleFocus() { setLocal(String(words)); setFocused(true) }
+  function handleChange(raw) {
+    setLocal(raw)
+    const v = parseInt(raw)
+    if (!isNaN(v) && v >= 0) onChange(v)
+  }
+  function handleBlur() {
+    setFocused(false)
+    if (isNaN(parseInt(local)) || parseInt(local) < 0) onChange(0)
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={0}
+      className="loc-words-input"
       value={display}
       onFocus={handleFocus}
       onChange={e => handleChange(e.target.value)}
@@ -125,10 +190,17 @@ export default function SubtaskRow({
   onUpdateAssignees,
   onTypeChange,
   onMonthsChange,
+  onQuantityChange,
+  onWordsChange,
+  validatorLanguage,
 }) {
-  const isExpense = task.type === 'Expense'
+  const isExpense        = task.type === 'Expense'
+  const isPerUnit        = task.type === 'PerUnit'
+  const isValidatorWords = task.validatorWords === true
   const excluded  = task.included === false
-  const cost      = !excluded ? lineCost(task, catKey, addedMin) : null
+  const cost      = !excluded
+    ? lineCost(task, catKey, addedMin) + validatorWordsCost(task, { validatorLanguage })
+    : null
 
   function handlePersonChange(idx, person) {
     onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, person } : a))
@@ -148,7 +220,7 @@ export default function SubtaskRow({
   }
 
   return (
-    <div className={`subtask-row${excluded ? ' subtask-row--excluded' : ''}${task.indent ? ' subtask-row--indented' : ''}`}>
+    <div className={`subtask-row${excluded ? ' subtask-row--excluded' : ''}${task.indent === 2 ? ' subtask-row--indented-2' : task.indent ? ' subtask-row--indented' : ''}`}>
 
       <input
         type="checkbox"
@@ -157,7 +229,15 @@ export default function SubtaskRow({
         onChange={() => onToggle?.()}
       />
 
-      <NameTextarea value={task.name} onChange={onNameChange} />
+      <div className="subtask-name-cell">
+        <div className="subtask-badges">
+          <span className={`phase-badge phase-badge--${task.phase ?? 'development'}`}>
+            {PHASE_LABELS[task.phase ?? 'development']}
+          </span>
+          {task.isLocalization && <span className="loc-tag">Localization</span>}
+        </div>
+        <NameTextarea value={task.name} onChange={onNameChange} />
+      </div>
 
       {isExpense ? (
         <div className="subtask-expense-months">
@@ -165,31 +245,61 @@ export default function SubtaskRow({
           <MonthsInput months={task.months ?? 1} onChange={onMonthsChange} />
           <span className="expense-months-hint">× {fmt(task.flatCost ?? 0)}/mo</span>
         </div>
+      ) : isPerUnit ? (
+        <div className="subtask-perunit">
+          <select
+            className="subtask-resp-select"
+            value={task.assignees?.[0]?.person ?? ''}
+            onChange={e => handlePersonChange(0, e.target.value)}
+          >
+            {PEOPLE.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <QuantityInput quantity={task.quantity ?? 0} onChange={onQuantityChange} />
+          <span className="loc-unit-hint">{task.unitLabel ?? 'unit'}{task.quantity === 1 ? '' : 's'}</span>
+        </div>
       ) : (
-        <div className="subtask-assignees">
-          {(task.assignees ?? []).map((assignee, idx) => (
-            <AssigneeRow
-              key={idx}
-              assignee={assignee}
-              task={task}
-              catKey={catKey}
-              addedMin={addedMin}
-              canRemove={(task.assignees ?? []).length > 1}
-              onPersonChange={person    => handlePersonChange(idx, person)}
-              onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
-              onRemove={() => removeAssignee(idx)}
-            />
-          ))}
-          {(task.assignees ?? []).length < 4 && (
-            <button type="button" className="btn-add-assignee" onClick={addAssignee}>
-              + add person
-            </button>
+        <div className="subtask-mixed-content">
+          {/* Team member(s) — e.g. Michelle overseeing/importing validated
+              text — shown alongside the flat validator fee below when a
+              validatorWords task also carries a real assignee. */}
+          {(task.assignees ?? []).length > 0 && (
+            <div className="subtask-assignees">
+              {task.assignees.map((assignee, idx) => (
+                <AssigneeRow
+                  key={idx}
+                  assignee={assignee}
+                  task={task}
+                  catKey={catKey}
+                  addedMin={addedMin}
+                  canRemove={task.assignees.length > 1}
+                  onPersonChange={person    => handlePersonChange(idx, person)}
+                  onHoursChange={baseHours => handleHoursChange(idx, baseHours)}
+                  onRemove={() => removeAssignee(idx)}
+                />
+              ))}
+              {task.assignees.length < 4 && (
+                <button type="button" className="btn-add-assignee" onClick={addAssignee}>
+                  + add person
+                </button>
+              )}
+            </div>
+          )}
+          {isValidatorWords && (
+            <div className="subtask-validator-words">
+              <WordsInput words={task.words ?? 0} onChange={onWordsChange} />
+              <span className="loc-unit-hint">words</span>
+              {!validatorLanguage && <span className="loc-unit-hint loc-unit-hint--warn">pick a validator language above</span>}
+            </div>
           )}
         </div>
       )}
 
       {isExpense ? (
         <span className="subtask-type-flat">Expense</span>
+      ) : isPerUnit ? (
+        <span className="subtask-type-flat">Per {task.unitLabel ?? 'unit'}</span>
+      ) : isValidatorWords ? (
+        <span className="subtask-type-flat">Validator</span>
       ) : (
         <select
           className={`subtask-type-select subtask-type-select--${(task.type || 'fixed').toLowerCase()}`}

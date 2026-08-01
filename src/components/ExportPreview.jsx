@@ -1,8 +1,11 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeAssigneeHoursForTask, fmt, expenseCostForCategory, expenseMonthsForCategory } from '../utils/calc'
-import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS } from '../config/config'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, validatorWordsCost, computePhaseTotals } from '../utils/calc'
+import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS, PHASE_LABELS } from '../config/config'
 import AppHeader from './AppHeader'
 import ChangePasswordModal from './ChangePasswordModal'
+
+const PHASE_ORDER = ['design', 'development', 'qa', 'pm']
+const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
 
 function taskCost(task, catKey, addedMin) {
   return (task.assignees ?? []).reduce((sum, a) => {
@@ -29,6 +32,7 @@ export default function ExportPreview({
 }) {
   const dateObj = estimateDate ?? new Date()
   const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+  const phaseTotals = computePhaseTotals(selectedKeys, catStates)
 
   async function handleDownload() {
     await generateAndSaveDocx({
@@ -39,6 +43,7 @@ export default function ExportPreview({
       selectedKeys,
       cats: catStates,
       memberHours,
+      phaseTotals,
       internalCost,
       clientPrice,
       marginPct,
@@ -99,13 +104,18 @@ export default function ExportPreview({
             const Unit         = unit.charAt(0).toUpperCase() + unit.slice(1)
             const additionalVideos = cat.additionalVideos ?? []
 
-            const mod1Tasks = cat.tasks.filter(t => t.included && t.type !== 'Expense')
+            // Localization tasks are excluded here (rendered in their own
+            // section below via renderLocalizationSection, which understands
+            // their PerUnit/validatorWords shapes) even though
+            // visibleNormalTasks() now folds them into the same list for the
+            // live app's on-screen rendering.
+            const mod1Tasks = visibleNormalTasks(cat).filter(t => t.included && t.type !== 'Expense' && !t.isLocalization)
             const mod1BaseSum = mod1Tasks.reduce((s, t) => s + taskCost(t, catKey, addedMin), 0)
             const wellsaidCost   = expenseCostForCategory(cat)
             const wellsaidMonths = expenseMonthsForCategory(cat)
             const wellsaidNote   = `WellSaid add-on${wellsaidMonths > 1 ? ` (${wellsaidMonths} months)` : ''}`
 
-            const secondTasks = (cat.secondState?.tasks ?? []).filter(t => t.included && t.type !== 'Expense')
+            const secondTasks = visibleSecondStateTasks(cat).filter(t => t.included && t.type !== 'Expense')
 
             // Renders all assignee rows for a task list
             function renderTaskRows(tasks, addMin) {
@@ -125,6 +135,82 @@ export default function ExportPreview({
                     </tr>
                   )
                 })
+              )
+            }
+
+            // Renders localization task rows — Fixed tasks per-assignee (same
+            // as renderTaskRows), plus PerUnit (quantity × unit) and
+            // validatorWords (word-count flat fee) branches.
+            function renderLocalizationRows() {
+              const locTasks = (cat.localization?.tasks ?? []).filter(t => t.included)
+              if (locTasks.length === 0) {
+                return <tr className="doc-table-muted"><td colSpan={4}>No localization tasks selected</td></tr>
+              }
+              return locTasks.flatMap(task => {
+                if (task.type === 'PerUnit') {
+                  const h      = computeHours(task, catKey, 0)
+                  const person = task.assignees?.[0]?.person
+                  const qty    = task.quantity ?? 0
+                  const cost   = h * (RATES[person] ?? 0)
+                  return (
+                    <tr key={task.id}>
+                      <td>{task.name}</td>
+                      <td>{person} — {qty} {task.unitLabel ?? 'unit'}{qty === 1 ? '' : 's'}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td>{fmt(cost)}</td>
+                    </tr>
+                  )
+                }
+                if (task.validatorWords) {
+                  const cost     = validatorWordsCost(task, { validatorLanguage: cat.validatorLanguage })
+                  const langNote = cat.validatorLanguage ? VALIDATOR_LANG_LABELS[cat.validatorLanguage] : 'no language picked'
+                  return (
+                    <tr key={task.id}>
+                      <td>{task.name}</td>
+                      <td>{task.words ?? 0} words ({langNote})</td>
+                      <td style={{ textAlign: 'center' }}>—</td>
+                      <td>{fmt(cost)}</td>
+                    </tr>
+                  )
+                }
+                return (task.assignees ?? []).map((a, idx) => {
+                  const h    = computeAssigneeHoursForTask(a, task, catKey, 0)
+                  const cost = h * (RATES[a.person] ?? 0)
+                  return (
+                    <tr key={`${task.id}-a${idx}`}>
+                      <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
+                      <td>{a.person}</td>
+                      <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(1))}</td>
+                      <td>{fmt(cost)}</td>
+                    </tr>
+                  )
+                })
+              })
+            }
+
+            function renderLocalizationSection() {
+              if (!cat.localizationEnabled) return null
+              const modeLabel = cat.localizationMode === 'existing' ? 'Existing Course'
+                : cat.localizationMode === 'new' ? 'New Course' : 'mode not selected'
+              const langLabel = cat.validatorLanguage ? VALIDATOR_LANG_LABELS[cat.validatorLanguage] : 'not selected'
+              return (
+                <>
+                  <hr className="doc-section-divider" />
+                  <div className="doc-module-label doc-module-label--second">
+                    Localization
+                    <span className="doc-module-implied"> — {modeLabel} · Validator: {langLabel}</span>
+                  </div>
+                  <table className="doc-table">
+                    <thead>
+                      <tr><th>Task</th><th>Detail</th><th>Hrs</th><th>Line Cost</th></tr>
+                    </thead>
+                    <tbody>{renderLocalizationRows()}</tbody>
+                  </table>
+                  <div className="doc-subtotal-row doc-subtotal-row--overall">
+                    <span className="doc-subtotal-label">Localization subtotal</span>
+                    <span className="doc-subtotal-value">{fmt(localizationCostForCategory(cat).cost)}</span>
+                  </div>
+                </>
               )
             }
 
@@ -204,6 +290,7 @@ export default function ExportPreview({
                       </div>
                     </>
                   )}
+                  {renderLocalizationSection()}
                 </div>
               )
             }
@@ -297,6 +384,7 @@ export default function ExportPreview({
                     </div>
                   </>
                 )}
+                {renderLocalizationSection()}
               </div>
             )
           })}
@@ -311,6 +399,27 @@ export default function ExportPreview({
                   <span className="doc-hours-rate"> × ${RATES[name]}/hr</span>
                 </span>
               ))}
+            </div>
+          </div>
+
+          {/* Phase totals */}
+          <div className="doc-hours-section">
+            <p className="doc-hours-title">Phase totals</p>
+            <div className="doc-phase-list">
+              {PHASE_ORDER.map(phase => (
+                <div key={phase} className="doc-phase-line">
+                  <span className="doc-phase-name">
+                    {PHASE_LABELS[phase]} ({parseFloat(phaseTotals[phase].hours.toFixed(1))}h):
+                  </span>
+                  <span className="doc-phase-cost">{fmt(phaseTotals[phase].cost)}</span>
+                </div>
+              ))}
+              <div className="doc-phase-line doc-phase-line--reconciled">
+                <span className="doc-phase-name">Reconciled total:</span>
+                <span className="doc-phase-cost">
+                  {fmt(PHASE_ORDER.reduce((s, p) => s + phaseTotals[p].cost, 0))}
+                </span>
+              </div>
             </div>
           </div>
 

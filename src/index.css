@@ -449,11 +449,14 @@ body { background: var(--page-bg); }
 }
 
 /* ── Header ─────────────────────────────────────── */
+/* align-items: flex-start (not center) so the right column growing taller
+   when Localization expands doesn't recenter/shift the left/center columns
+   — the header just grows downward. */
 .cat-header {
   background: var(--navy);
   padding: 18px 30px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0;
 }
 .cat-header-left {
@@ -496,6 +499,7 @@ body { background: var(--page-bg); }
 .cat-header-center {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   flex: 1;
   border-left: 1px solid rgba(255,255,255,0.13);
@@ -548,12 +552,20 @@ body { background: var(--page-bg); }
 
 .cat-header-right {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   margin-left: auto;
   flex-shrink: 0;
   border-left: 1px solid rgba(255,255,255,0.13);
   padding-left: 36px;
+}
+/* Row 1: ADA + Expand/Collapse, side by side */
+.cat-header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 /* ADA toggle */
@@ -583,6 +595,94 @@ body { background: var(--page-bg); }
   background: rgba(255,255,255,0.14);
   color: #c0d5e8;
 }
+
+/* Localization — full-width row 2, equally spanning the width of row 1
+   (ADA + Expand combined). Expanding it grows straight downward: mode
+   buttons side by side and centered under the toggle, language dropdown
+   centered below that. */
+.loc-toggle-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+.loc-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255,255,255,0.28);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1);
+  color: #d7e4ee;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.loc-toggle--on {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.4);
+}
+.loc-toggle:not(.loc-toggle--on):hover {
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
+}
+
+.loc-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.loc-mode-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.loc-mode-btn {
+  border: 1.5px solid rgba(255,255,255,0.28);
+  border-radius: 14px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255,255,255,0.08);
+  color: #e2eaf0;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.loc-mode-btn--selected {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+}
+.loc-mode-btn:not(.loc-mode-btn--selected):hover {
+  background: rgba(255,255,255,0.16);
+}
+/* Same proven readable-select pattern as .margin-select — solid navy
+   background + explicit option styling, since a translucent background over
+   a dark header (the earlier approach) read as washed-out/grey text */
+.loc-language-select {
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 14px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  background: var(--navy);
+  color: #ffffff;
+  cursor: pointer;
+}
+.loc-language-select:focus { border-color: rgba(255,255,255,0.6); outline: none; }
+.loc-language-select option { background: var(--navy); color: #ffffff; }
 
 /* Collapse / Expand button */
 .collapse-btn {
@@ -653,21 +753,85 @@ body { background: var(--page-bg); }
 }
 .subtask-row--indented:hover { background: #f2f6fe; }
 
+.subtask-row--indented-2 {
+  padding-left: 72px;
+  background: #f2f6fe;
+  border-left: 3px solid var(--blue-border);
+}
+.subtask-row--indented-2:hover { background: #eaf1fd; }
+
 /* Align non-assignee cells with the first assignee row */
-.subtask-check,
-.subtask-name-input,
+.subtask-name-cell,
 .subtask-type-select,
 .subtask-cost {
   margin-top: 5px;
 }
 
-/* Checkbox */
+/* Checkbox — aligned with the task NAME text itself, not the phase badge
+   sitting above it (badge height + name-cell gap ≈ 25px of extra offset) */
 .subtask-check {
-  width: 16px;
-  height: 16px;
+  width: 19px;
+  height: 19px;
+  margin-top: 30px;
   accent-color: var(--blue);
   cursor: pointer;
   flex-shrink: 0;
+}
+
+/* Wraps the phase badge + name textarea together so both fit in the
+   name column without disturbing the row's 5-column grid. Badge is
+   centered above the name; the textarea below stays full width. */
+.subtask-name-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+.subtask-name-cell .subtask-name-input {
+  align-self: stretch;
+}
+
+/* Row of badges above the task name — phase sticker + (for localization
+   tasks folded into the main list) a small "Localization" tag */
+.subtask-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Phase sticker (Design/Development/QA/PM) — color-coded, added 2026-07 */
+.phase-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #fff;
+  line-height: 1.5;
+}
+.phase-badge--design      { background: #3B82F6; }
+.phase-badge--development { background: #8B5CF6; }
+.phase-badge--qa          { background: #F59E0B; }
+.phase-badge--pm          { background: #10B981; }
+
+/* Localization tag — outlined (not filled) so it reads as a secondary
+   marker next to the phase badge, not a competing phase */
+.loc-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--blue);
+  color: var(--blue);
+  background: transparent;
+  line-height: 1.4;
 }
 
 /* Name box — auto-growing textarea so long task descriptions are never clipped */
@@ -809,9 +973,53 @@ body { background: var(--page-bg); }
   white-space: nowrap;
 }
 
+/* Localization "per item/slide" and flat-fee-validator task rows */
+.subtask-perunit,
+.subtask-validator-words {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  flex-wrap: wrap;
+}
+.loc-quantity-input,
+.loc-words-input {
+  width: 56px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+}
+.loc-quantity-input:focus,
+.loc-words-input:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
+}
+.loc-unit-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+.loc-unit-hint--warn {
+  color: #D97706;
+}
+
 /* ===================================================
    MULTI-PERSON ASSIGNEES BLOCK
    =================================================== */
+
+/* Wraps assignees + (for validatorWords tasks) the flat-fee words input so
+   a task can show both a real team member and the validator's flat fee */
+.subtask-mixed-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 .subtask-assignees {
   display: flex;
@@ -1313,6 +1521,42 @@ body { background: var(--page-bg); }
 .totals-member { font-size: 15px; color: #a8c0d0; }
 .totals-member strong { color: #e2eaf0; }
 
+/* Phase totals (Design/Development/QA/PM) — labels and dollar amounts each
+   form their own aligned column (grid, not inline-flex) so every $ figure
+   stacks directly on top of the next regardless of label length */
+.totals-phase-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding-left: 2px;
+}
+.totals-phase-line {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  align-items: baseline;
+  gap: 10px;
+}
+.totals-phase-name {
+  font-size: 12px;
+  color: #7a9ab5;
+}
+.totals-phase-cost {
+  font-size: 13px;
+  font-weight: 500;
+  color: #b0c8d8;
+}
+.totals-phase-reconciled {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(122, 154, 181, 0.25);
+}
+.totals-phase-reconciled .totals-phase-name,
+.totals-phase-reconciled .totals-phase-cost {
+  font-weight: 700;
+  color: #e2eaf0;
+}
+
 .cost-line {
   display: flex;
   align-items: baseline;
@@ -1585,6 +1829,30 @@ body { background: var(--page-bg); }
 .doc-hours-item { font-size: 14px; color: var(--text); }
 .doc-hours-item strong { color: var(--navy); }
 .doc-hours-rate { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+
+/* Phase totals list — labels and $ amounts each form their own aligned
+   column so every dollar figure stacks directly on top of the next */
+.doc-phase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.doc-phase-line {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 10px;
+}
+.doc-phase-name { font-size: 14px; color: var(--text); }
+.doc-phase-cost { font-size: 14px; color: var(--navy); font-weight: 500; }
+.doc-phase-line--reconciled {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.doc-phase-line--reconciled .doc-phase-name,
+.doc-phase-line--reconciled .doc-phase-cost {
+  font-weight: 700;
+}
 
 .doc-final-rule {
   border: none;
@@ -2158,9 +2426,13 @@ body { background: var(--page-bg); }
   .cat-name       { font-size: 17px; }
   .total-time-value { font-size: 22px; }
   .cat-header-center { border-left: none; padding-left: 0; padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-  .cat-header-right  { border-left: none; padding-left: 0; padding-top: 12px; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; }
+  .cat-header-right  { border-left: none; padding-left: 0; padding-top: 12px; align-items: stretch; gap: 8px; }
+  .cat-header-top-row { justify-content: space-between; }
   .ada-toggle  { flex: 1; justify-content: center; }
   .collapse-btn { flex-shrink: 0; }
+  .loc-toggle-group    { align-items: stretch; }
+  .loc-options         { align-items: stretch; }
+  .loc-mode-buttons    { flex-wrap: wrap; }
 
   /* Hide desktop column header row */
   .subtask-cols { display: none; }
@@ -2174,12 +2446,15 @@ body { background: var(--page-bg); }
     min-height: unset;
   }
   /* Row 1: checkbox | name | cost */
-  .subtask-check      { grid-column: 1; grid-row: 1; align-self: start; margin-top: 6px; }
-  .subtask-name-input { grid-column: 2; grid-row: 1; font-size: 13px; margin-top: 0; }
+  .subtask-check      { grid-column: 1; grid-row: 1; align-self: start; margin-top: 30px; }
+  .subtask-name-cell  { grid-column: 2; grid-row: 1; margin-top: 0; }
+  .subtask-name-input { font-size: 13px; }
   .subtask-cost       { grid-column: 3; grid-row: 1; align-self: start; font-size: 13px; margin-top: 6px; }
   /* Row 2: assignees block spans full remaining width */
   .subtask-assignees  { grid-column: 2 / 4; grid-row: 2; }
   .subtask-expense-months { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-perunit         { grid-column: 2 / 4; grid-row: 2; }
+  .subtask-validator-words { grid-column: 2 / 4; grid-row: 2; }
   .subtask-type-select { display: none; }
 
   /* Add/remove */
