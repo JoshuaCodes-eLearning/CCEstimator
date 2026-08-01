@@ -21,6 +21,7 @@ export default function ExportPreview({
   selectedKeys,
   catStates,
   memberHours,
+  memberWordCost,
   internalCost,
   clientPrice,
   marginPct,
@@ -43,6 +44,7 @@ export default function ExportPreview({
       selectedKeys,
       cats: catStates,
       memberHours,
+      memberWordCost,
       phaseTotals,
       internalCost,
       clientPrice,
@@ -399,6 +401,12 @@ export default function ExportPreview({
                   <span className="doc-hours-rate"> × ${RATES[name]}/hr</span>
                 </span>
               ))}
+              {memberWordCost && Object.entries(memberWordCost).map(([name, cost]) => (
+                <span key={`${name}-words`} className="doc-hours-item">
+                  {name} <strong>{fmt(cost)}</strong>
+                  <span className="doc-hours-rate"> (per-1000-words validator fee)</span>
+                </span>
+              ))}
             </div>
           </div>
 
@@ -415,7 +423,7 @@ export default function ExportPreview({
                 </div>
               ))}
               <div className="doc-phase-line doc-phase-line--reconciled">
-                <span className="doc-phase-name">Reconciled total:</span>
+                <span className="doc-phase-name">Phase Total Cost:</span>
                 <span className="doc-phase-cost">
                   {fmt(PHASE_ORDER.reduce((s, p) => s + phaseTotals[p].cost, 0))}
                 </span>
@@ -427,7 +435,7 @@ export default function ExportPreview({
 
           <div>
             <div className="doc-total-row">
-              <span className="doc-total-label">Internal cost</span>
+              <span className="doc-total-label">Internal Cost:</span>
               <span className="doc-total-value">{fmt(internalCost)}</span>
             </div>
             <div className="doc-total-row doc-total-row--client">

@@ -118,6 +118,55 @@ function backfillLocalization(nextCatStates) {
   return result
 }
 
+// Old saved estimates predate the `phase` field (added 2026-07) entirely —
+// without it, computePhaseTotals() dumps 100% of that estimate's cost into
+// "Development" (its documented fallback for untagged tasks), even though
+// the estimate really did have Design/QA/PM work in it. Most pre-restructure
+// task ids are unchanged (only renamed — QA 1/2, Image Procurement, etc.),
+// so their real phase can be recovered by id from the current config. A
+// handful of ids were retired entirely in the 2026-08 restructure (Lessons
+// Learned / Internal Meetings / Project Coordination, folded into the new
+// Project Monitoring task) and no longer exist anywhere to look up — those
+// were always project-management work, so they're mapped straight to 'pm'
+// rather than falling through to the generic development default.
+const LEGACY_PM_TASK_IDS = [
+  'mv-8', 'mv-4', 'mv-11',
+  'r-9',  'r-3',  'r-13',
+  's-9',  's-3',  's-13',
+]
+
+function phaseForLegacyTask(task, key) {
+  if (task.phase) return task.phase
+  if (LEGACY_PM_TASK_IDS.includes(task.id)) return 'pm'
+  return DEFAULT_TASKS[key].find(t => t.id === task.id)?.phase
+    ?? DEFAULT_SECOND_STATE_TASKS[key].find(t => t.id === task.id)?.phase
+    ?? LOCALIZATION_TASKS[key].find(t => t.id === task.id)?.phase
+    ?? null // truly custom/unrecognized (a user's own "+ Add subtask" row) —
+             // left untagged, same as it is today; computePhaseTotals()'s own
+             // 'development' fallback still applies to these.
+}
+
+function backfillPhase(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of CAT_KEYS) {
+    const cat = result[key]
+    if (!cat) continue
+    const fixTasks = tasks => (tasks ?? []).map(t => {
+      const phase = phaseForLegacyTask(t, key)
+      return phase && phase !== t.phase ? { ...t, phase } : t
+    })
+    result[key] = {
+      ...cat,
+      tasks:       fixTasks(cat.tasks),
+      secondState: { ...cat.secondState, tasks: fixTasks(cat.secondState?.tasks) },
+      localization: cat.localization
+        ? { ...cat.localization, tasks: fixTasks(cat.localization.tasks) }
+        : cat.localization,
+    }
+  }
+  return result
+}
+
 // All of these live under one "Questions to ask customer" panel — they're a
 // reminder script for Laurie's discovery call, not separate form sections.
 // Answer input type matches the question: free text for open/multi-part
@@ -425,8 +474,19 @@ export default function App() {
   // ── Compute totals ───────────────────────────────────────
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
-  const memberHours   = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0, 'QA Spanish': 0, 'QA French': 0 }
-  const categoryCosts = {}
+  const memberHours    = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0, 'QA Spanish': 0, 'QA French': 0 }
+  // Flat per-1000-words validator fees (Rise's Validate, Storyline's
+  // Validation #1) have no assignee hours — tracked separately so "Hours per
+  // team member" can still surface this real cost against the QA person it's
+  // actually paid to, instead of it only showing up buried in the category total.
+  const memberWordCost = { 'QA Spanish': 0, 'QA French': 0 }
+  const categoryCosts  = {}
+
+  function validatorNameFor(cat) {
+    return cat.validatorLanguage === 'french' ? 'QA French'
+      : cat.validatorLanguage === 'spanish' ? 'QA Spanish'
+      : null
+  }
 
   for (const catKey of selectedKeys) {
     const cat = catStates[catKey]
@@ -449,7 +509,12 @@ export default function App() {
           if (memberHours[a.person] !== undefined) memberHours[a.person] += h
           totalCost += h * (RATES[a.person] ?? 0)
         }
-        if (task.validatorWords) totalCost += validatorWordsCost(task, cat)
+        if (task.validatorWords) {
+          const wc = validatorWordsCost(task, cat)
+          totalCost += wc
+          const validatorName = validatorNameFor(cat)
+          if (validatorName) memberWordCost[validatorName] += wc
+        }
       }
       for (const video of (cat.additionalVideos ?? [])) {
         const addedMin = video.minutes - DEFAULT_MINUTES[catKey]
@@ -489,7 +554,12 @@ export default function App() {
           mod1BaseSum += c
           if (!task.isLocalization) adaEligibleSum += c
         }
-        if (task.validatorWords) mod1BaseSum += validatorWordsCost(task, cat)
+        if (task.validatorWords) {
+          const wc = validatorWordsCost(task, cat)
+          mod1BaseSum += wc
+          const validatorName = validatorNameFor(cat)
+          if (validatorName) memberWordCost[validatorName] += wc
+        }
       }
       let mod2PerModule = 0
       if (extraModules > 0 && cat.secondState) {
@@ -516,6 +586,9 @@ export default function App() {
 
   const activeMembers = Object.fromEntries(
     Object.entries(memberHours).filter(([, h]) => h > 0)
+  )
+  const activeWordCosts = Object.fromEntries(
+    Object.entries(memberWordCost).filter(([, c]) => c > 0)
   )
 
   // ── Save Estimate handlers ────────────────────────────────
@@ -678,7 +751,7 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = backfillLocalization(backfillWellsaid(state.catStates ?? catStates))
+    const nextCatStates = backfillPhase(backfillLocalization(backfillWellsaid(state.catStates ?? catStates)))
     const nextSelected  = state.selected ?? selected
     // Company/Course/Client come from the top-level columns, not state_json —
     // inline rename in View Estimates only ever updates those columns, so
@@ -770,6 +843,7 @@ export default function App() {
         selectedKeys={selectedKeys}
         catStates={catStates}
         memberHours={activeMembers}
+        memberWordCost={activeWordCosts}
         internalCost={internalCost}
         clientPrice={clientPrice}
         marginPct={marginPct}
@@ -953,6 +1027,7 @@ export default function App() {
         {selectedKeys.length > 0 && (
           <TotalsBar
             memberHours={activeMembers}
+            memberWordCost={activeWordCosts}
             categoryCosts={categoryCosts}
             phaseTotals={phaseTotals}
             selectedKeys={selectedKeys}

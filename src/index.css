@@ -997,7 +997,7 @@ body { background: var(--page-bg); }
   flex-shrink: 0;
 }
 .loc-quantity-chip-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--blue);
   white-space: nowrap;
@@ -1013,6 +1013,16 @@ body { background: var(--page-bg); }
   font-family: inherit;
   color: var(--text);
   text-align: center;
+}
+/* The "per item"/"per slide" quantity chip is the one thing Laurie has to
+   fill in on a localization task — sized up beyond the plain words input
+   so it stays the most prominent field in the row. */
+.loc-quantity-input {
+  width: 68px;
+  padding: 6px 8px;
+  font-size: 16px;
+  border-radius: 6px;
+  border-width: 1.5px;
 }
 .loc-quantity-input:focus,
 .loc-words-input:focus {
@@ -1532,7 +1542,9 @@ body { background: var(--page-bg); }
 }
 .totals-members {
   display: flex;
+  flex-wrap: wrap;
   gap: 32px;
+  row-gap: 6px;
   margin-bottom: 10px;
 }
 
@@ -1561,6 +1573,11 @@ body { background: var(--page-bg); }
 }
 .totals-member { font-size: 15px; color: #a8c0d0; }
 .totals-member strong { color: #e2eaf0; }
+.totals-member-note {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a9ab5;
+}
 
 /* Phase totals (Design/Development/QA/PM) — labels and dollar amounts each
    form their own aligned column (grid, not inline-flex) so every $ figure
@@ -1570,9 +1587,12 @@ body { background: var(--page-bg); }
   flex-direction: column;
   gap: 4px;
   margin-bottom: 12px;
-  padding-left: 2px;
 }
-.totals-phase-line {
+/* Shared label/value column widths with .cost-line--internal below, so
+   "Phase Total Cost:" and "Internal Cost:" — and their dollar figures —
+   line up in the same two vertical stacks. */
+.totals-phase-line,
+.cost-line--internal {
   display: grid;
   grid-template-columns: 170px 1fr;
   align-items: baseline;

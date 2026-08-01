@@ -190,7 +190,7 @@ function subtotalPara(label, amount, opts = {}) {
   })
 }
 
-export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, phaseTotals, internalCost, clientPrice, marginPct = 50 }) {
+export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, memberWordCost, phaseTotals, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
   const dateObj = estimateDate ?? new Date()
   const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
@@ -434,6 +434,21 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         ],
       })
     }),
+    // Flat per-1000-words validator fees have no hours — shown as their own
+    // rows rather than folded into the hours-based rows above.
+    ...Object.entries(memberWordCost ?? {}).map(([name, cost], rowIdx) => {
+      const shade = (Object.keys(memberHours).length + rowIdx) % 2 !== 0
+        ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
+        : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
+      return new TableRow({
+        children: [
+          dataCell(name,                            { width: HOURS_COL_W[0], shading: shade }),
+          dataCell('—',    { align: AlignmentType.CENTER, width: HOURS_COL_W[1], shading: shade }),
+          dataCell('per 1000 words', { align: AlignmentType.CENTER, width: HOURS_COL_W[2], shading: shade }),
+          dataCell(fmtNum(cost),     { align: AlignmentType.RIGHT,  width: HOURS_COL_W[3], shading: shade }),
+        ],
+      })
+    }),
   ]
 
   children.push(
@@ -475,7 +490,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       }),
       new TableRow({
         children: [
-          dataCell('Reconciled total', { width: PHASE_COL_W[0], textProps: { bold: true } }),
+          dataCell('Phase Total Cost:', { width: PHASE_COL_W[0], textProps: { bold: true } }),
           dataCell('',                 { width: PHASE_COL_W[1] }),
           dataCell(fmtNum(reconciledTotal), { align: AlignmentType.RIGHT, width: PHASE_COL_W[2], textProps: { bold: true } }),
         ],
@@ -500,7 +515,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     }),
     new Paragraph({
       children: [
-        new TextRun({ text: 'Internal cost', size: 22, color: '64748B' }),
+        new TextRun({ text: 'Internal Cost:', size: 22, color: '64748B' }),
         new TextRun({ text: `\t${fmtNum(internalCost)}`, bold: true, size: 22 }),
       ],
       spacing: { after: 80 },

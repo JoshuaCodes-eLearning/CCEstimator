@@ -5,6 +5,7 @@ const PHASE_ORDER = ['design', 'development', 'qa', 'pm']
 
 export default function TotalsBar({
   memberHours,
+  memberWordCost,
   categoryCosts,
   phaseTotals,
   selectedKeys,
@@ -32,6 +33,13 @@ export default function TotalsBar({
                 {member} <strong>{parseFloat(hours.toFixed(1))}h</strong>
               </span>
             ))}
+            {/* Flat per-1000-words validator fee — no hours, so it's shown as
+                its own cost-based pill rather than folded into the "h" pills above. */}
+            {memberWordCost && Object.entries(memberWordCost).map(([member, cost]) => (
+              <span key={`${member}-words`} className="totals-member totals-member--words">
+                {member} <strong>{fmt(cost)}</strong> <span className="totals-member-note">(words)</span>
+              </span>
+            ))}
           </div>
 
           {/* ── Phase totals (Design / Development / QA / PM) ──────── */}
@@ -47,7 +55,7 @@ export default function TotalsBar({
                 </div>
               ))}
               <div className="totals-phase-line totals-phase-reconciled">
-                <span className="totals-phase-name">Reconciled total:</span>
+                <span className="totals-phase-name">Phase Total Cost:</span>
                 <span className="totals-phase-cost">
                   {fmt(PHASE_ORDER.reduce((s, p) => s + phaseTotals[p].cost, 0))}
                 </span>
@@ -68,8 +76,8 @@ export default function TotalsBar({
           )}
 
           {/* ── Internal cost ────────────────────────── */}
-          <div className="cost-line">
-            <span className="cost-line-label">Internal cost</span>
+          <div className="cost-line cost-line--internal">
+            <span className="cost-line-label">Internal Cost:</span>
             <span className="cost-line-value">{fmt(internalCost)}</span>
           </div>
 

@@ -157,19 +157,44 @@ config.js. A new **Phase Totals** section sits below "Hours per team member"
 in TotalsBar (and mirrored in the Word export/preview): one line per phase
 (`{Phase} ({hours}h): {cost}`, colon right after the label, dollar amounts
 stacked in their own aligned column via CSS grid — not just inline text) plus
-a bold "Reconciled total" line that must equal `internalCost`.
+a bold **"Phase Total Cost:"** line (renamed from "Reconciled total" — same
+value, still must equal `internalCost`) that shares its label/value grid
+column widths (`170px 1fr`) with the **"Internal Cost:"** line right below it
+(`.cost-line--internal` in index.css) so the two labels start flush at the
+same x and their two dollar figures land in the same vertical stack. Both
+labels now end in a colon for consistency.
 
 - `computePhaseTotals(selectedKeys, catStates)` in calc.js is the single
   source of truth — sums every checked task's cost/hours per phase, using
   the exact same `lineCost`/`computeAssigneeHoursForTask` primitives as
   `internalCost`, so the two numbers always reconcile.
-- Tasks missing a `phase` (old saved estimates, or a user's own "+ Add
-  subtask" row) fall back to `'development'` — matches the meeting's own
-  stated rule ("everything else is development, except Sales Meetings, which
-  is project management" — Sales/SOW tasks already carry an explicit
-  `phase: 'pm'` so the fallback never touches them).
+- Tasks missing a `phase` (a user's own "+ Add subtask" row — see
+  `backfillPhase()` below for saved estimates predating the field) fall back
+  to `'development'` — matches the meeting's own stated rule ("everything
+  else is development, except Sales Meetings, which is project management" —
+  Sales/SOW tasks already carry an explicit `phase: 'pm'` so the fallback
+  never touches them).
 - ADA's 10% still only applies within a category's own multiplier — phase
   bucketing doesn't change *what* gets ADA'd, just re-buckets the same costs.
+- **`backfillPhase()` in App.jsx (added 2026-08):** estimates saved before
+  the `phase` field existed have no `phase` on any task, so without this
+  they'd hit the `'development'` fallback above for *every* task — dumping
+  100% of the estimate's cost into one bucket instead of a real Design/
+  Development/QA/PM split. Runs in `handleLoadEstimate()` alongside
+  `backfillWellsaid()`/`backfillLocalization()`. For each task missing a
+  `phase`, it looks up that task's id in the current `DEFAULT_TASKS`/
+  `DEFAULT_SECOND_STATE_TASKS`/`LOCALIZATION_TASKS` — most pre-restructure
+  ids are unchanged (only renamed: QA 1/2, Image Procurement, Prototype,
+  etc.), so this recovers the correct phase directly. Nine ids were retired
+  entirely in the 2026-08 restructure (`mv-8`/`mv-4`/`mv-11` and their `r-`/
+  `s-` equivalents — the old Lessons Learned / Internal Meetings / Project
+  Coordination rows, folded into the new Project Monitoring task) and no
+  longer exist anywhere to look up; `LEGACY_PM_TASK_IDS` hardcodes those nine
+  straight to `'pm'`, since that's always what they were. Anything still
+  unmatched (a genuinely custom user-added row) is left untagged and still
+  hits the `'development'` fallback above, unchanged. Self-heals permanently
+  the next time that estimate is Saved/Overwritten, same as the Company/
+  Course name load bug fix.
 
 ---
 
@@ -274,6 +299,20 @@ land at the *end* of the merged list, past the 2-row collapse cutoff.
   also real hourly people in `RATES`. **French's hourly rate was
   inconsistent across the three source category docs ($55 vs $50) — resolved
   to $55/hr everywhere**, confirmed explicitly, not a guess.
+- **Word-cost display in "Hours per team member" (added 2026-08):** Rise's
+  Validate and Storyline's Validation #1 are `validatorWords: true` tasks —
+  a flat per-1000-words fee with no assignee hours for QA Spanish/QA French,
+  so that real cost previously never surfaced anywhere per-member (it was
+  only folded into the category total). App.jsx now tracks a separate
+  `memberWordCost` accumulator (`{ 'QA Spanish': 0, 'QA French': 0 }`),
+  summed alongside `mod1BaseSum`/`totalCost` in the same loop (never
+  double-counted — it's the same `validatorWordsCost(task, cat)` call, just
+  also attributed to whichever name `cat.validatorLanguage` resolves to),
+  filtered to active-only (`> 0`) the same way `activeMembers` is, and
+  rendered as its own cost-based pill (`(words)` suffix, not an "h" suffix)
+  in TotalsBar, ExportPreview, and the Word export's Combined Hours table —
+  threaded through as a `memberWordCost` prop everywhere `memberHours`
+  already flows.
 - **Validator seat UI**: renders as a locked-looking name pill
   (`.validator-seat-name`) — not an editable person dropdown — since the
   validator isn't manually picked like a normal assignee, it's decided by
