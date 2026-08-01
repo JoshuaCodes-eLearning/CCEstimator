@@ -155,9 +155,13 @@ config.js. **Visual grouping, not a per-task badge (reworked 2026-08):**
 Laurie's feedback was that a color-coded pill on every single row was too
 cluttered. The per-task badge is gone — instead the task list itself is
 reordered into one Design block, then Development, then QA, then Project
-Management, each with a single big color-coded section-header label
+Management, each with a single pill-shaped section-header label
 (`.phase-section-header` in index.css, still keyed off `PHASE_LABELS` in
-config.js) spanning the full row width above that group's first task. Ordering
+config.js) sized to its own text and left-aligned above that group's first
+task — not a full-width bar, and (2026-08, per Laurie's feedback that
+separate per-phase colors read as noisy) not color-coded per phase either;
+every section header (including the trailing Localization one) shares the
+same dark navy now. Ordering
 is a **stable sort** — relative order within a phase is unchanged, so existing
 indent/nesting pairs (Storyboard → Asset Procurement, Project Management →
 Project Monitoring → Communications) stay adjacent and correctly nested.

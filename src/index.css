@@ -809,9 +809,11 @@ body { background: var(--page-bg); }
    instead of a badge on every row; Localization renders as its own trailing
    group when applied. Sized to its own text (a "tag"), not a full-width bar
    — it sits top-left of the group it labels, spanning only that group's
-   tasks, not the whole row width. Color-coded to match the phases' former
-   badge colors, sized up for prominence now that it's a section label
-   rather than a per-row marker. */
+   tasks, not the whole row width. All phases share the same dark navy —
+   Laurie's feedback was that separate per-phase colors (blue/purple/amber/
+   green) read as noisy; the phase-section-header--{key} modifier classes
+   are still applied per group (design/development/qa/pm/localization) for
+   any future styling hook, they just no longer vary color. */
 .phase-section:not(:first-child) {
   margin-top: 12px;
 }
@@ -822,20 +824,11 @@ body { background: var(--page-bg); }
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: #fff;
+  background: var(--navy);
   padding: 6px 18px;
   margin: 0 0 6px 24px;
   border-radius: 999px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.18);
-}
-.phase-section-header--design      { background: #3B82F6; }
-.phase-section-header--development { background: #8B5CF6; }
-.phase-section-header--qa          { background: #F59E0B; }
-.phase-section-header--pm          { background: #10B981; }
-.phase-section-header--localization {
-  background: transparent;
-  color: var(--blue);
-  border: 2px solid var(--blue);
-  box-shadow: none;
 }
 
 /* Name box — auto-growing textarea so long task descriptions are never clipped */
