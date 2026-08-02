@@ -258,18 +258,94 @@ just the category the meeting specifically discussed — see reasoning below.
 - **WellSaid rate bumped** $100/mo → **$1,000/mo** (the `months × flatCost`
   mechanism itself was already built, this was purely a config rate change).
 - **PLACEHOLDER hours** — Project Management and Project Monitoring's final
-  hour totals in every category are provisional (flagged in code comments in
-  `DEFAULT_TASKS`), built from the most-defensible facts the meeting
-  recording actually confirmed (existing PM hours + the confirmed Megan
-  Coordination-hours transfer), **not** the recording's own disowned
-  "interim consolidation" numbers. Confirm final totals with Laurie before
-  treating as settled.
+  hour totals in every category were originally provisional (flagged in code
+  comments in `DEFAULT_TASKS`), built from the most-defensible facts the
+  meeting recording actually confirmed (existing PM hours + the confirmed
+  Megan Coordination-hours transfer), **not** the recording's own disowned
+  "interim consolidation" numbers. **Superseded 2026-08** — see "Project
+  Management/Monitoring/Communications hours split" below: those numbers
+  turned out to be the Localization-only figures, not the general default.
 - `indent` is now **numeric** (`1` or `2`, not a boolean) — see
   `.subtask-row--indented`/`.subtask-row--indented-2` in index.css.
   Communications is `indent: 1` (reduced from `2` in the same 2026-08 pass
   that reworked phase display, see the Phase Buckets section above), so it's
   no longer nested two levels deep; the `indent: 2` mechanism itself is still
   live in case a future task needs it.
+
+---
+
+## Project Management/Monitoring/Communications hours split (live, added 2026-08)
+
+Rise 360 and Storyline 360 only — Microvideo untouched (its PM/Monitoring
+hours were never part of this and remain the original placeholder). The
+2026-08-confirmed hours in the task restructure section above (Project
+Management: Laurie 2/Megan 2/Michelle 1, Project Monitoring: Megan 4/Michelle
+1, Communications: Michelle 2) turned out to be a disconnect — they were
+actually the **Localization-only** figures, not the general default. Two
+separate hour sets now exist for these three tasks:
+
+- **New default** (`r-12`/`r-monitoring`/`r-comms` and
+  `s-12`/`s-monitoring`/`s-comms` in `DEFAULT_TASKS`) — Project Management:
+  Laurie 6 / Megan 5 / Michelle 1, Project Monitoring: Megan 15 / Michelle 3,
+  Communications: Michelle 2 (unchanged). Used whenever a category is **not**
+  in Localization + Existing Course mode — i.e. no Localization at all, or
+  Localization + New Course. Second-state (modules 2-N) keeps the same -0.5h
+  Megan/Monitoring delta as before, just rescaled to the new baseline (15h →
+  14.5h).
+- **Old/Localization hours** (`LOCALIZATION_PM_CORE_TASKS` in config.js, a new
+  block — `r-loc-pm`/`r-loc-monitoring`/`r-loc-comms` and
+  `s-loc-pm`/`s-loc-monitoring`/`s-loc-comms`) — the original 2026-08 numbers,
+  unchanged. Used two different ways depending on Localization mode:
+  - **Existing Course**: these tasks *replace* the normal PM/Monitoring/Comms
+    rows entirely — same "Project Management" phase section as always (not
+    tagged `isLocalization`), just these hours instead of the new default.
+    Multi-module (modules 2-N) still repeats this cost per additional module,
+    same mechanism as today, via `LOCALIZATION_PM_CORE_SECOND_STATE_TASKS`
+    (same -0.5h Megan/Monitoring delta, unchanged baseline: 4h → 3.5h).
+  - **New Course**: the normal list is untouched (full task list, new default
+    hours). These three additionally appear as their own rows at the very
+    top of the Localization section (tagged `isLocalization`, so they render/
+    cost as a pass-through — never scaled by module count, never ADA'd, same
+    treatment as every other Localization task). Confirmed with Laurie:
+    counted **once per project**, not per module — consistent with how every
+    other Localization task already works, so multi-module New Course
+    estimates don't duplicate this cost per additional module.
+- **New state**: `cat.localizationPmCore` in App.jsx's `initCat()` — `{ tasks,
+  secondStateTasks }` for Rise/Storyline, `null` for Microvideo (anything
+  without an entry in `LOCALIZATION_PM_CORE_TASKS`). Own update handlers
+  (`updateLocalizationPmCoreTask`/`updateLocalizationPmCoreSecondStateTask` in
+  App.jsx) since these tasks live in neither `cat.tasks` nor
+  `cat.localization.tasks` — routed via a `pmCoreLocalization: true` tag
+  checked ahead of `isLocalization` in CategoryBlock.jsx's dispatch (a task
+  can carry both flags at once in New Course mode: `pmCoreLocalization` picks
+  the handler, `isLocalization` picks the visual section/ADA exemption).
+  `backfillLocalizationPmCore()` in App.jsx (same narrow, per-category
+  pattern as `backfillWellsaid()`/`backfillLocalization()`) fills in the
+  default for estimates saved before this split existed.
+- **calc.js**: `localizationSectionTasks(cat)` is the new single source of
+  truth for "what renders/counts under the Localization section" — the
+  translate/validate tasks always, plus (New Course mode only)
+  `cat.localizationPmCore.tasks`. Used by `localizationCostForCategory()`,
+  `visibleNormalTasks()`'s locTasks, and both export paths
+  (`ExportPreview.jsx`'s `renderLocalizationRows()`, `exportDocx.js`'s
+  Localization block) — previously all three read `cat.localization.tasks`
+  directly, which would have missed the new PM-core rows in New Course mode.
+  `visibleNormalTasks()`/`visibleSecondStateTasks()` fall back to the old
+  `projectManagementCore`-filter behavior when `cat.localizationPmCore` is
+  null (Microvideo), so Microvideo's Existing Course behavior is unchanged.
+- **Incidental bug fix (found and fixed while verifying this change,
+  unrelated to the hours split itself)**: `computePhaseTotals()`'s
+  `addHourTask()` looped every task's assignees through
+  `computeAssigneeHoursForTask()`, which has no `PerUnit` branch (only
+  Fixed/scales-by-minutes) — so Storyline's "Clone the course" PerUnit task
+  (quantity defaults to 6 slides) was silently undercounted in the Phase
+  Totals display/export by its full cost whenever Storyline Localization was
+  on, even though the real Internal Cost stayed correct. Fixed by giving
+  PerUnit tasks the same `computeHours()`/single-assignee treatment
+  `lineCost()` already used. Verified via a direct calc.js script (bypassing
+  the Supabase-auth-gated UI, which this session had no login for) that Phase
+  Totals now reconcile to `categorySubtotal()` in both Existing and New
+  Course modes, both categories.
 
 ---
 
@@ -466,7 +542,10 @@ src/
                           (added 2026-07), visibleNormalTasks()/
                           visibleSecondStateTasks() (Existing-Course filter +
                           localization merge), validatorWordsCost(),
-                          localizationCostForCategory() (added 2026-08),
+                          localizationCostForCategory(), localizationSectionTasks()
+                          (added 2026-08 — single source of truth for what
+                          renders/counts under the Localization section, see
+                          PM/Monitoring/Comms hours split section),
                           orderTasksByPhase()/sectionizeTasks()/effectivePhase()
                           (visual phase grouping, added 2026-08 — see Phase
                           Buckets section)
@@ -1021,13 +1100,18 @@ as part of the meeting-recording task restructure. See that section above.
 2. **HLD §6.7 worked example discrepancy** — numbers predate current task list.
    Not a blocker; Laurie to verify totals with real usage.
 3. **Project Management / Project Monitoring final hours** — CONFIRMED
-   2026-08 for Rise 360 and Storyline 360 (Project Management: Laurie 2 /
-   Megan 2 / Michelle 1; Project Monitoring: Megan 4 / Michelle 1;
-   Communications: Michelle 2 — both categories). **Microvideo remains an
-   open placeholder** — it wasn't part of that confirmation and still
-   mechanically carries forward its prior Internal Meetings / Project
-   Coordination / Lessons Learned hours. Flagged in `DEFAULT_TASKS` comments
-   in config.js. See the 2026-08 task restructure section above.
+   2026-08, then **corrected 2026-08** for Rise 360 and Storyline 360: the
+   original confirmation (Project Management: Laurie 2/Megan 2/Michelle 1,
+   Project Monitoring: Megan 4/Michelle 1, Communications: Michelle 2) turned
+   out to be a disconnect — those are the Localization-only figures. The real
+   default is now Project Management: Laurie 6/Megan 5/Michelle 1, Project
+   Monitoring: Megan 15/Michelle 3, Communications: Michelle 2 (unchanged).
+   See the "Project Management/Monitoring/Communications hours split" section
+   above for the full mechanism. **Microvideo remains an open placeholder** —
+   it wasn't part of either confirmation and still mechanically carries
+   forward its prior Internal Meetings / Project Coordination / Lessons
+   Learned hours. Flagged in `DEFAULT_TASKS` comments in config.js. See the
+   2026-08 task restructure section above.
 4. **Microvideo localization tasks #1–3 assignee** and **Microvideo
    Validate's validator hours** — both assumed/placeholder (source doc left
    these unstated). Flagged in `LOCALIZATION_TASKS` comments in config.js.

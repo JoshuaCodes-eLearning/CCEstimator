@@ -99,6 +99,19 @@ export const PHASE_COLORS = {
 // Lessons Learned → Monitoring), Michelle dropped entirely per the "remove
 // Michelle from the PM/Monitoring structure" rule that predated the 2026-08
 // confirmation. Flag with Laurie before treating Microvideo's numbers as final.
+//
+// 2026-08 UPDATE — these three tasks now carry TWO separate hour sets for
+// Rise 360 and Storyline 360 (Microvideo untouched — still the numbers above).
+// The 2026-08-confirmed numbers above turned out to be the LOCALIZATION-only
+// figures; a corrected, higher set of hours is the real default everywhere
+// else. r-12/r-monitoring/r-comms and s-12/s-monitoring/s-comms below now hold
+// the new default: Project Management = Laurie 6 / Megan 5 / Michelle 1,
+// Project Monitoring = Megan 15 / Michelle 3, Communications = Michelle 2
+// (unchanged). This default applies whenever a category is NOT in
+// Localization + Existing Course mode — i.e. no Localization at all, or
+// Localization + New Course. The original (smaller) numbers documented above
+// still exist, unchanged, as LOCALIZATION_PM_CORE_TASKS further down this
+// file — see that block's comment for how the two sets are actually used.
 // ============================================================
 
 export const DEFAULT_TASKS = {
@@ -240,20 +253,21 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // CONFIRMED 2026-08 (no longer a placeholder).
+      // New default hours (2026-08) — see the header comment above. Used
+      // whenever this category is NOT in Localization + Existing Course mode.
       id: 'r-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie',   hours: 2 },
-        { person: 'Megan',    hours: 2 },
+        { person: 'Laurie',   hours: 6 },
+        { person: 'Megan',    hours: 5 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // CONFIRMED 2026-08 (no longer a placeholder).
+      // New default hours (2026-08) — see the header comment above.
       id: 'r-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
-        { person: 'Megan',    hours: 4 },
-        { person: 'Michelle', hours: 1 },
+        { person: 'Megan',    hours: 15 },
+        { person: 'Michelle', hours: 3 },
       ],
     },
     {
@@ -336,20 +350,21 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // CONFIRMED 2026-08 (no longer a placeholder).
+      // New default hours (2026-08) — see the header comment above. Used
+      // whenever this category is NOT in Localization + Existing Course mode.
       id: 's-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie',   hours: 2 },
-        { person: 'Megan',    hours: 2 },
+        { person: 'Laurie',   hours: 6 },
+        { person: 'Megan',    hours: 5 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // CONFIRMED 2026-08 (no longer a placeholder).
+      // New default hours (2026-08) — see the header comment above.
       id: 's-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
-        { person: 'Megan',    hours: 4 },
-        { person: 'Michelle', hours: 1 },
+        { person: 'Megan',    hours: 15 },
+        { person: 'Michelle', hours: 3 },
       ],
     },
     {
@@ -406,25 +421,27 @@ function makeSecondState(tasks, { removedIds = [], modifyHours = {} } = {}) {
 
 // Second-state templates (Modules 2–N for Rise/Storyline; Additional Video Template for Microvideo).
 // Rise & Storyline: remove Modify Templates (rise only); Discovery → 1 h;
-// Project Monitoring's Megan hours reduced by the same -0.5h delta (4h → 3.5h)
-// since its one-time Lessons Learned component shouldn't repeat per additional
-// module. Michelle's 1h on Project Monitoring is unrelated to that one-time
-// component, so it carries over unreduced. Laurie carries no Monitoring hours
-// (moved to Project Management — see the task definitions above), so there's
-// nothing of hers to reduce here.
+// Project Monitoring's Megan hours reduced by the same -0.5h delta (now 15h →
+// 14.5h, rescaled 2026-08 alongside the new default PM/Monitoring/Comms hours
+// above — the delta itself is unchanged) since its one-time Lessons Learned
+// component shouldn't repeat per additional module. Michelle's hours on
+// Project Monitoring are unrelated to that one-time component, so they carry
+// over unreduced. Laurie carries no Monitoring hours (moved to Project
+// Management — see the task definitions above), so there's nothing of hers to
+// reduce here.
 export const DEFAULT_SECOND_STATE_TASKS = {
   microvideo: makeSecondState(DEFAULT_TASKS.microvideo),
   rise360: makeSecondState(DEFAULT_TASKS.rise360, {
     removedIds: ['r-7'],
     modifyHours: {
       'r-2':          { Michelle: 1 },
-      'r-monitoring': { Megan: 3.5 },
+      'r-monitoring': { Megan: 14.5 },
     },
   }),
   storyline360: makeSecondState(DEFAULT_TASKS.storyline360, {
     modifyHours: {
       's-2':          { Michelle: 1 },
-      's-monitoring': { Megan: 3.5 },
+      's-monitoring': { Megan: 14.5 },
     },
   }),
 }
@@ -553,4 +570,98 @@ export const LOCALIZATION_TASKS = {
       assignees: [{ person: 'Megan', hours: 0.25 }],
     },
   ],
+}
+
+// ============================================================
+// LOCALIZATION PM-CORE TASKS (added 2026-08)
+// Rise 360 and Storyline 360 only — Microvideo's PM/Monitoring/Comms hours
+// were never part of the 2026-08 hours split (still one set, in DEFAULT_TASKS
+// above). The original 2026-08-confirmed Project Management / Project
+// Monitoring / Communications hours (Laurie 2/Megan 2/Michelle 1, Megan
+// 4/Michelle 1, Michelle 2) turned out to be Localization-specific, not the
+// general default — DEFAULT_TASKS' r-12/r-monitoring/r-comms and
+// s-12/s-monitoring/s-comms now hold the real (higher) default instead. This
+// block holds that original, smaller hour set, used two different ways
+// depending on a category's Localization mode (see visibleNormalTasks() /
+// localizationSectionTasks() in calc.js, which implement both):
+//   - Existing Course: these tasks REPLACE the normal PM/Monitoring/Comms rows
+//     entirely (Existing Course already narrows the visible list to just the
+//     PM-core tasks) — same "Project Management" phase section as always,
+//     just these hours instead of the new default.
+//   - New Course: the normal list is untouched (full task list, new default
+//     hours) — these three additionally appear as their own rows at the very
+//     top of the Localization section, tagged isLocalization so they render/
+//     cost as a pass-through (never scaled by module count, never ADA'd),
+//     same treatment as every other Localization task.
+// pmCoreLocalization: true marks these for the update-dispatch routing in
+// CategoryBlock.jsx (a third case alongside the plain-task and
+// localization-task handlers already there) — needed because these tasks
+// don't live in cat.tasks or cat.localization.tasks, but in their own
+// cat.localizationPmCore sub-state (see App.jsx initCat), so edits must be
+// routed to their own update handler regardless of which visual role
+// (normal-section replacement vs. Localization-section extra row) they're
+// currently playing.
+// ============================================================
+
+export const LOCALIZATION_PM_CORE_TASKS = {
+  rise360: [
+    {
+      id: 'r-loc-pm', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
+      assignees: [
+        { person: 'Laurie',   hours: 2 },
+        { person: 'Megan',    hours: 2 },
+        { person: 'Michelle', hours: 1 },
+      ],
+    },
+    {
+      id: 'r-loc-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      assignees: [
+        { person: 'Megan',    hours: 4 },
+        { person: 'Michelle', hours: 1 },
+      ],
+    },
+    {
+      id: 'r-loc-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      assignees: [
+        { person: 'Michelle', hours: 2 },
+      ],
+    },
+  ],
+  storyline360: [
+    {
+      id: 's-loc-pm', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
+      assignees: [
+        { person: 'Laurie',   hours: 2 },
+        { person: 'Megan',    hours: 2 },
+        { person: 'Michelle', hours: 1 },
+      ],
+    },
+    {
+      id: 's-loc-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      assignees: [
+        { person: 'Megan',    hours: 4 },
+        { person: 'Michelle', hours: 1 },
+      ],
+    },
+    {
+      id: 's-loc-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      assignees: [
+        { person: 'Michelle', hours: 2 },
+      ],
+    },
+  ],
+}
+
+// Second-state (modules 2-N) variant of the above, for Existing Course mode's
+// multi-module estimates — same -0.5h Megan/Monitoring delta as
+// DEFAULT_SECOND_STATE_TASKS, applied to this smaller baseline (4h → 3.5h,
+// unchanged from before the 2026-08 default-hours split, since this baseline
+// itself didn't change).
+export const LOCALIZATION_PM_CORE_SECOND_STATE_TASKS = {
+  rise360: makeSecondState(LOCALIZATION_PM_CORE_TASKS.rise360, {
+    modifyHours: { 'r-loc-monitoring': { Megan: 3.5 } },
+  }),
+  storyline360: makeSecondState(LOCALIZATION_PM_CORE_TASKS.storyline360, {
+    modifyHours: { 's-loc-monitoring': { Megan: 3.5 } },
+  }),
 }

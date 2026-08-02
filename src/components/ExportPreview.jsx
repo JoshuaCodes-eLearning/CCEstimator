@@ -1,5 +1,5 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, validatorWordsCost, computePhaseTotals } from '../utils/calc'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost, computePhaseTotals } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS, PHASE_LABELS } from '../config/config'
 import AppHeader from './AppHeader'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -151,7 +151,7 @@ export default function ExportPreview({
             // as renderTaskRows), plus PerUnit (quantity × unit) and
             // validatorWords (word-count flat fee) branches.
             function renderLocalizationRows() {
-              const locTasks = (cat.localization?.tasks ?? []).filter(t => t.included)
+              const locTasks = localizationSectionTasks(cat).filter(t => t.included)
               if (locTasks.length === 0) {
                 return <tr className="doc-table-muted"><td colSpan={4}>No localization tasks selected</td></tr>
               }

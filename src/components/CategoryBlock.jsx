@@ -40,7 +40,8 @@ export default function CategoryBlock({
   onUpdateSecondState, onUpdateSecondStateTask, onAddSecondStateTask,
   onRemoveSecondStateTask, onUndoSecondStateRemove, canUndoSecond,
   onAddVideo, onRemoveVideo, onUpdateVideoMinutes,
-  onUpdateLocalizationTask, onLocalizationLanguageChange,
+  onUpdateLocalizationTask, onUpdateLocalizationPmCoreTask, onUpdateLocalizationPmCoreSecondStateTask,
+  onLocalizationLanguageChange,
 }) {
   const isMicrovideo = catKey === 'microvideo'
   const { collapsed, additionalMinutes, adaEnabled, moduleCount = 1, secondState, additionalVideos = [],
@@ -317,14 +318,20 @@ export default function CategoryBlock({
 
         {/* Task rows — localization tasks are folded in here too (tagged
             isLocalization), routed to the localization update handler
-            instead of the normal one */}
+            instead of the normal one. pmCoreLocalization tasks (old-hours
+            PM/Monitoring/Comms — see LOCALIZATION_PM_CORE_TASKS in config.js)
+            get their own handler regardless of whether they're also tagged
+            isLocalization, since they live in cat.localizationPmCore, not
+            cat.tasks or cat.localization.tasks. */}
         {taskSections.map(section => (
           <div key={section.key} className="phase-section">
             <div className={`phase-section-header phase-section-header--${section.key}`}>
               {SECTION_LABELS[section.key]}
             </div>
             {section.tasks.map(task => {
-              const update = task.isLocalization ? onUpdateLocalizationTask : onUpdateTask
+              const update = task.pmCoreLocalization ? onUpdateLocalizationPmCoreTask
+                : task.isLocalization ? onUpdateLocalizationTask
+                : onUpdateTask
               return (
                 <SubtaskRow key={task.id} task={task} catKey={catKey} addedMin={additionalMinutes}
                   validatorLanguage={validatorLanguage}
@@ -552,15 +559,18 @@ export default function CategoryBlock({
                 <div className={`phase-section-header phase-section-header--${section.key}`}>
                   {SECTION_LABELS[section.key]}
                 </div>
-                {section.tasks.map(task => (
-                  <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={additionalMinutes}
-                    onToggle={()                  => onUpdateSecondStateTask(task.id, { included: !task.included })}
-                    onNameChange={v               => onUpdateSecondStateTask(task.id, { name: v })}
-                    onUpdateAssignees={assignees  => onUpdateSecondStateTask(task.id, { assignees })}
-                    onTypeChange={v               => onUpdateSecondStateTask(task.id, { type: v })}
-                    onMonthsChange={v             => onUpdateSecondStateTask(task.id, { months: v })}
-                  />
-                ))}
+                {section.tasks.map(task => {
+                  const update2 = task.pmCoreLocalization ? onUpdateLocalizationPmCoreSecondStateTask : onUpdateSecondStateTask
+                  return (
+                    <SubtaskRow key={`s2-${task.id}`} task={task} catKey={catKey} addedMin={additionalMinutes}
+                      onToggle={()                  => update2(task.id, { included: !task.included })}
+                      onNameChange={v               => update2(task.id, { name: v })}
+                      onUpdateAssignees={assignees  => update2(task.id, { assignees })}
+                      onTypeChange={v               => update2(task.id, { type: v })}
+                      onMonthsChange={v             => update2(task.id, { months: v })}
+                    />
+                  )
+                })}
               </div>
             ))}
 

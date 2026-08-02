@@ -9,7 +9,7 @@ import LoginScreen         from './components/LoginScreen'
 import ResetPasswordScreen from './components/ResetPasswordScreen'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import AppHeader           from './components/AppHeader'
-import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, LOCALIZATION_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
+import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, LOCALIZATION_TASKS, LOCALIZATION_PM_CORE_TASKS, LOCALIZATION_PM_CORE_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
 import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, computePhaseTotals } from './utils/calc'
 import { supabase } from './lib/supabase'
 import { buildEstimateRow, estimateDisplayName } from './utils/estimatePayload'
@@ -59,6 +59,22 @@ function initCat(key) {
         assignees: initAssignees(t.assignees),
       })),
     },
+    // Old (localization) hours for Project Management/Monitoring/Comms —
+    // Rise 360 and Storyline 360 only (added 2026-08). Null for Microvideo
+    // (and anything else without an entry in LOCALIZATION_PM_CORE_TASKS),
+    // which visibleNormalTasks()/visibleSecondStateTasks() in calc.js treat
+    // as "no override, use the legacy projectManagementCore filter instead".
+    localizationPmCore: LOCALIZATION_PM_CORE_TASKS[key]?.length ? {
+      tasks: LOCALIZATION_PM_CORE_TASKS[key].map(t => ({
+        ...t,
+        included:  true,
+        assignees: initAssignees(t.assignees),
+      })),
+      secondStateTasks: LOCALIZATION_PM_CORE_SECOND_STATE_TASKS[key].map(t => ({
+        ...t,
+        assignees: initAssignees(t.assignees),
+      })),
+    } : null,
   }
 }
 
@@ -113,6 +129,35 @@ function backfillLocalization(nextCatStates) {
           assignees: initAssignees(t.assignees),
         })),
       },
+    }
+  }
+  return result
+}
+
+// Old saved estimates predate the Localization PM-core hours split (2026-08)
+// entirely — add the old-hours Project Management/Monitoring/Comms sub-state
+// back in so Existing Course mode (and New Course's extra Localization-section
+// rows) render with the right numbers after reopening. Same narrow,
+// per-category pattern as backfillLocalization(); null for Microvideo, same
+// as a freshly-initCat'd category.
+function backfillLocalizationPmCore(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of CAT_KEYS) {
+    const cat = result[key]
+    if (!cat || cat.localizationPmCore !== undefined) continue
+    result[key] = {
+      ...cat,
+      localizationPmCore: LOCALIZATION_PM_CORE_TASKS[key]?.length ? {
+        tasks: LOCALIZATION_PM_CORE_TASKS[key].map(t => ({
+          ...t,
+          included:  true,
+          assignees: initAssignees(t.assignees),
+        })),
+        secondStateTasks: LOCALIZATION_PM_CORE_SECOND_STATE_TASKS[key].map(t => ({
+          ...t,
+          assignees: initAssignees(t.assignees),
+        })),
+      } : null,
     }
   }
   return result
@@ -461,6 +506,38 @@ export default function App() {
     }))
   }
 
+  // Old-hours PM/Monitoring/Comms tasks (Rise/Storyline only, see
+  // LOCALIZATION_PM_CORE_TASKS in config.js) live in their own sub-state
+  // rather than cat.tasks/cat.localization.tasks — they need their own
+  // update handlers so edits land in the right array regardless of which
+  // visual role (Existing Course replacement vs. New Course's extra
+  // Localization-section rows) they're currently playing.
+  function updateLocalizationPmCoreTask(catKey, taskId, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        localizationPmCore: {
+          ...prev[catKey].localizationPmCore,
+          tasks: prev[catKey].localizationPmCore.tasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+        },
+      },
+    }))
+  }
+
+  function updateLocalizationPmCoreSecondStateTask(catKey, taskId, patch) {
+    setCatStates(prev => ({
+      ...prev,
+      [catKey]: {
+        ...prev[catKey],
+        localizationPmCore: {
+          ...prev[catKey].localizationPmCore,
+          secondStateTasks: prev[catKey].localizationPmCore.secondStateTasks.map(t => t.id === taskId ? { ...t, ...patch } : t),
+        },
+      },
+    }))
+  }
+
   function setLocalizationLanguage(catKey, language) {
     setCatStates(prev => {
       const cat = prev[catKey]
@@ -771,7 +848,7 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = backfillPhase(backfillLocalizationMode(backfillLocalization(backfillWellsaid(state.catStates ?? catStates))))
+    const nextCatStates = backfillPhase(backfillLocalizationMode(backfillLocalizationPmCore(backfillLocalization(backfillWellsaid(state.catStates ?? catStates)))))
     const nextSelected  = state.selected ?? selected
     // Company/Course/Client come from the top-level columns, not state_json —
     // inline rename in View Estimates only ever updates those columns, so
@@ -1038,6 +1115,8 @@ export default function App() {
                 onRemoveVideo={videoId                      => removeVideo(key, videoId)}
                 onUpdateVideoMinutes={(videoId, mins)       => updateVideoMinutes(key, videoId, mins)}
                 onUpdateLocalizationTask={(id, patch)        => updateLocalizationTask(key, id, patch)}
+                onUpdateLocalizationPmCoreTask={(id, patch)  => updateLocalizationPmCoreTask(key, id, patch)}
+                onUpdateLocalizationPmCoreSecondStateTask={(id, patch) => updateLocalizationPmCoreSecondStateTask(key, id, patch)}
                 onLocalizationLanguageChange={lang          => setLocalizationLanguage(key, lang)}
               />
             ) : null

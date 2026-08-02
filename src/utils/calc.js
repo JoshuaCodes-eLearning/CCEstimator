@@ -57,6 +57,19 @@ export function validatorWordsCost(task, cat) {
   return (words / 1000) * (VALIDATOR_WORD_RATES[lang] ?? 0)
 }
 
+// Tasks that render/count under the trailing "Localization" section — the
+// translate/validate steps (cat.localization.tasks) always, plus, for New
+// Course mode on Rise 360/Storyline 360 only, the old-hours Project
+// Management/Monitoring/Communications tasks from cat.localizationPmCore
+// (see LOCALIZATION_PM_CORE_TASKS in config.js). Existing Course mode's
+// PM-core tasks render in the normal Project Management phase section
+// instead (see visibleNormalTasks below), so they're deliberately excluded
+// here — including them in both places would double-count their cost.
+export function localizationSectionTasks(cat) {
+  const pmCore = (cat.localizationMode === 'new' && cat.localizationPmCore?.tasks) || []
+  return [...pmCore, ...(cat.localization?.tasks ?? [])]
+}
+
 // Localization tasks are counted once per category regardless of module or
 // additional-video count (same "flat, not scaled" treatment as WellSaid) —
 // catKey/addedMin are irrelevant here since localization tasks are always
@@ -71,7 +84,7 @@ export function localizationCostForCategory(cat) {
   if (!cat?.localizationEnabled || !cat.localizationMode) return { hours: 0, cost: 0 }
   let hours = 0
   let cost  = 0
-  for (const task of cat.localization?.tasks ?? []) {
+  for (const task of localizationSectionTasks(cat)) {
     if (!task.included) continue
     hours += computeHours(task, null, 0)
     cost  += lineCost(task, null, 0) + validatorWordsCost(task, cat)
@@ -99,16 +112,22 @@ export function localizationCostForCategory(cat) {
 // computePhaseTotals/App.jsx).
 export function visibleNormalTasks(cat) {
   if (!cat.localizationEnabled || !cat.localizationMode) return cat.tasks
-  const base = cat.localizationMode === 'existing'
-    ? cat.tasks.filter(t => t.projectManagementCore)
-    : cat.tasks
-  const locTasks = (cat.localization?.tasks ?? []).map(t => ({ ...t, isLocalization: true }))
-  return [...base, ...locTasks]
+  const locTasks = localizationSectionTasks(cat).map(t => ({ ...t, isLocalization: true }))
+  if (cat.localizationMode === 'existing') {
+    // Rise/Storyline: cat.localizationPmCore holds the old (localization)
+    // hours for these three tasks, entirely replacing the new-default
+    // versions in cat.tasks (see LOCALIZATION_PM_CORE_TASKS in config.js).
+    // Microvideo has no override, so it falls back to the original filter.
+    const base = cat.localizationPmCore?.tasks ?? cat.tasks.filter(t => t.projectManagementCore)
+    return [...base, ...locTasks]
+  }
+  return [...cat.tasks, ...locTasks]
 }
 
 export function visibleSecondStateTasks(cat) {
   const tasks = cat.secondState?.tasks ?? []
   if (cat.localizationEnabled && cat.localizationMode === 'existing') {
+    if (cat.localizationPmCore) return cat.localizationPmCore.secondStateTasks ?? []
     return tasks.filter(t => t.projectManagementCore)
   }
   return tasks
@@ -237,10 +256,21 @@ export function computePhaseTotals(selectedKeys, catStates) {
     // exemption categorySubtotal() gives them.
     const effectiveAdaRate = task.isLocalization ? 0 : adaRate
     const phase = bucketFor(task)
-    for (const a of task.assignees ?? []) {
-      const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+    // PerUnit tasks (quantity × unitMinutes — e.g. Storyline's "Clone the
+    // course") are keyed off task.quantity, not any assignee's baseHours, so
+    // computeAssigneeHoursForTask (Fixed/Dynamic only) always returns 0 for
+    // them — same computeHours()/single-assignee pattern lineCost() uses.
+    if (task.type === 'PerUnit') {
+      const h = computeHours(task, catKey, addedMin)
+      const person = task.assignees?.[0]?.person
       totals[phase].hours += h * multiplier
-      totals[phase].cost  += h * (RATES[a.person] ?? 0) * (1 + effectiveAdaRate) * multiplier
+      totals[phase].cost  += h * (RATES[person] ?? 0) * (1 + effectiveAdaRate) * multiplier
+    } else {
+      for (const a of task.assignees ?? []) {
+        const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+        totals[phase].hours += h * multiplier
+        totals[phase].cost  += h * (RATES[a.person] ?? 0) * (1 + effectiveAdaRate) * multiplier
+      }
     }
     // Flat per-1000-words validator fee — no assignees, so the loop above
     // never sees it; add it directly, still untouched by ADA.

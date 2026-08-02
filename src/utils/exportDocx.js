@@ -4,7 +4,7 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, validatorWordsCost } from './calc'
+import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost } from './calc'
 import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES, PHASE_LABELS } from '../config/config'
 
 const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
@@ -410,7 +410,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     // legacy estimate stuck in the enabled-but-no-mode limbo state never
     // silently adds a cost the live screen never showed) ──
     if (cat.localizationEnabled && cat.localizationMode) {
-      const locTasks   = (cat.localization?.tasks ?? []).filter(t => t.included)
+      const locTasks   = localizationSectionTasks(cat).filter(t => t.included)
       const locResult  = localizationCostForCategory(cat)
       const modeLabel  = cat.localizationMode === 'existing' ? 'Existing Course'
         : cat.localizationMode === 'new' ? 'New Course' : 'mode not selected'
