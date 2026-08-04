@@ -192,7 +192,7 @@ function ValidatorSeat({
           {!validatorLanguage && <span className="loc-unit-hint loc-unit-hint--warn">pick a validator language above</span>}
           {flatRate !== undefined && (
             <span className="loc-rate-group">
-              <span className="loc-rate-label">Flat Rate</span>
+              <span className="loc-rate-label">Flat Rate Per 1000 Words</span>
               <RateInput rate={flatRate} onChange={onFlatRateChange} />
             </span>
           )}
