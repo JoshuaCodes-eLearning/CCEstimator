@@ -9,8 +9,8 @@ import LoginScreen         from './components/LoginScreen'
 import ResetPasswordScreen from './components/ResetPasswordScreen'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import AppHeader           from './components/AppHeader'
-import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, LOCALIZATION_TASKS, LOCALIZATION_PM_CORE_TASKS, LOCALIZATION_PM_CORE_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
-import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, computePhaseTotals } from './utils/calc'
+import { DEFAULT_TASKS, DEFAULT_SECOND_STATE_TASKS, LOCALIZATION_TASKS, LOCALIZATION_PM_CORE_TASKS, LOCALIZATION_PM_CORE_SECOND_STATE_TASKS, DEFAULT_MINUTES, RATES, ADA_RATES, VALIDATOR_WORD_RATES, CAT_LABELS, MARGIN_OPTIONS, DEFAULT_MARGIN_PCT } from './config/config'
+import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, computePhaseTotals, assigneeRate } from './utils/calc'
 import { supabase } from './lib/supabase'
 import { buildEstimateRow, estimateDisplayName } from './utils/estimatePayload'
 
@@ -128,6 +128,48 @@ function backfillLocalization(nextCatStates) {
           included:  true,
           assignees: initAssignees(t.assignees),
         })),
+      },
+    }
+  }
+  return result
+}
+
+// Old saved estimates predate the customizable Flat Rate / Hourly Rate
+// validator fields (added 2026-08) — without this, r-loc-validate/
+// s-loc-validate1's flatRate and s-loc-validate2's validator hourlyRate stay
+// undefined, so their rate inputs simply don't render (SubtaskRow only shows
+// them when the field is present) until backfilled. Seeds sensible defaults
+// from the category's own validatorLanguage at save time. Rise/Storyline
+// only, same scope as the rate-customization feature itself.
+function backfillValidatorRates(nextCatStates) {
+  const result = { ...nextCatStates }
+  for (const key of ['rise360', 'storyline360']) {
+    const cat = result[key]
+    if (!cat?.localization?.tasks) continue
+    const lang = cat.validatorLanguage ?? 'spanish'
+    const validatorName = lang === 'french' ? 'QA French' : 'QA Spanish'
+    result[key] = {
+      ...cat,
+      localization: {
+        ...cat.localization,
+        tasks: cat.localization.tasks.map(t => {
+          if (t.validatorWords && t.flatRate === undefined) {
+            return { ...t, flatRate: VALIDATOR_WORD_RATES[lang] ?? 0 }
+          }
+          if (t.validatorAssigneeIndex !== undefined) {
+            const idx = t.validatorAssigneeIndex
+            const seat = t.assignees?.[idx]
+            if (seat && seat.hourlyRate === undefined) {
+              return {
+                ...t,
+                assignees: t.assignees.map((a, i) =>
+                  i === idx ? { ...a, hourlyRate: RATES[a.person ?? validatorName] ?? 0 } : a
+                ),
+              }
+            }
+          }
+          return t
+        }),
       },
     }
   }
@@ -542,6 +584,8 @@ export default function App() {
     setCatStates(prev => {
       const cat = prev[catKey]
       const validatorName = language === 'spanish' ? 'QA Spanish' : language === 'french' ? 'QA French' : null
+      const newFlatRate   = VALIDATOR_WORD_RATES[language] ?? 0
+      const newHourlyRate = RATES[validatorName] ?? 0
       return {
         ...prev,
         [catKey]: {
@@ -552,16 +596,27 @@ export default function App() {
             // Keep every validator seat in sync with the category's single
             // language choice — the validator is always a plain assignee
             // under the hood, so nothing else needs to know this happened.
-            tasks: cat.localization.tasks.map(t =>
-              t.validatorAssigneeIndex === undefined || !validatorName
-                ? t
-                : {
-                    ...t,
-                    assignees: t.assignees.map((a, i) =>
-                      i === t.validatorAssigneeIndex ? { ...a, person: validatorName } : a
-                    ),
-                  }
-            ),
+            // Customizable Flat Rate/Hourly Rate (added 2026-08) reset to the
+            // new language's table default too — switching language swaps the
+            // whole Fiverr resource, so a rate Laurie typed in for the old
+            // one shouldn't silently carry over onto the new one.
+            tasks: cat.localization.tasks.map(t => {
+              if (!validatorName) return t
+              if (t.validatorWords && t.flatRate !== undefined) {
+                return { ...t, flatRate: newFlatRate }
+              }
+              if (t.validatorAssigneeIndex !== undefined) {
+                return {
+                  ...t,
+                  assignees: t.assignees.map((a, i) =>
+                    i === t.validatorAssigneeIndex
+                      ? { ...a, person: validatorName, ...(a.hourlyRate !== undefined ? { hourlyRate: newHourlyRate } : {}) }
+                      : a
+                  ),
+                }
+              }
+              return t
+            }),
           },
         },
       }
@@ -572,6 +627,13 @@ export default function App() {
   const selectedKeys = CAT_KEYS.filter(k => selected[k])
 
   const memberHours    = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0, 'QA Spanish': 0, 'QA French': 0 }
+  // Real dollar cost per member, tracked alongside memberHours — needed
+  // because a validator seat's hourlyRate (added 2026-08) can override the
+  // shared RATES table per task instance, so "hours × RATES[name]" is no
+  // longer reliably the true cost for that member. memberCost is the single
+  // source of truth for both the displayed effective $/hr (cost/hours) and
+  // the dollar subtotal wherever per-member rate is shown (export docs).
+  const memberCost     = { Megan: 0, Michelle: 0, Laurie: 0, 'QA Resource': 0, 'QA Spanish': 0, 'QA French': 0 }
   // Flat per-1000-words validator fees (Rise's Validate, Storyline's
   // Validation #1) have no assignee hours — tracked separately so "Hours per
   // team member" can still surface this real cost against the QA person it's
@@ -597,14 +659,18 @@ export default function App() {
         if (task.type === 'PerUnit') {
           const h = computeHours(task, catKey, cat.additionalMinutes)
           const person = task.assignees?.[0]?.person
+          const c = h * (RATES[person] ?? 0)
           if (memberHours[person] !== undefined) memberHours[person] += h
-          totalCost += h * (RATES[person] ?? 0)
+          if (memberCost[person] !== undefined) memberCost[person] += c
+          totalCost += c
           continue
         }
         for (const a of task.assignees ?? []) {
           const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
+          const c = h * assigneeRate(a)
           if (memberHours[a.person] !== undefined) memberHours[a.person] += h
-          totalCost += h * (RATES[a.person] ?? 0)
+          if (memberCost[a.person] !== undefined) memberCost[a.person] += c
+          totalCost += c
         }
         if (task.validatorWords) {
           const wc = validatorWordsCost(task, cat)
@@ -619,8 +685,10 @@ export default function App() {
           if (!task.included) continue
           for (const a of task.assignees ?? []) {
             const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
+            const c = h * assigneeRate(a)
             if (memberHours[a.person] !== undefined) memberHours[a.person] += h
-            totalCost += h * (RATES[a.person] ?? 0)
+            if (memberCost[a.person] !== undefined) memberCost[a.person] += c
+            totalCost += c
           }
         }
       }
@@ -640,6 +708,7 @@ export default function App() {
           const person = task.assignees?.[0]?.person
           if (memberHours[person] !== undefined) memberHours[person] += h
           const c = h * (RATES[person] ?? 0)
+          if (memberCost[person] !== undefined) memberCost[person] += c
           mod1BaseSum += c
           if (!task.isLocalization) adaEligibleSum += c
           continue
@@ -647,7 +716,8 @@ export default function App() {
         for (const a of task.assignees ?? []) {
           const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
           if (memberHours[a.person] !== undefined) memberHours[a.person] += h
-          const c = h * (RATES[a.person] ?? 0)
+          const c = h * assigneeRate(a)
+          if (memberCost[a.person] !== undefined) memberCost[a.person] += c
           mod1BaseSum += c
           if (!task.isLocalization) adaEligibleSum += c
         }
@@ -664,8 +734,10 @@ export default function App() {
           if (!task.included) continue
           for (const a of task.assignees ?? []) {
             const h = computeAssigneeHoursForTask(a, task, catKey, cat.additionalMinutes)
+            const c = h * assigneeRate(a)
             if (memberHours[a.person] !== undefined) memberHours[a.person] += h * extraModules
-            mod2PerModule += h * (RATES[a.person] ?? 0)
+            if (memberCost[a.person] !== undefined) memberCost[a.person] += c * extraModules
+            mod2PerModule += c
           }
         }
       }
@@ -686,6 +758,12 @@ export default function App() {
   )
   const activeWordCosts = Object.fromEntries(
     Object.entries(memberWordCost).filter(([, c]) => c > 0)
+  )
+  // Same active-only filter as activeMembers, keyed identically — the export
+  // paths pair these up by name to derive each member's true effective $/hr
+  // (memberCost/memberHours) instead of a static RATES lookup.
+  const activeMemberCosts = Object.fromEntries(
+    Object.entries(memberHours).filter(([, h]) => h > 0).map(([name]) => [name, memberCost[name] ?? 0])
   )
 
   // ── Save Estimate handlers ────────────────────────────────
@@ -848,7 +926,7 @@ export default function App() {
   // ── View Estimates callbacks (load / rename-sync / delete-sync) ──
   function handleLoadEstimate(row) {
     const state = row.state_json ?? {}
-    const nextCatStates = backfillPhase(backfillLocalizationMode(backfillLocalizationPmCore(backfillLocalization(backfillWellsaid(state.catStates ?? catStates)))))
+    const nextCatStates = backfillPhase(backfillLocalizationMode(backfillLocalizationPmCore(backfillValidatorRates(backfillLocalization(backfillWellsaid(state.catStates ?? catStates))))))
     const nextSelected  = state.selected ?? selected
     // Company/Course/Client come from the top-level columns, not state_json —
     // inline rename in View Estimates only ever updates those columns, so
@@ -941,6 +1019,7 @@ export default function App() {
         catStates={catStates}
         memberHours={activeMembers}
         memberWordCost={activeWordCosts}
+        memberCost={activeMemberCosts}
         internalCost={internalCost}
         clientPrice={clientPrice}
         marginPct={marginPct}

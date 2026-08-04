@@ -26,6 +26,15 @@ export function computeHours(task, catKey, addedMin) {
   return assignees.reduce((sum, a) => sum + computeAssigneeHoursForTask(a, task, catKey, addedMin), 0)
 }
 
+// Effective hourly rate for one assignee — respects a per-assignee
+// `hourlyRate` override (added 2026-08 for the Rise/Storyline localization
+// validator seats, so Laurie can price a Fiverr-sourced QA person on the
+// fly) before falling back to the shared RATES table. The single place this
+// override is applied, so every cost/display path stays consistent.
+export function assigneeRate(a) {
+  return a.hourlyRate ?? RATES[a.person] ?? 0
+}
+
 // Total cost across all assignees for a task
 export function lineCost(task, catKey, addedMin) {
   if (task.type === 'Expense') return (task.flatCost ?? 0) * (task.months ?? 1)
@@ -39,22 +48,24 @@ export function lineCost(task, catKey, addedMin) {
   }
   return assignees.reduce((sum, a) => {
     const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
-    return sum + h * (RATES[a.person] ?? 0)
+    return sum + h * assigneeRate(a)
   }, 0)
 }
 
 // Dollar-only cost for a localization task's flat per-1000-words validator
 // fee (Rise's Validate, Storyline's Validation #1, Microvideo's Validate word
-// step) — no hours, no assignee, just words × the category's chosen
-// validator language rate. Returns 0 until both a language is picked and a
-// word count is entered.
+// step) — no hours, no assignee, just words × a rate. `task.flatRate` (added
+// 2026-08) is a per-task customizable override Laurie can type in on the row
+// ("Flat Rate"); falls back to the category's validatorLanguage table rate
+// for legacy tasks that predate the override. Returns 0 until a rate is
+// available and a word count is entered.
 export function validatorWordsCost(task, cat) {
   if (!task.validatorWords) return 0
-  const lang = cat.validatorLanguage
-  if (!lang) return 0
   const words = task.words ?? 0
   if (!words) return 0
-  return (words / 1000) * (VALIDATOR_WORD_RATES[lang] ?? 0)
+  const rate = task.flatRate ?? VALIDATOR_WORD_RATES[cat.validatorLanguage] ?? 0
+  if (!rate) return 0
+  return (words / 1000) * rate
 }
 
 // Tasks that render/count under the trailing "Localization" section — the
@@ -269,7 +280,7 @@ export function computePhaseTotals(selectedKeys, catStates) {
       for (const a of task.assignees ?? []) {
         const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
         totals[phase].hours += h * multiplier
-        totals[phase].cost  += h * (RATES[a.person] ?? 0) * (1 + effectiveAdaRate) * multiplier
+        totals[phase].cost  += h * assigneeRate(a) * (1 + effectiveAdaRate) * multiplier
       }
     }
     // Flat per-1000-words validator fee — no assignees, so the loop above

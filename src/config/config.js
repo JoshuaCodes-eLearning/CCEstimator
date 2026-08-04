@@ -223,19 +223,21 @@ export const DEFAULT_TASKS = {
     {
       id: 'r-6',
       name: 'Storyboard – 1 per Module. Includes Welcome, objectives, and Summary. Average of 1 KC and 4 interactions per lesson. One 10 question quiz per Module',
-      type: 'Dynamic', phase: 'development',
+      type: 'Dynamic', phase: 'design',
       assignees: [{ person: 'Michelle', hours: 10 }],
     },
     {
-      id: 'r-10', name: 'Asset Procurement – Images, videos, etc.', type: 'Dynamic', phase: 'development', indent: 1,
+      // Moved under Design (2026-08), alongside Storyboard/Branding above.
+      id: 'r-10', name: 'Asset Procurement – Images, videos, etc.', type: 'Dynamic', phase: 'design', indent: 1,
       assignees: [{ person: 'Megan', hours: 4 }],
     },
     {
       // Not renamed to "Branding" — this task's scope (modify existing
       // templates/prototypes) doesn't include VO/music selection the way
       // Storyline's Prototype→Branding does. Flag if Laurie wants it renamed
-      // for consistency anyway.
-      id: 'r-7', name: 'Modify existing templates / prototypes', type: 'Fixed', phase: 'development',
+      // for consistency anyway. Moved under Design (2026-08), alongside
+      // Storyboard/Asset Procurement below.
+      id: 'r-7', name: 'Modify existing templates / prototypes', type: 'Fixed', phase: 'design',
       assignees: [{ person: 'Megan', hours: 1.5 }],
     },
     {
@@ -253,27 +255,31 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // New default hours (2026-08) — see the header comment above. Used
-      // whenever this category is NOT in Localization + Existing Course mode.
-      id: 'r-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
+      // 2026-08 (2nd pass) — renamed per Laurie's meeting recording; hours
+      // updated (Laurie 6→2). Used whenever this category is NOT in
+      // Localization + Existing Course mode.
+      id: 'r-12', name: 'Project Management - create schedule, schedule updates, weekly reports', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie',   hours: 6 },
+        { person: 'Laurie',   hours: 2 },
         { person: 'Megan',    hours: 5 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // New default hours (2026-08) — see the header comment above.
-      id: 'r-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
+      // Renamed from "Project Monitoring" to "Meetings" (2026-08 2nd pass) —
+      // Laurie now also carries hours here (4h, new), alongside Megan/Michelle
+      // (unchanged).
+      id: 'r-monitoring', name: 'Meetings- project kick-off, discovery, internal, and client meetings, sales meetings, lessons learned meetings', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Megan',    hours: 15 },
         { person: 'Michelle', hours: 3 },
+        { person: 'Laurie',   hours: 4 },
       ],
     },
     {
       // Michelle, 2h — confirmed intentional exception, same as Storyline's
       // Communications row (see that comment for reasoning).
-      id: 'r-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
+      id: 'r-comms', name: 'Communications - email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],
@@ -287,7 +293,7 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Michelle', hours: 3 }],
     },
     {
-      id: 'r-1', name: 'Sales meetings / SOW', type: 'Fixed', phase: 'pm', included: false, forceUnchecked: true,
+      id: 'r-1', name: 'Sales meeting/Discovery Calls', type: 'Fixed', phase: 'pm', included: false, forceUnchecked: true,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
     {
@@ -312,20 +318,21 @@ export const DEFAULT_TASKS = {
       // 1h folded into Megan's new 5h — see config header note). Stinger/outro
       // deliberately left out of the description — confirmed to stay a
       // separate standalone optional task (s-logo), not folded in here.
-      id: 's-7', name: 'Branding – Prototype, VO selection, music selection', type: 'Fixed', phase: 'development',
+      // Moved under Design (2026-08), alongside Storyboard/Asset Procurement.
+      id: 's-7', name: 'Branding – Prototype, VO selection, music selection', type: 'Fixed', phase: 'design',
       assignees: [{ person: 'Megan', hours: 5 }],
     },
     {
       id: 's-6',
       name: 'Storyboard – 1 per Module. Includes Welcome, objectives, and Summary. Average of 1 KC and 4 interactions per lesson, 2 assets per slide. One 10 question quiz per Module',
-      type: 'Dynamic', phase: 'development',
+      type: 'Dynamic', phase: 'design',
       assignees: [
         { person: 'Michelle', hours: 9 },
         { person: 'Megan',    hours: 3 },
       ],
     },
     {
-      id: 's-10', name: 'Asset Procurement – Images, videos, etc.', type: 'Dynamic', phase: 'development', indent: 1,
+      id: 's-10', name: 'Asset Procurement – Images, videos, etc.', type: 'Dynamic', phase: 'design', indent: 1,
       assignees: [{ person: 'Megan', hours: 5 }],
     },
     {
@@ -350,28 +357,32 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'QA Resource', hours: 3 }],
     },
     {
-      // New default hours (2026-08) — see the header comment above. Used
-      // whenever this category is NOT in Localization + Existing Course mode.
-      id: 's-12', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true,
+      // 2026-08 (2nd pass) — renamed per Laurie's meeting recording; hours
+      // updated (Laurie 6→2). Used whenever this category is NOT in
+      // Localization + Existing Course mode.
+      id: 's-12', name: 'Project Management - create schedule, schedule updates, weekly reports', type: 'Fixed', phase: 'pm', projectManagementCore: true,
       assignees: [
-        { person: 'Laurie',   hours: 6 },
+        { person: 'Laurie',   hours: 2 },
         { person: 'Megan',    hours: 5 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      // New default hours (2026-08) — see the header comment above.
-      id: 's-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
+      // Renamed from "Project Monitoring" to "Meetings" (2026-08 2nd pass) —
+      // Laurie now also carries hours here (4h, new), alongside Megan/Michelle
+      // (unchanged).
+      id: 's-monitoring', name: 'Meetings- project kick-off, discovery, internal, and client meetings, sales meetings, lessons learned meetings', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Megan',    hours: 15 },
         { person: 'Michelle', hours: 3 },
+        { person: 'Laurie',   hours: 4 },
       ],
     },
     {
       // Michelle, 2h — a deliberate exception to the "remove Michelle from
       // PM/Monitoring" rule; confirmed intentional (Communications is her
       // responsibility specifically, unlike the meeting-heavy Monitoring work).
-      id: 's-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
+      id: 's-comms', name: 'Communications - email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],
@@ -393,7 +404,7 @@ export const DEFAULT_TASKS = {
       assignees: [{ person: 'Megan', hours: 3 }],
     },
     {
-      id: 's-1', name: 'Sales meetings / SOW', type: 'Fixed', phase: 'pm', included: false, forceUnchecked: true,
+      id: 's-1', name: 'Sales meeting/Discovery Calls', type: 'Fixed', phase: 'pm', included: false, forceUnchecked: true,
       assignees: [{ person: 'Laurie', hours: 3 }],
     },
     {
@@ -461,8 +472,17 @@ export const DEFAULT_SECOND_STATE_TASKS = {
 //                      validatorLanguage ('QA Spanish' for spanish, 'QA
 //                      French' for french) whenever the dropdown changes.
 //   validatorWords: true — a dollar-only line (no assignees/hours): cost =
-//                      (words/1000) × VALIDATOR_WORD_RATES[validatorLanguage].
+//                      (words/1000) × (task.flatRate ?? VALIDATOR_WORD_RATES[validatorLanguage]).
 //                      words is Laurie-entered, starts at 0.
+//   flatRate (added 2026-08) — customizable per-1000-words rate, editable
+//                      right on a validatorWords task's row ("Flat Rate").
+//                      Overrides VALIDATOR_WORD_RATES for that task instance —
+//                      these QA people are Fiverr resources that could be
+//                      replaced, so the rate is whatever Laurie sets it to.
+//   hourlyRate on an assignee (added 2026-08) — customizable $/hr for a
+//                      validator-seat assignee ("Hourly Rate"), overrides
+//                      RATES[person] for that assignee only. See assigneeRate()
+//                      in calc.js, the single place this override is applied.
 // Validate/Validation-numbered tasks are tagged phase: 'qa' (they're
 // literally quality-review steps); every other localization task is
 // phase: 'development' (the "everything else is development" fallback rule).
@@ -515,11 +535,15 @@ export const LOCALIZATION_TASKS = {
       assignees: [{ person: 'Megan', hours: 0.25 }],
     },
     {
-      // PLACEHOLDER — Michelle's hours here are assumed (0.5h, matching the
-      // other Validate/Validation tasks' team-oversight portion), not stated
-      // in the source doc. Confirm with Laurie.
+      // Michelle removed (2026-08) — "only keep the validator" per Laurie;
+      // the validator's cost is the flat per-1000-words fee below (no
+      // assignee needed for it), not a team-member oversight hour.
+      // flatRate (added 2026-08) — customizable per-1000-words rate, editable
+      // right on this row ("Flat Rate"); seeded from VALIDATOR_WORD_RATES at
+      // the default (spanish) language so the box starts pre-filled with a
+      // sensible number instead of blank/zero.
       id: 'r-loc-validate', name: 'Validate – Validator reviews, flat rate per 1000 words (Fiverr)', type: 'Fixed', phase: 'qa',
-      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 1000,
+      assignees: [], validatorWords: true, words: 1000, flatRate: VALIDATOR_WORD_RATES.spanish,
     },
     {
       id: 'r-loc-5', name: 'Update course per validator', type: 'Fixed', phase: 'development',
@@ -542,11 +566,11 @@ export const LOCALIZATION_TASKS = {
       assignees: [{ person: 'Megan', hours: 0.25 }],
     },
     {
-      // PLACEHOLDER — Michelle's hours here are assumed (0.5h, matching
-      // Validation #2's team-oversight portion below), not stated in the
-      // source doc. Confirm with Laurie.
+      // Michelle removed (2026-08) — "only keep the validator" per Laurie,
+      // same as Rise's Validate task above. flatRate (added 2026-08) —
+      // customizable per-1000-words rate, editable right on this row.
       id: 's-loc-validate1', name: 'Validation #1 – Validator reviews, flat rate per 1000 words, then import validated text changes', type: 'Fixed', phase: 'qa',
-      assignees: [{ person: 'Michelle', hours: 0.5 }], validatorWords: true, words: 1000,
+      assignees: [], validatorWords: true, words: 1000, flatRate: VALIDATOR_WORD_RATES.spanish,
     },
     {
       id: 's-loc-3', name: 'Clone the course – Copy text from one Storyline to its clone, making text adjustments, 15 minutes per slide', type: 'PerUnit', phase: 'development',
@@ -558,10 +582,13 @@ export const LOCALIZATION_TASKS = {
       assignees: [{ person: 'Megan', hours: 0.5 }],
     },
     {
+      // hourlyRate (added 2026-08) — customizable $/hr for the validator seat,
+      // editable right on this row ("Hourly Rate"); seeded from RATES at the
+      // default (spanish → QA Spanish) language.
       id: 's-loc-validate2', name: 'Validation #2 – Publish new course to Review for validator to check narration is synced to animations (over Teams)', type: 'Fixed', phase: 'qa',
       assignees: [
         { person: 'Michelle',   hours: 0.5 },
-        { person: 'QA Spanish', hours: 0.5 },
+        { person: 'QA Spanish', hours: 0.5, hourlyRate: RATES['QA Spanish'] },
       ],
       validatorAssigneeIndex: 1,
     },
@@ -603,25 +630,30 @@ export const LOCALIZATION_TASKS = {
 // currently playing.
 // ============================================================
 
+// 2026-08 (2nd pass): renamed to match the new default names above, and
+// Laurie's hours changed — 2h → 1h under Project Management, plus a new 1h
+// under Meetings (previously 0). Megan/Michelle hours on all three tasks are
+// unchanged ("keep the hours the same" per Laurie, except for Laurie).
 export const LOCALIZATION_PM_CORE_TASKS = {
   rise360: [
     {
-      id: 'r-loc-pm', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
+      id: 'r-loc-pm', name: 'Project Management - create schedule, schedule updates, weekly reports', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
       assignees: [
-        { person: 'Laurie',   hours: 2 },
+        { person: 'Laurie',   hours: 1 },
         { person: 'Megan',    hours: 2 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      id: 'r-loc-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      id: 'r-loc-monitoring', name: 'Meetings- project kick-off, discovery, internal, and client meetings, sales meetings, lessons learned meetings', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
       assignees: [
         { person: 'Megan',    hours: 4 },
         { person: 'Michelle', hours: 1 },
+        { person: 'Laurie',   hours: 1 },
       ],
     },
     {
-      id: 'r-loc-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      id: 'r-loc-comms', name: 'Communications - email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],
@@ -629,22 +661,23 @@ export const LOCALIZATION_PM_CORE_TASKS = {
   ],
   storyline360: [
     {
-      id: 's-loc-pm', name: 'Project Management – Create schedule, schedule updates, weekly reports, Status meetings, meetings, communication, project kick-off', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
+      id: 's-loc-pm', name: 'Project Management - create schedule, schedule updates, weekly reports', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true,
       assignees: [
-        { person: 'Laurie',   hours: 2 },
+        { person: 'Laurie',   hours: 1 },
         { person: 'Megan',    hours: 2 },
         { person: 'Michelle', hours: 1 },
       ],
     },
     {
-      id: 's-loc-monitoring', name: 'Project Monitoring – Meetings and communication (includes project kick-off, internal and client meetings, lessons learned)', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      id: 's-loc-monitoring', name: 'Meetings- project kick-off, discovery, internal, and client meetings, sales meetings, lessons learned meetings', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
       assignees: [
         { person: 'Megan',    hours: 4 },
         { person: 'Michelle', hours: 1 },
+        { person: 'Laurie',   hours: 1 },
       ],
     },
     {
-      id: 's-loc-comms', name: 'Communications – Email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
+      id: 's-loc-comms', name: 'Communications - email, chat, phone', type: 'Fixed', phase: 'pm', projectManagementCore: true, pmCoreLocalization: true, indent: 1,
       assignees: [
         { person: 'Michelle', hours: 2 },
       ],

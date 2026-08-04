@@ -349,6 +349,133 @@ separate hour sets now exist for these three tasks:
 
 ---
 
+## Project Management/Meetings/Communications — 2nd rename + hours pass (live, added 2026-08)
+
+Rise 360 and Storyline 360 only (Microvideo untouched, same as the original
+hours split above). Per Laurie's follow-up meeting notes, the three tasks
+were renamed again and given a further-updated hour set — supersedes the
+"new default" hours in the section above, which are now historical.
+
+- **Renamed** (`r-12`/`s-12`, `r-monitoring`/`s-monitoring`, `r-comms`/`s-comms`,
+  plus their `LOCALIZATION_PM_CORE_TASKS` counterparts):
+  - "Project Management – Create schedule..." → **"Project Management - create
+    schedule, schedule updates, weekly reports"** (the Status
+    meetings/communication/kick-off clause dropped — that content now lives
+    under Meetings instead).
+  - "Project Monitoring – Meetings and communication..." → **"Meetings- project
+    kick-off, discovery, internal, and client meetings, sales meetings,
+    lessons learned meetings"**. Renamed to "Meetings" throughout the UI
+    (phase-section grouping still keys off `phase: 'pm'`/`projectManagementCore`
+    unchanged — only the task's own `name` field changed, so
+    `LEGACY_PM_TASK_IDS`/`backfillPhase()`/id-based lookups are unaffected).
+  - "Communications – Email, chat, phone" → **"Communications - email, chat,
+    phone"** (hyphen instead of en dash, casing lowercased — cosmetic only).
+- **New default hours** (`r-12`/`s-12`, `r-monitoring`/`s-monitoring`):
+  Project Management: Laurie 2 (was 6) / Megan 5 / Michelle 1. Meetings:
+  Megan 15 / Michelle 3 (both unchanged) / **Laurie 4 (new — she previously
+  carried no Meetings/Monitoring hours at all)**. Communications: Michelle 2,
+  unchanged. Second-state (modules 2–N) keeps the existing -0.5h Megan delta
+  on Meetings (15h → 14.5h) unchanged; Laurie's new 4h carries over
+  unreduced into the second state, same treatment `makeSecondState()` already
+  gives Michelle's Meetings hours (no one-time kick-off/lessons-learned
+  component to strip out of hers either).
+- **Localization-core hours** (`LOCALIZATION_PM_CORE_TASKS` — used in Existing
+  Course mode, and as the extra pass-through rows in New Course mode): kept
+  the same Megan/Michelle hours as before ("keep the hours the same" per
+  Laurie), except Laurie's own hours — **1h under Project Management (was
+  2h)** and a **new 1h under Meetings (was 0)**. The `LOCALIZATION_PM_CORE_SECOND_STATE_TASKS`
+  -0.5h Megan/Meetings delta (4h → 3.5h) is unchanged; Laurie's 1h carries
+  over unreduced.
+- **Design phase move**: Branding (`r-7`/`s-7`), Storyboard (`r-6`/`s-6`), and
+  Asset Procurement (`r-10`/`s-10`) changed from `phase: 'development'` to
+  `phase: 'design'` — Rise 360 and Storyline 360 only, per Laurie's explicit
+  call ("this is still for storyline and rise obviously"); Microvideo's
+  equivalent tasks (`mv-6`/`mv-ip`) are untouched. These now group under the
+  "Design" phase-section header instead of "Development", and their cost
+  rolls into the Design bucket in Phase Totals/`computePhaseTotals()`
+  automatically — no separate calc.js change needed since phase bucketing
+  already keys off each task's own `phase` field.
+- **Sales meeting task renamed** (`mv-1`/`r-1`/`s-1`, all three categories):
+  "Sales meetings / SOW" → **"Sales meeting/Discovery Calls"**. Still
+  `phase: 'pm'`, `included: false`, `forceUnchecked: true` — unchanged
+  behavior, name only.
+
+## Localization validator tasks — Michelle removed, customizable rates (live, added 2026-08)
+
+Rise 360 and Storyline 360 only — Microvideo's `mv-loc-validate` (also a
+validator-seat task) was explicitly out of scope for both changes below and
+is untouched.
+
+- **Michelle removed** from the two flat-rate ("Validator reviews, flat rate
+  per 1000 words") validator tasks — Rise's `r-loc-validate` and Storyline's
+  `s-loc-validate1` ("Validation #1") — per Laurie's call to "only keep the
+  validator." Both now have `assignees: []`; the validator's own cost is
+  still the flat per-1000-words fee (`validatorWords: true`), which has never
+  needed an assignee. Storyline's `s-loc-validate2` ("Validation #2") is
+  untouched — Michelle's 0.5h oversight stays, since only "#1" was called out.
+- **Customizable Flat Rate / Hourly Rate (added 2026-08)** — Laurie wants to
+  see and directly edit the QA validators' per-1000-words and per-hour rates
+  on the fly, since "QA Spanish"/"QA French" are Fiverr-sourced resources
+  that could be swapped out at a different price at any time. Two new
+  optional fields, both data-driven (the rate box only renders when the
+  underlying task/assignee actually carries the field — Microvideo's
+  validator task doesn't, so it's unaffected):
+  - **`task.flatRate`** (added to `r-loc-validate`/`s-loc-validate1`, the two
+    validatorWords tasks) — a per-task override for the per-1000-words rate,
+    editable via a "Flat Rate" input box rendered right after the words
+    field on that row. Seeded at `VALIDATOR_WORD_RATES.spanish` (10) in
+    config.js so the box starts pre-filled with a real number rather than
+    blank/zero. `validatorWordsCost()` in calc.js now computes
+    `task.flatRate ?? VALIDATOR_WORD_RATES[cat.validatorLanguage] ?? 0` —
+    falls back to the language-table rate only for legacy tasks that predate
+    this field (see `backfillValidatorRates()` in App.jsx below).
+  - **`assignee.hourlyRate`** (added to `s-loc-validate2`'s QA Spanish/QA
+    French seat only) — a per-assignee override for that person's $/hr,
+    editable via an "Hourly Rate" input rendered right after the hours field
+    on that row. Seeded at `RATES['QA Spanish']` (8) in config.js.
+    `assigneeRate(a)` in calc.js (`a.hourlyRate ?? RATES[a.person] ?? 0`) is
+    the single place this override is read — `lineCost()`,
+    `computePhaseTotals()`, CategoryBlock's member-subtotal map, and both
+    export paths (`ExportPreview.jsx`/`exportDocx.js`) all call it instead of
+    indexing `RATES[a.person]` directly, so the override is respected
+    everywhere a cost or a displayed per-member rate is computed. A parallel
+    `memberCost` accumulator (alongside the existing `memberHours`) tracks
+    real dollar cost per team member through App.jsx so the "Combined hours
+    per team member" table (both the on-screen preview and the Word export)
+    can show the true effective rate (`cost ÷ hours`) and a correct dollar
+    subtotal instead of a stale `RATES[name]`-based one.
+  - **Language-switch behavior**: switching the category's validator language
+    dropdown (Spanish ↔ French) resets both `flatRate` and `hourlyRate` back
+    to the new language's table default, in the same handler that already
+    re-syncs the validator seat's `person` name — a deliberate judgment call
+    (not explicitly specified by Laurie) reasoned as: switching language
+    swaps the whole Fiverr resource, so a rate typed in for the old one
+    probably shouldn't silently carry over onto the new one at a mismatched
+    price. Flag if Laurie would rather a manually-typed rate persist across
+    a language switch instead.
+  - **`backfillValidatorRates()` in App.jsx** — same narrow, per-category
+    backfill pattern as `backfillWellsaid()`/`backfillPhase()`: old saved
+    estimates that predate these two fields would otherwise have
+    `flatRate`/`hourlyRate` stay `undefined` forever (cost math still works
+    via the fallback above, but the rate input box simply doesn't render
+    until backfilled, since SubtaskRow only shows it when the field is
+    present). Seeds sensible defaults from that estimate's own
+    `validatorLanguage` at load time. Chained into `handleLoadEstimate()`
+    alongside the other backfills.
+  - **Word export / on-screen preview now shows the actual rate applied**
+    (fixed same day, found during code review) — `exportDocx.js`'s
+    `localizationTaskTable()` and `ExportPreview.jsx`'s
+    `renderLocalizationRows()` were computing the correct cost from
+    `task.flatRate`/`assignee.hourlyRate` all along, but the DETAIL/person
+    column only ever printed the resulting line cost, never the rate that
+    produced it — so a customized rate was invisible in the delivered
+    document even though it drove the number. Both now append `@ $X.XX/1000
+    words` to the validatorWords row and `@ $X.XX/hr` next to a validator
+    seat's name (only when `assignee.hourlyRate !== undefined`, so a normal
+    team member like Michelle's row is untouched).
+
+---
+
 ## Localization add-on (live, added 2026-08)
 
 A per-category toggle, positioned like ADA (stacked directly under it in
@@ -537,7 +664,10 @@ src/
                           and VITE_SUPABASE_ANON_KEY from env)
   utils/
     calc.js             — computeAssigneeHoursForTask(), computeHours(),
-                          lineCost(), categorySubtotal(), fmt(),
+                          lineCost(), assigneeRate() (added 2026-08 — effective
+                          $/hr for an assignee, respects a customizable
+                          hourlyRate override, see Localization validator
+                          rates section), categorySubtotal(), fmt(),
                           expenseCostForCategory() (WellSaid), computePhaseTotals()
                           (added 2026-07), visibleNormalTasks()/
                           visibleSecondStateTasks() (Existing-Course filter +
@@ -1099,25 +1229,27 @@ as part of the meeting-recording task restructure. See that section above.
    in calc.js.
 2. **HLD §6.7 worked example discrepancy** — numbers predate current task list.
    Not a blocker; Laurie to verify totals with real usage.
-3. **Project Management / Project Monitoring final hours** — CONFIRMED
-   2026-08, then **corrected 2026-08** for Rise 360 and Storyline 360: the
-   original confirmation (Project Management: Laurie 2/Megan 2/Michelle 1,
-   Project Monitoring: Megan 4/Michelle 1, Communications: Michelle 2) turned
-   out to be a disconnect — those are the Localization-only figures. The real
-   default is now Project Management: Laurie 6/Megan 5/Michelle 1, Project
-   Monitoring: Megan 15/Michelle 3, Communications: Michelle 2 (unchanged).
-   See the "Project Management/Monitoring/Communications hours split" section
-   above for the full mechanism. **Microvideo remains an open placeholder** —
-   it wasn't part of either confirmation and still mechanically carries
-   forward its prior Internal Meetings / Project Coordination / Lessons
-   Learned hours. Flagged in `DEFAULT_TASKS` comments in config.js. See the
-   2026-08 task restructure section above.
+3. **Project Management / Meetings final hours** — CONFIRMED 2026-08, then
+   **corrected 2026-08**, then **renamed + corrected again 2026-08** for
+   Rise 360 and Storyline 360 (see "Project Management/Meetings/Communications
+   — 2nd rename + hours pass" above): the tasks are now named "Project
+   Management - create schedule, schedule updates, weekly reports" and
+   "Meetings- project kick-off, discovery, internal, and client meetings,
+   sales meetings, lessons learned meetings" (was "Project Monitoring"), with
+   hours Project Management: Laurie 2/Megan 5/Michelle 1, Meetings: Megan
+   15/Michelle 3/Laurie 4 (Laurie newly added), Communications: Michelle 2
+   (unchanged). **Microvideo remains an open placeholder** — it wasn't part
+   of any of these confirmations and still mechanically carries forward its
+   prior Internal Meetings / Project Coordination / Lessons Learned hours.
+   Flagged in `DEFAULT_TASKS` comments in config.js. See the 2026-08 task
+   restructure section above.
 4. **Microvideo localization tasks #1–3 assignee** and **Microvideo
    Validate's validator hours** — both assumed/placeholder (source doc left
    these unstated). Flagged in `LOCALIZATION_TASKS` comments in config.js.
-5. **Rise's Validate / Storyline's Validation #1 Michelle hours** (0.5h) —
-   assumed for consistency with Validation #2's team-oversight portion, not
-   stated in the source doc. Flagged in `LOCALIZATION_TASKS` comments.
+5. ~~Rise's Validate / Storyline's Validation #1 Michelle hours (0.5h)~~ —
+   **moot as of 2026-08**: Michelle was removed entirely from both tasks per
+   Laurie's explicit call ("only keep the validator" — see "Localization
+   validator tasks — Michelle removed, customizable rates" above).
 6. **Rise 360 `r-7` not renamed to Branding** — deliberate call (its scope
    doesn't include VO/music selection unlike Storyline's Branding); flag if
    Laurie wants it renamed anyway for naming consistency.

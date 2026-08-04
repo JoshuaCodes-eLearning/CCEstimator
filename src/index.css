@@ -1039,6 +1039,38 @@ body { background: var(--page-bg); }
   color: #D97706;
 }
 
+/* Customizable Flat Rate / Hourly Rate (added 2026-08) — sits right after
+   the words/hours field on a validator seat, same compact boxed-input look
+   as the words/quantity inputs above. */
+.loc-rate-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.loc-rate-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.loc-rate-input {
+  width: 56px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+}
+.loc-rate-input:focus {
+  outline: none;
+  border-color: var(--blue-border);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
+}
+
 /* Validator seat — QA Spanish/QA French, auto-determined by the category's
    language picker rather than manually chosen like a normal assignee. A
    locked-looking pill (name isn't editable) with an hours/words field

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SubtaskRow from './SubtaskRow'
-import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, orderTasksByPhase, sectionizeTasks, SECTION_LABELS } from '../utils/calc'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, validatorWordsCost, visibleNormalTasks, visibleSecondStateTasks, orderTasksByPhase, sectionizeTasks, SECTION_LABELS, assigneeRate } from '../utils/calc'
 import { DEFAULT_MINUTES, ADA_RATES, RATES } from '../config/config'
 
 const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
@@ -110,7 +110,7 @@ export default function CategoryBlock({
     }
     for (const a of task.assignees ?? []) {
       const h = computeAssigneeHoursForTask(a, task, catKey, additionalMinutes)
-      const c = h * (RATES[a.person] ?? 0)
+      const c = h * assigneeRate(a)
       if (!memberMap[a.person]) memberMap[a.person] = { hours: 0, cost: 0 }
       memberMap[a.person].hours += h
       memberMap[a.person].cost  += c
@@ -147,7 +147,7 @@ export default function CategoryBlock({
           if (!task.included) continue
           for (const a of task.assignees ?? []) {
             const h = computeAssigneeHoursForTask(a, task, catKey, addedMin)
-            cost += h * (RATES[a.person] ?? 0)
+            cost += h * assigneeRate(a)
           }
         }
         return { video, cost }
@@ -162,7 +162,7 @@ export default function CategoryBlock({
       if (!task.included) continue
       for (const a of task.assignees ?? []) {
         const h = computeAssigneeHoursForTask(a, task, catKey, additionalMinutes)
-        const c = h * (RATES[a.person] ?? 0)
+        const c = h * assigneeRate(a)
         if (!secondMemberMap[a.person]) secondMemberMap[a.person] = { hours: 0, cost: 0 }
         secondMemberMap[a.person].hours += h
         secondMemberMap[a.person].cost  += c
@@ -342,6 +342,7 @@ export default function CategoryBlock({
                   onMonthsChange={v             => update(task.id, { months: v })}
                   onQuantityChange={v           => update(task.id, { quantity: v })}
                   onWordsChange={v              => update(task.id, { words: v })}
+                  onFlatRateChange={v            => update(task.id, { flatRate: v })}
                 />
               )
             })}
@@ -378,7 +379,11 @@ export default function CategoryBlock({
               {Object.entries(memberMap).map(([member, { hours, cost }]) => (
                 <div key={member} className="subtotal-member-line">
                   <span className="subtotal-member-desc">
-                    {member}: {parseFloat(hours.toFixed(2))}h × ${RATES[member]}/hr
+                    {/* Effective rate (cost/hours), not a static RATES lookup —
+                        reflects a customized Hourly Rate override (2026-08
+                        localization validator seats) automatically, and is
+                        identical to RATES[member] whenever nothing's overridden. */}
+                    {member}: {parseFloat(hours.toFixed(2))}h × ${parseFloat((hours > 0 ? cost / hours : (RATES[member] ?? 0)).toFixed(2))}/hr
                   </span>
                   <span className="subtotal-member-cost">= {fmt(cost)}</span>
                 </div>
@@ -603,7 +608,7 @@ export default function CategoryBlock({
                   {Object.entries(secondMemberMap).map(([member, { hours, cost }]) => (
                     <div key={member} className="subtotal-member-line">
                       <span className="subtotal-member-desc">
-                        {member}: {parseFloat(hours.toFixed(2))}h × ${RATES[member]}/hr
+                        {member}: {parseFloat(hours.toFixed(2))}h × ${parseFloat((hours > 0 ? cost / hours : (RATES[member] ?? 0)).toFixed(2))}/hr
                       </span>
                       <span className="subtotal-member-cost">= {fmt(cost)}</span>
                     </div>

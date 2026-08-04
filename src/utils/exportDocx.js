@@ -4,8 +4,8 @@ import {
   HeadingLevel,
 } from 'docx'
 import { saveAs } from 'file-saver'
-import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost } from './calc'
-import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES, PHASE_LABELS } from '../config/config'
+import { computeAssigneeHoursForTask, computeHours, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost, assigneeRate } from './calc'
+import { DEFAULT_MINUTES, ADA_RATES, CAT_LABELS, RATES, VALIDATOR_WORD_RATES, PHASE_LABELS } from '../config/config'
 
 const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
 
@@ -91,7 +91,7 @@ function taskTable(tasks, catKey, addedMin) {
       : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
     return (task.assignees ?? []).map((a, idx) => {
       const hrs  = computeAssigneeHoursForTask(a, task, catKey, addedMin)
-      const cost = hrs * (RATES[a.person] ?? 0)
+      const cost = hrs * assigneeRate(a)
       return new TableRow({
         children: [
           dataCell(idx === 0 ? task.name : '', { width: COL_W[0], shading: shade, textProps: idx === 0 ? { bold: true } : {} }),
@@ -143,10 +143,14 @@ function localizationTaskTable(tasks, catKey, validatorLanguage) {
     if (task.validatorWords) {
       const cost     = validatorWordsCost(task, { validatorLanguage })
       const langNote = validatorLanguage ? VALIDATOR_LANG_LABELS[validatorLanguage] : 'no language picked'
+      // Show the actual rate applied (task.flatRate, editable by Laurie),
+      // not just the resulting line cost — falls back to the language-table
+      // rate only for legacy tasks that predate the customizable override.
+      const rate = task.flatRate ?? VALIDATOR_WORD_RATES[validatorLanguage] ?? 0
       return [new TableRow({
         children: [
           dataCell(task.name, { width: COL_W[0], shading: shade, textProps: { bold: true } }),
-          dataCell(`${task.words ?? 0} words (${langNote})`, { width: COL_W[1], shading: shade }),
+          dataCell(`${task.words ?? 0} words (${langNote}) @ ${fmtNum(rate)}/1000 words`, { width: COL_W[1], shading: shade }),
           dataCell('—', { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
           dataCell(fmtNum(cost), { align: AlignmentType.RIGHT, width: COL_W[3], shading: shade }),
         ],
@@ -154,14 +158,17 @@ function localizationTaskTable(tasks, catKey, validatorLanguage) {
     }
 
     // Plain Fixed task (including the QA Spanish/QA French validator-assignee
-    // rows) — same per-assignee rendering as the normal taskTable().
+    // rows) — same per-assignee rendering as the normal taskTable(), except a
+    // validator seat with a customizable hourlyRate (added 2026-08) also
+    // shows the $/hr actually applied, not just the resulting line cost.
     return (task.assignees ?? []).map((a, idx) => {
-      const hrs  = computeAssigneeHoursForTask(a, task, catKey, 0)
-      const cost = hrs * (RATES[a.person] ?? 0)
+      const hrs        = computeAssigneeHoursForTask(a, task, catKey, 0)
+      const cost       = hrs * assigneeRate(a)
+      const personNote = a.hourlyRate !== undefined ? `${a.person} @ ${fmtNum(assigneeRate(a))}/hr` : a.person
       return new TableRow({
         children: [
           dataCell(idx === 0 ? task.name : '', { width: COL_W[0], shading: shade, textProps: idx === 0 ? { bold: true } : {} }),
-          dataCell(a.person,                   { width: COL_W[1], shading: shade }),
+          dataCell(personNote,                  { width: COL_W[1], shading: shade }),
           dataCell(Math.round(hrs * 10) / 10,  { align: AlignmentType.CENTER, width: COL_W[2], shading: shade }),
           dataCell(fmtNum(cost),               { align: AlignmentType.RIGHT,  width: COL_W[3], shading: shade }),
         ],
@@ -190,7 +197,7 @@ function subtotalPara(label, amount, opts = {}) {
   })
 }
 
-export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, memberWordCost, phaseTotals, internalCost, clientPrice, marginPct = 50 }) {
+export async function generateAndSaveDocx({ companyName, clientName, courseName, estimateDate, selectedKeys, cats, memberHours, memberWordCost, memberCost, phaseTotals, internalCost, clientPrice, marginPct = 50 }) {
   const children = []
   const dateObj = estimateDate ?? new Date()
   const dateStr = dateObj.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
@@ -265,7 +272,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
     let mod1BaseSum = 0
     mod1Tasks.forEach(t => {
       ;(t.assignees ?? []).forEach(a => {
-        mod1BaseSum += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
+        mod1BaseSum += computeAssigneeHoursForTask(a, t, catKey, addedMin) * assigneeRate(a)
       })
     })
     const wellsaidCost   = expenseCostForCategory(cat)
@@ -287,7 +294,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
         let cost = 0
         secondTasks.forEach(t => {
           ;(t.assignees ?? []).forEach(a => {
-            cost += computeAssigneeHoursForTask(a, t, catKey, vAddedMin) * (RATES[a.person] ?? 0)
+            cost += computeAssigneeHoursForTask(a, t, catKey, vAddedMin) * assigneeRate(a)
           })
         })
         return { video, cost }
@@ -346,7 +353,7 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       let secondPerModule = 0
       secondTasks.forEach(t => {
         ;(t.assignees ?? []).forEach(a => {
-          secondPerModule += computeAssigneeHoursForTask(a, t, catKey, addedMin) * (RATES[a.person] ?? 0)
+          secondPerModule += computeAssigneeHoursForTask(a, t, catKey, addedMin) * assigneeRate(a)
         })
       })
       const secondTotalCost = secondPerModule * extraModules
@@ -441,13 +448,17 @@ export async function generateAndSaveDocx({ companyName, clientName, courseName,
       const shade = rowIdx % 2 !== 0
         ? { type: ShadingType.CLEAR, fill: 'F1F5F9', color: 'auto' }
         : { type: ShadingType.CLEAR, fill: 'FFFFFF', color: 'auto' }
-      const rate   = RATES[name] ?? 0
-      const subtot = hrs * rate
+      // subtot comes from the real accumulated memberCost (respects a
+      // customized Hourly Rate override, 2026-08), not hrs × RATES[name] —
+      // rate displayed is the derived effective rate (subtot/hrs), which
+      // equals RATES[name] whenever nothing's overridden.
+      const subtot = hrs > 0 ? (memberCost?.[name] ?? hrs * (RATES[name] ?? 0)) : 0
+      const rate   = hrs > 0 ? subtot / hrs : (RATES[name] ?? 0)
       return new TableRow({
         children: [
           dataCell(name,                                                        { width: HOURS_COL_W[0], shading: shade }),
           dataCell(`${Math.round(hrs * 10) / 10}h`, { align: AlignmentType.CENTER, width: HOURS_COL_W[1], shading: shade }),
-          dataCell(`$${rate}/hr`,                   { align: AlignmentType.CENTER, width: HOURS_COL_W[2], shading: shade }),
+          dataCell(`$${parseFloat(rate.toFixed(2))}/hr`, { align: AlignmentType.CENTER, width: HOURS_COL_W[2], shading: shade }),
           dataCell(fmtNum(subtot),                  { align: AlignmentType.RIGHT,  width: HOURS_COL_W[3], shading: shade }),
         ],
       })

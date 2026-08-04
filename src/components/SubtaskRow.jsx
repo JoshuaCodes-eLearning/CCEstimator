@@ -125,13 +125,54 @@ function WordsInput({ words, onChange }) {
   )
 }
 
+// A small customizable $ rate input — the per-1000-words "Flat Rate" and the
+// validator-seat "Hourly Rate" (added 2026-08). Same local-state focus/blur
+// pattern as WordsInput/QuantityInput, but allows decimals (parseFloat) and
+// floors at 0.
+function RateInput({ rate, onChange }) {
+  const [local,   setLocal]   = useState(String(rate))
+  const [focused, setFocused] = useState(false)
+  const display = focused ? local : String(rate)
+
+  function handleFocus() { setLocal(String(rate)); setFocused(true) }
+  function handleChange(raw) {
+    setLocal(raw)
+    const v = parseFloat(raw)
+    if (!isNaN(v) && v >= 0) onChange(v)
+  }
+  function handleBlur() {
+    setFocused(false)
+    if (isNaN(parseFloat(local)) || parseFloat(local) < 0) onChange(0)
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      min={0}
+      step="0.01"
+      className="loc-rate-input"
+      value={display}
+      onFocus={handleFocus}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  )
+}
+
 // The validator "seat" on a task — QA Spanish/QA French, auto-determined by
 // the category's single validatorLanguage picker rather than manually
 // chosen like a normal assignee (no person dropdown, no remove button).
 // mode: 'hours' (Storyline's Validation #2, Microvideo's Validate) shows an
 // editable hours field next to the name; mode: 'words' (the flat
-// per-1000-words fee tasks) shows a words field instead.
-function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange, validatorLanguage }) {
+// per-1000-words fee tasks) shows a words field instead. flatRate/hourlyRate
+// (added 2026-08) render an adjoining customizable-rate box — only when the
+// underlying task/assignee actually carries that field, so tasks that don't
+// support rate customization (e.g. Microvideo's Validate) are unaffected.
+function ValidatorSeat({
+  name, mode, hours, words, onHoursChange, onWordsChange, validatorLanguage,
+  flatRate, onFlatRateChange, hourlyRate, onHourlyRateChange,
+}) {
   const [localHours, setLocalHours] = useState('')
   const [hFocused,   setHFocused]   = useState(false)
   const hoursDisplay = hFocused ? localHours : String(parseFloat((hours ?? 0).toFixed(2)))
@@ -149,6 +190,12 @@ function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange,
           <WordsInput words={words ?? 0} onChange={onWordsChange} />
           <span className="loc-unit-hint">words</span>
           {!validatorLanguage && <span className="loc-unit-hint loc-unit-hint--warn">pick a validator language above</span>}
+          {flatRate !== undefined && (
+            <span className="loc-rate-group">
+              <span className="loc-rate-label">Flat Rate</span>
+              <RateInput rate={flatRate} onChange={onFlatRateChange} />
+            </span>
+          )}
         </>
       ) : (
         <>
@@ -162,6 +209,12 @@ function ValidatorSeat({ name, mode, hours, words, onHoursChange, onWordsChange,
             onBlur={() => setHFocused(false)}
           />
           <span className="loc-unit-hint">hrs</span>
+          {hourlyRate !== undefined && (
+            <span className="loc-rate-group">
+              <span className="loc-rate-label">Hourly Rate</span>
+              <RateInput rate={hourlyRate} onChange={onHourlyRateChange} />
+            </span>
+          )}
         </>
       )}
     </div>
@@ -235,6 +288,7 @@ export default function SubtaskRow({
   onMonthsChange,
   onQuantityChange,
   onWordsChange,
+  onFlatRateChange,
   validatorLanguage,
 }) {
   const isExpense        = task.type === 'Expense'
@@ -255,8 +309,12 @@ export default function SubtaskRow({
     onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, baseHours } : a))
   }
 
+  function handleHourlyRateChange(idx, hourlyRate) {
+    onUpdateAssignees(task.assignees.map((a, i) => i === idx ? { ...a, hourlyRate } : a))
+  }
+
   function addAssignee() {
-    onUpdateAssignees([...task.assignees, { person: 'Megan', baseHours: 1, hours: 1 }])
+    onUpdateAssignees([...(task.assignees ?? []), { person: 'Megan', baseHours: 1, hours: 1 }])
   }
 
   function removeAssignee(idx) {
@@ -304,9 +362,9 @@ export default function SubtaskRow({
               text), the "+ add person" link, then the validator seat right
               below it — same list, same per-person row styling — since its
               name isn't manually picked like a normal assignee. */}
-          {(task.assignees ?? []).length > 0 && (
+          {((task.assignees ?? []).length > 0 || isValidatorWords || hasValidatorSeat) && (
             <div className="subtask-assignees">
-              {task.assignees.map((assignee, idx) => (
+              {(task.assignees ?? []).map((assignee, idx) => (
                 idx === task.validatorAssigneeIndex ? null : (
                   <AssigneeRow
                     key={idx}
@@ -321,7 +379,7 @@ export default function SubtaskRow({
                   />
                 )
               ))}
-              {task.assignees.length < 4 && (
+              {(task.assignees ?? []).length < 4 && (
                 <button type="button" className="btn-add-assignee" onClick={addAssignee}>
                   + add person
                 </button>
@@ -332,6 +390,8 @@ export default function SubtaskRow({
                   mode="hours"
                   hours={task.assignees[task.validatorAssigneeIndex]?.baseHours ?? task.assignees[task.validatorAssigneeIndex]?.hours ?? 0}
                   onHoursChange={h => handleHoursChange(task.validatorAssigneeIndex, h)}
+                  hourlyRate={task.assignees[task.validatorAssigneeIndex]?.hourlyRate}
+                  onHourlyRateChange={r => handleHourlyRateChange(task.validatorAssigneeIndex, r)}
                 />
               )}
               {isValidatorWords && (
@@ -341,6 +401,8 @@ export default function SubtaskRow({
                   words={task.words ?? 0}
                   onWordsChange={onWordsChange}
                   validatorLanguage={validatorLanguage}
+                  flatRate={task.flatRate}
+                  onFlatRateChange={onFlatRateChange}
                 />
               )}
             </div>

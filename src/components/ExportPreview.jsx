@@ -1,6 +1,6 @@
 import { generateAndSaveDocx } from '../utils/exportDocx'
-import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost, computePhaseTotals } from '../utils/calc'
-import { DEFAULT_MINUTES, ADA_RATES, RATES, CAT_LABELS, PHASE_LABELS } from '../config/config'
+import { computeAssigneeHoursForTask, computeHours, fmt, expenseCostForCategory, expenseMonthsForCategory, visibleNormalTasks, visibleSecondStateTasks, localizationCostForCategory, localizationSectionTasks, validatorWordsCost, computePhaseTotals, assigneeRate } from '../utils/calc'
+import { DEFAULT_MINUTES, ADA_RATES, RATES, VALIDATOR_WORD_RATES, CAT_LABELS, PHASE_LABELS } from '../config/config'
 import AppHeader from './AppHeader'
 import ChangePasswordModal from './ChangePasswordModal'
 
@@ -9,7 +9,7 @@ const VALIDATOR_LANG_LABELS = { spanish: 'Spanish', french: 'French' }
 
 function taskCost(task, catKey, addedMin) {
   return (task.assignees ?? []).reduce((sum, a) => {
-    return sum + computeAssigneeHoursForTask(a, task, catKey, addedMin) * (RATES[a.person] ?? 0)
+    return sum + computeAssigneeHoursForTask(a, task, catKey, addedMin) * assigneeRate(a)
   }, 0)
 }
 
@@ -22,6 +22,7 @@ export default function ExportPreview({
   catStates,
   memberHours,
   memberWordCost,
+  memberCost,
   internalCost,
   clientPrice,
   marginPct,
@@ -45,6 +46,7 @@ export default function ExportPreview({
       cats: catStates,
       memberHours,
       memberWordCost,
+      memberCost,
       phaseTotals,
       internalCost,
       clientPrice,
@@ -134,7 +136,7 @@ export default function ExportPreview({
               return tasks.flatMap(task =>
                 (task.assignees ?? []).map((a, idx) => {
                   const h    = computeAssigneeHoursForTask(a, task, catKey, addMin)
-                  const cost = h * (RATES[a.person] ?? 0)
+                  const cost = h * assigneeRate(a)
                   return (
                     <tr key={`${task.id}-a${idx}`}>
                       <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
@@ -173,10 +175,13 @@ export default function ExportPreview({
                 if (task.validatorWords) {
                   const cost     = validatorWordsCost(task, { validatorLanguage: cat.validatorLanguage })
                   const langNote = cat.validatorLanguage ? VALIDATOR_LANG_LABELS[cat.validatorLanguage] : 'no language picked'
+                  // Actual rate applied (task.flatRate, editable by Laurie),
+                  // not just the resulting line cost.
+                  const rate = task.flatRate ?? VALIDATOR_WORD_RATES[cat.validatorLanguage] ?? 0
                   return (
                     <tr key={task.id}>
                       <td>{task.name}</td>
-                      <td>{task.words ?? 0} words ({langNote})</td>
+                      <td>{task.words ?? 0} words ({langNote}) @ {fmt(rate)}/1000 words</td>
                       <td style={{ textAlign: 'center' }}>—</td>
                       <td>{fmt(cost)}</td>
                     </tr>
@@ -184,11 +189,12 @@ export default function ExportPreview({
                 }
                 return (task.assignees ?? []).map((a, idx) => {
                   const h    = computeAssigneeHoursForTask(a, task, catKey, 0)
-                  const cost = h * (RATES[a.person] ?? 0)
+                  const cost = h * assigneeRate(a)
+                  const personNote = a.hourlyRate !== undefined ? `${a.person} @ ${fmt(assigneeRate(a))}/hr` : a.person
                   return (
                     <tr key={`${task.id}-a${idx}`}>
                       <td className={idx > 0 ? 'doc-cell-continuation' : ''}>{idx === 0 ? task.name : ''}</td>
-                      <td>{a.person}</td>
+                      <td>{personNote}</td>
                       <td style={{ textAlign: 'center' }}>{parseFloat(h.toFixed(2))}</td>
                       <td>{fmt(cost)}</td>
                     </tr>
@@ -426,12 +432,18 @@ export default function ExportPreview({
           <div className="doc-hours-section">
             <p className="doc-hours-title">Combined hours per team member</p>
             <div className="doc-hours-grid">
-              {Object.entries(memberHours).map(([name, hrs]) => (
-                <span key={name} className="doc-hours-item">
-                  {name} <strong>{parseFloat(hrs.toFixed(2))}h</strong>
-                  <span className="doc-hours-rate"> × ${RATES[name]}/hr</span>
-                </span>
-              ))}
+              {Object.entries(memberHours).map(([name, hrs]) => {
+                // Effective rate (cost/hours), not a static RATES lookup —
+                // reflects a customized Hourly Rate override (2026-08
+                // localization validator seats) automatically.
+                const rate = hrs > 0 ? (memberCost?.[name] ?? 0) / hrs : (RATES[name] ?? 0)
+                return (
+                  <span key={name} className="doc-hours-item">
+                    {name} <strong>{parseFloat(hrs.toFixed(2))}h</strong>
+                    <span className="doc-hours-rate"> × ${parseFloat(rate.toFixed(2))}/hr</span>
+                  </span>
+                )
+              })}
               {memberWordCost && Object.entries(memberWordCost).map(([name, cost]) => (
                 <span key={`${name}-words`} className="doc-hours-item">
                   {name} <strong>{fmt(cost)}</strong>
